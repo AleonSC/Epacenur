@@ -16,8 +16,14 @@ namespace Epacenur.Runtime
     /// The player: walking (tile paths or WASD), the view toggle, woodcutting, picking things up and fighting.
     public sealed partial class PlayerController : MonoBehaviour
     {
-        public const float PathSpeed = 3.4f;        // tiles per second when walking a clicked path
-        public const float WasdSpeed = 4.2f;
+        // Tiles per second. Walking is about RuneScape's pace; hold Shift to run.
+        public const float WalkPathSpeed = 2f, RunPathSpeed = 4.4f;    // clicked paths (tile mode)
+        public const float WalkWasdSpeed = 2.5f, RunWasdSpeed = 5.4f;  // WASD (both views)
+
+        /// Holding Shift.
+        public bool IsRunning => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        float PathSpeed => IsRunning ? RunPathSpeed : WalkPathSpeed;
+        float WasdSpeed => IsRunning ? RunWasdSpeed : WalkWasdSpeed;
         public const float FirstPersonReach = 2.3f; // furthest a tree's centre can be to chop it in first person
         public const float EyeHeight = 1.6f;
 
@@ -208,9 +214,10 @@ namespace Epacenur.Runtime
             lastPosition = transform.position;
             float measured = dt > 0f ? moved.magnitude / dt : 0f;
             speed = Mathf.Lerp(speed, Mathf.Min(measured, 6f), 1f - Mathf.Exp(-12f * dt));
-            float stride = Mathf.Clamp01(speed / 3f);
+            float stride = Mathf.Clamp01(speed / 2f);
+            float run = Mathf.Clamp01((speed - WalkWasdSpeed) / (RunPathSpeed - WalkWasdSpeed));  // 0 walking .. 1 running
             walkPhase += dt * speed * 3.4f;
-            float swing = Mathf.Sin(walkPhase) * 38f * stride;
+            float swing = Mathf.Sin(walkPhase) * (34f + run * 14f) * stride;
 
             float kneel = lighting || Time.time < kneelUntil ? 1f : 0f;
             legLeft.localRotation = Quaternion.Slerp(legLeft.localRotation, Quaternion.Euler(swing - kneel * 70f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
@@ -220,7 +227,7 @@ namespace Epacenur.Runtime
 
             float bob = stride > 0.05f ? Mathf.Abs(Mathf.Sin(walkPhase)) * 0.04f * stride : Mathf.Sin(Time.time * 2f) * 0.008f;
             model.localPosition = new Vector3(0f, bob - kneel * 0.22f, 0f);
-            model.localRotation = Quaternion.Euler(kneel * 12f, 0f, 0f);
+            model.localRotation = Quaternion.Euler(kneel * 12f + run * 7f, 0f, 0f);  // lean into a run
 
             float flutter = Mathf.Sin(Time.time * 7f) * 4f * stride + Mathf.Sin(Time.time * 1.7f) * 1.5f;
             cape.localRotation = Quaternion.Slerp(cape.localRotation, Quaternion.Euler(6f + stride * 32f + flutter, 0f, 0f), 1f - Mathf.Exp(-8f * dt));

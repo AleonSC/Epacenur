@@ -228,12 +228,13 @@ namespace Epacenur.Runtime
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
-            Shadowed(new Rect(10f, 30f, 600f, 20f), "<color=#ffd966>" + mode + "</color>   (V to switch, H for help)", small);
+            string pace = p.IsRunning ? "   <color=#7fd4ff>Running</color>" : "";
+            Shadowed(new Rect(10f, 30f, 600f, 20f), "<color=#ffd966>" + mode + "</color>" + pace + "   (V to switch, H for help)", small);
             if (!showHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools"
-                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools";
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools"
+                : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools";
             Shadowed(new Rect(10f, 50f, 440f, 150f), help, small);
         }
 

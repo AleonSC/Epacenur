@@ -23,6 +23,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 | | Tile mode (default) | First person |
 |---|---|---|
 | Move | Left-click a tile to walk there (pathfinding), or **WASD** | **WASD** |
+| Run | Hold **Shift** while walking | Hold **Shift** |
 | Chop a tree | Left-click it: you walk next to it and chop automatically until it becomes a stump or your inventory is full | Look at it and **left-click once per chop** (within reach) |
 | Camera | Arrow keys or middle-drag to rotate, scroll to zoom | Mouse look. **Esc** frees the mouse; click the view to grab it again |
 | Use the bank | Left-click the bank booth (by spawn): you walk up to it and the bank opens | Look at it and left-click (within reach) |
@@ -38,6 +39,9 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
   once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
 - **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt), **Pray** (prayers) and **Skills**.
+- **Walking and running**: walking is about RuneScape's pace (2 tiles a second on a clicked path). Hold **Shift** to run:
+  4.4 tiles a second on a path, 5.4 with WASD, faster than walking ever was before. The top-left shows "Running" while you hold it.
+  Goblins chase faster than you walk, so run to get away.
 - **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
   slot to swap them. Shift-click an item to **drop it on the ground** (or use Drop in its right-click menu).
 - **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level

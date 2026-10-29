@@ -49,7 +49,7 @@ namespace UnityEngine
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow }
+    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }
