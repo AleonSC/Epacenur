@@ -34,6 +34,8 @@ namespace Epacenur.Runtime
         public readonly ToolBelt ToolBelt = new ToolBelt();
         /// Your hitpoints (the maximum follows the Hitpoints level).
         public Health Health { get; private set; }
+        /// Prayer points and active prayers (the maximum follows the Prayer level).
+        public PrayerBook Prayer { get; private set; }
         /// Whether a tool is to hand: on the tool belt or in the backpack.
         public bool HasTool(int itemId) => ToolBelt.HasTool(ToolBelt, Inventory, itemId);
         public CombatStyle Style = CombatStyle.Accurate;
@@ -78,6 +80,7 @@ namespace Epacenur.Runtime
             Skills.XpGained += (id, tenths) => Hud.AddXpDrop(id, tenths);
             Skills.LevelledUp += OnLevelUp;
             Health = new Health(Skills.GetLevel(SkillId.Hitpoints));
+            Prayer = new PrayerBook(Skills.GetLevel(SkillId.Prayer));
 
             if (SaveGame.Load(this))
             {
@@ -138,7 +141,15 @@ namespace Epacenur.Runtime
             Hud.ShowLevelUp(id, level);
         }
 
-        float regenTimer;
+        float regenTimer, prayerTick;
+
+        /// Turns a prayer on or off from the Prayer tab.
+        public void TogglePrayer(PrayerId id)
+        {
+            string problem = Prayer.Toggle(id, Skills.GetLevel(SkillId.Prayer));
+            if (problem != null)
+                GameLog.Add(problem);
+        }
 
         /// Hurts the player; at 0 you die and wake up at spawn with full health.
         public void HurtPlayer(int damage)
@@ -149,12 +160,24 @@ namespace Epacenur.Runtime
             {
                 GameLog.Add("Oh dear, you are dead!");
                 Health.Set(Health.Max);
+                Prayer.DeactivateAll();
+                Prayer.Recharge();
                 Player.Teleport(World.Spawn);
             }
         }
 
         void Update()
         {
+            // Prayer points follow the Prayer level and drain each tick while prayers are on.
+            Prayer.SetMax(Skills.GetLevel(SkillId.Prayer));
+            prayerTick += Time.deltaTime;
+            while (prayerTick >= WoodcuttingRules.TickSeconds)
+            {
+                prayerTick -= WoodcuttingRules.TickSeconds;
+                if (Prayer.Tick())
+                    GameLog.Add("You have run out of Prayer points; you can recharge at an altar.");
+            }
+
             // Max health follows the Hitpoints level; lost health comes back a point a minute.
             Health.SetMax(Skills.GetLevel(SkillId.Hitpoints));
             if (Health.IsFull)

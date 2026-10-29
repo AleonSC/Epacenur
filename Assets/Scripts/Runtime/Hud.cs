@@ -18,7 +18,7 @@ namespace Epacenur.Runtime
         const float PouchH = 30f;  // the money pouch under the inventory
         const float PanelH = Pad * 2 + TabH + 6f + Slot * 7 + Gap * 6 + Gap + PouchH;
 
-        enum Tab { Inventory, Equipment, ToolBelt, Skills }
+        enum Tab { Inventory, Equipment, ToolBelt, Prayer, Skills }
 
         struct XpDrop
         {
@@ -45,7 +45,7 @@ namespace Epacenur.Runtime
         string levelUpText;
         float levelUpUntil;
         float scale = 1f;
-        GUIStyle label, small, title, centered, rich, rightLabel, rightSmall;
+        GUIStyle label, small, title, centered, rich, rightLabel, rightSmall, tabStyle;
 
         Game G => Game.Instance;
         float W => Screen.width / scale;
@@ -138,6 +138,7 @@ namespace Epacenur.Runtime
             rich = new GUIStyle(label) { wordWrap = true };
             rightLabel = new GUIStyle(label) { alignment = TextAnchor.UpperRight };
             rightSmall = new GUIStyle(small) { alignment = TextAnchor.UpperRight, wordWrap = true };
+            tabStyle = new GUIStyle(GUI.skin.button) { fontSize = 10, padding = new RectOffset(1, 1, 2, 2) };
         }
 
         void OnGUI()
@@ -295,10 +296,10 @@ namespace Epacenur.Runtime
         {
             var r = PanelRect;
             Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
-            string[] names = { "Inv", "Worn", "Tools", "Skills" };
-            float tabW = (r.width - Pad * 2 - 12f) / 4f;
+            string[] names = { "Inv", "Worn", "Tools", "Pray", "Skills" };
+            float tabW = (r.width - Pad * 2 - 3f * (names.Length - 1)) / names.Length;
             for (int i = 0; i < names.Length; i++)
-                if (GUI.Toggle(new Rect(r.x + Pad + i * (tabW + 4f), r.y + Pad, tabW, TabH), (int)tab == i, names[i], GUI.skin.button))
+                if (GUI.Toggle(new Rect(r.x + Pad + i * (tabW + 3f), r.y + Pad, tabW, TabH), (int)tab == i, names[i], tabStyle))
                     tab = (Tab)i;
             var body = new Rect(r.x + Pad, r.y + Pad + TabH + 6f, r.width - Pad * 2, r.height - Pad * 2 - TabH - 6f);
             if (tab == Tab.Inventory)
@@ -307,6 +308,8 @@ namespace Epacenur.Runtime
                 DrawEquipment(body);
             else if (tab == Tab.ToolBelt)
                 DrawToolBelt(body);
+            else if (tab == Tab.Prayer)
+                DrawPrayers(body);
             else
                 DrawSkills(body);
         }
@@ -364,6 +367,8 @@ namespace Epacenur.Runtime
                             G.Equipment.Equip(inv, i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && stack.ItemId == ItemDefs.Coins.Id)
                             inv.AddToPouch(i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && Prayers.BuryXp(stack.ItemId) != null)
+                            G.Player.Bury(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && Foods.For(stack.ItemId) != null)
                             G.Player.Eat(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && CookingRules.For(stack.ItemId) != null)
@@ -532,6 +537,12 @@ namespace Epacenur.Runtime
                     {
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                if (Prayers.BuryXp(def.Id) != null)
+                    o.Add(new MenuOption("Bury", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            G.Player.Bury(slot);
                     }));
                 if (Foods.For(def.Id) != null)
                     o.Add(new MenuOption("Eat", name, () =>
@@ -792,10 +803,12 @@ namespace Epacenur.Runtime
 
         // ---- Hitsplats and health bars ----
 
-        /// Your health: a red bar that empties as you're hurt, with the numbers on it.
+        /// Your health (left) and prayer points (right): bars that empty as they're used, with the numbers on them.
         void DrawHealthBar()
         {
-            var r = HealthRect;
+            var whole = HealthRect;
+            var r = new Rect(whole.x, whole.y, whole.width / 2f - 2f, whole.height);
+            DrawPrayerBar(new Rect(whole.x + whole.width / 2f + 2f, whole.y, whole.width / 2f - 2f, whole.height));
             var hp = G.Health;
             Bevel(r);
             // A small heart.
@@ -816,11 +829,127 @@ namespace Epacenur.Runtime
                 Shadowed(new Rect(r.x, r.y - 20f, 300f, 18f), "<color=#ffcc66>Hitpoints: eat cooked food to heal. Lost health returns 1 a minute.</color>", small);
         }
 
+        void DrawPrayerBar(Rect r)
+        {
+            var pr = G.Prayer;
+            var e = Event.current;
+            Bevel(r);
+            DrawPrayerStar(new Rect(r.x + 3f, r.y + 2f, 18f, 18f), pr.AnyActive);
+            var bar = new Rect(r.x + 22f, r.y + 4f, r.width - 26f, r.height - 8f);
+            Fill(bar, new Color(0.03f, 0.12f, 0.2f));
+            Fill(new Rect(bar.x, bar.y, bar.width * pr.Fraction, bar.height), pr.AnyActive ? new Color(0.25f, 0.75f, 0.95f) : new Color(0.15f, 0.5f, 0.75f));
+            Fill(new Rect(bar.x, bar.y, bar.width * pr.Fraction, 2f), new Color(1f, 1f, 1f, 0.15f));
+            Shadowed(bar, "<b>" + pr.Points + " / " + pr.Max + "</b>", centered);
+            if (r.Contains(e.mousePosition))
+            {
+                Shadowed(new Rect(r.x - 60f, r.y - 20f, 320f, 18f), "<color=#ffcc66>Prayer points: recharge at the altar. Click to turn all prayers off.</color>", small);
+                if (e.type == EventType.MouseDown)
+                {
+                    pr.DeactivateAll();
+                    e.Use();
+                }
+            }
+        }
+
+        /// A glowing star: the prayer symbol.
+        static void DrawPrayerStar(Rect b, bool lit)
+        {
+            float cx = b.center.x, cy = b.center.y;
+            var c = lit ? new Color(1f, 0.95f, 0.55f) : new Color(0.75f, 0.72f, 0.55f);
+            Fill(new Rect(cx - 7f, cy - 1.5f, 14f, 3f), c);
+            Fill(new Rect(cx - 1.5f, cy - 7f, 3f, 14f), c);
+            FillRotated(new Rect(cx - 3.5f, cy - 3.5f, 7f, 7f), c, 45f, b.center);
+            Fill(new Rect(cx - 1.5f, cy - 1.5f, 3f, 3f), Color.white);
+        }
+
+        // ---- Prayer tab ----
+
+        void DrawPrayers(Rect body)
+        {
+            var e = Event.current;
+            var pr = G.Prayer;
+            int level = G.Skills.GetLevel(SkillId.Prayer);
+            Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>PRAYER</b>", small);
+            Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<color=#7fd4ff>" + pr.Points + " / " + pr.Max + "</color>", rightSmall);
+            float top = body.y + 20f;
+            PrayerDef tip = null;
+            for (int i = 0; i < Prayers.All.Length; i++)
+            {
+                var def = Prayers.All[i];
+                var slot = new Rect(body.x + (i % 4) * (Slot + Gap), top + (i / 4) * (Slot + Gap), Slot, Slot);
+                bool on = pr.IsActive(def.Id), unlocked = level >= def.Level;
+                Bevel(slot);
+                if (on)
+                    Fill(new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f), new Color(1f, 0.85f, 0.35f, 0.35f));
+                DrawPrayerIcon(new Rect(slot.x + 9f, slot.y + 9f, 22f, 22f), def);
+                if (!unlocked)
+                {
+                    Fill(new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f), new Color(0.12f, 0.11f, 0.09f, 0.7f));
+                    Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=#ff6060>Lv " + def.Level + "</color>", centered);
+                }
+                if (slot.Contains(e.mousePosition))
+                {
+                    tip = def;
+                    if (e.type == EventType.MouseDown)
+                    {
+                        var id = def.Id;
+                        if (e.button == 1)
+                            OpenMenu(new List<MenuOption>
+                            {
+                                new MenuOption(on ? "Deactivate" : "Activate", MenuOption.Item(def.Name), () => G.TogglePrayer(id)),
+                            }, false);
+                        else
+                            G.TogglePrayer(id);
+                        e.Use();
+                    }
+                }
+            }
+            int rows = (Prayers.All.Length + 3) / 4;
+            GUI.Label(new Rect(body.x, top + rows * (Slot + Gap) + 4f, body.width, 90f),
+                "Click a prayer to turn it on or off. Prayers drain your points; recharge them at the altar by the bank. Bury bones to train Prayer.", rich);
+            if (tip != null)
+            {
+                float seconds = PrayerBook.DrainResistance / (float)tip.DrainEffect * WoodcuttingRules.TickSeconds;
+                var t = new Rect(Mathf.Max(4f, PanelRect.x - 236f), Mathf.Clamp(e.mousePosition.y - 30f, 4f, H - 74f), 230f, 70f);
+                Fill(t, new Color(0.06f, 0.05f, 0.04f, 0.95f));
+                Shadowed(new Rect(t.x + 8f, t.y + 3f, t.width - 16f, 18f), "<b><color=#ffcc66>" + tip.Name + "</color></b>  (level " + tip.Level + ")", small);
+                GUI.Label(new Rect(t.x + 8f, t.y + 20f, t.width - 16f, 30f), tip.Description, small);
+                GUI.Label(new Rect(t.x + 8f, t.y + 48f, t.width - 16f, 18f), "Drains a point every " + seconds.ToString("0.#") + " s", small);
+            }
+        }
+
+        /// No art yet: each prayer's icon is its skill's icon (shield, fist, sword), with a mark for the stronger tier.
+        static void DrawPrayerIcon(Rect b, PrayerDef def)
+        {
+            if (def.Group == PrayerGroup.Protection)
+            {
+                // A blue shield with a sword across it.
+                float cx = b.center.x, cy = b.center.y;
+                var blue = new Color(0.35f, 0.7f, 1f);
+                Fill(new Rect(cx - 8f, cy - 9f, 16f, 11f), blue);
+                Fill(new Rect(cx - 6f, cy + 2f, 12f, 4f), blue);
+                Fill(new Rect(cx - 4f, cy + 6f, 8f, 3f), blue);
+                FillRotated(new Rect(cx - 1f, cy - 10f, 2f, 20f), new Color(0.9f, 0.92f, 0.95f), 45f, b.center);
+                return;
+            }
+            var skill = def.Group == PrayerGroup.Defence ? SkillId.Defence : def.Group == PrayerGroup.Strength ? SkillId.Strength : SkillId.Attack;
+            DrawSkillIcon(b, SkillDefs.Get(skill));
+            if (def.Boost > 0.05)
+                Fill(new Rect(b.xMax - 3f, b.y - 2f, 4f, 4f), new Color(1f, 0.9f, 0.4f));
+        }
+
         void DrawCombatOverlays()
         {
             var cam = G.Rig.Cam;
             // Your own health over your head while hurt (tile mode), with hitsplats when hit.
             var p = G.Player;
+            if (G.Prayer.ProtectsFromMelee)
+            {
+                // The protection prayer's symbol over your head (top of the view in first person).
+                Vector3 over = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 2.5f);
+                Vector2 at = p.Mode == ViewMode.Tile && over.z > 0f ? new Vector2(over.x / scale, (Screen.height - over.y) / scale) : new Vector2(W / 2f, 40f);
+                DrawPrayerIcon(new Rect(at.x - 11f, at.y - 11f, 22f, 22f), Prayers.Get(PrayerId.ProtectFromMelee));
+            }
             if (p.Mode == ViewMode.Tile && (!G.Health.IsFull || p.Hitsplats.Count > 0))
             {
                 Vector3 head = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 2.15f);
@@ -1077,6 +1206,17 @@ namespace Epacenur.Runtime
                 Fill(new Rect(ix + 27f, iy + 5f, 3f, 10f), Shade(c, 1.25f));  // edge
                 GUI.matrix = m;
             }
+            else if (def == ItemDefs.Bones)
+            {
+                var m = GUI.matrix;
+                GUIUtility.RotateAroundPivot(-35f, slot.center);
+                Fill(new Rect(ix + 17f, iy + 9f, 6f, 22f), c);
+                Fill(new Rect(ix + 13f, iy + 6f, 6f, 6f), c);
+                Fill(new Rect(ix + 21f, iy + 6f, 6f, 6f), c);
+                Fill(new Rect(ix + 13f, iy + 28f, 6f, 6f), c);
+                Fill(new Rect(ix + 21f, iy + 28f, 6f, 6f), c);
+                GUI.matrix = m;
+            }
             else if (def == ItemDefs.Ashes)
             {
                 Fill(new Rect(ix + 9f, iy + 24f, 22f, 7f), c);
@@ -1295,6 +1435,9 @@ namespace Epacenur.Runtime
                     Fill(new Rect(cx - 1f, cy - 3f, 3f, 5f), new Color(1f, 0.75f, 0.15f));
                     Fill(new Rect(cx - 7f, cy + 8f, 14f, 2f), wood);
                     break;
+                case SkillId.Prayer:  // a star
+                    DrawPrayerStar(b, true);
+                    break;
                 case SkillId.Cooking:  // a chef's hat
                     var white = new Color(0.95f, 0.95f, 0.92f);
                     Fill(new Rect(cx - 8f, cy - 8f, 7f, 7f), white);
@@ -1393,6 +1536,7 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Hurt me 3")) G.HurtPlayer(3);
             if (GUILayout.Button("Heal fully")) G.Health.Set(G.Health.Max);
             if (GUILayout.Button("5 shrimps")) G.Inventory.Add(ItemDefs.Shrimps.Id, 5);
+            if (GUILayout.Button("Recharge prayer")) G.Prayer.Recharge();
             GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
@@ -1426,6 +1570,9 @@ namespace Epacenur.Runtime
                 G.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
                 G.Health.SetMax(G.Skills.GetLevel(SkillId.Hitpoints));
                 G.Health.Set(G.Health.Max);
+                G.Prayer.DeactivateAll();
+                G.Prayer.SetMax(G.Skills.GetLevel(SkillId.Prayer));
+                G.Prayer.Recharge();
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");

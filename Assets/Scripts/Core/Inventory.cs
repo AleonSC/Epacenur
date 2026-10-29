@@ -90,11 +90,17 @@ namespace Epacenur.Core
             Id = 14, Name = "Burnt fish", Examine = "Oops!", Value = 1, R = 0.17f, G = 0.15f, B = 0.14f,
         };
 
+        public static readonly ItemDef Bones = new ItemDef
+        {
+            Id = 15, Name = "Bones", Examine = "Bones are for burying!", Value = 1, R = 0.93f, G = 0.9f, B = 0.8f,
+        };
+
         public static readonly ItemDef[] All =
         {
             Logs, Coins, Tinderbox, BronzeSword, WoodenShield, Ashes, SmallFishingNet, RawShrimps, RawAnchovies, BronzeHatchet,
-            Shrimps, Anchovies, BurntShrimp, BurntFish,
+            Shrimps, Anchovies, BurntShrimp, BurntFish, Bones,
         };
+
 
         public static ItemDef Get(int id)
         {

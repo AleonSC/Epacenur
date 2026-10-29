@@ -47,6 +47,7 @@ namespace Epacenur.Runtime
             AddLabel(TileCenter(Spawn) + new Vector3(0f, 0.2f, 2.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
             AddBankBooth(DevArea.BankBooth);
             AddShopKeeper(DevArea.ShopKeeper, Shops.DevAreaStore());
+            AddAltar(DevArea.Altar);
 
             Areas.AddRange(DevArea.CreateAreas());
             foreach (var area in Areas)
@@ -112,6 +113,14 @@ namespace Epacenur.Runtime
             BankBooths.Add(booth);
             AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Bank", new Color(1f, 0.85f, 0.3f));
             return booth;
+        }
+
+        public Altar AddAltar(Tile tile)
+        {
+            var altar = Altar.Create(tile, transform);
+            Grid.SetBlocked(tile, true);
+            AddLabel(TileCenter(tile) + Vector3.up * 1.6f, "Altar", new Color(1f, 0.85f, 0.3f));
+            return altar;
         }
 
         public ShopKeeper AddShopKeeper(Tile tile, Shop shop)

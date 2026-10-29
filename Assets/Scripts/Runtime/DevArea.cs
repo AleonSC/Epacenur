@@ -26,6 +26,7 @@ namespace Epacenur.Runtime
         public static readonly Tile Spawn = new Tile(24, 10);
         public static readonly Tile BankBooth = new Tile(28, 13);
         public static readonly Tile ShopKeeper = new Tile(30, 13);
+        public static readonly Tile Altar = new Tile(26, 13);
 
         public static List<SkillArea> CreateAreas()
         {

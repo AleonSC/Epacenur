@@ -37,12 +37,12 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   ("Chop down Tree / 2 more options"). Inventory items get Wield / Wear, Drop and Examine. Worn items get Remove and Examine.
   In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
   once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
-- **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt) and **Skills**.
+- **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt), **Pray** (prayers) and **Skills**.
 - **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
   slot to swap them. Shift-click an item to **drop it on the ground** (or use Drop in its right-click menu).
 - **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level
   shown twice, stacked (current over base; they match until there are boosts). Hover a cell for its xp, the next level and
-  a progress bar. The footer shows total level, combat level (OSRS formula, melee only for now) and total xp.
+  a progress bar. The footer shows total level, combat level (OSRS formula with melee and Prayer; no Ranged or Magic yet) and total xp.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
@@ -106,13 +106,16 @@ so they don't take up slots.
   your attack, strength and defence bonuses, and the **attack style**: which skill your hits train.
 - The **Bronze sword** (+4 attack, +5 strength) and **Wooden shield** (+5 defence) are the only equipment so far.
   You need **both** worn to fight.
-- The **Goblins** plot, in the middle, has 4 goblins (level 2, 5 hitpoints) that wander around it. They stop and turn to
-  face you when attacked but **don't fight back yet**.
+- The **Goblins** plot, in the middle, has 4 goblins (level 2, 5 hitpoints) that wander around it. They leave you alone
+  until you attack, then **fight back**: they chase you (but not far from their plot) and hit you every 4 ticks. A goblin's
+  max hit is 1, and its hit chance is rolled against your Defence level and bonus, Defence prayers and attack style
+  (Defensive adds 3), using OSRS's formulas. They give up if you run more than 12 tiles away or leave the area round their plot.
+- **Auto retaliate**: if a goblin hits you while you're standing idle in tile mode with a sword and shield worn, you fight back.
 - Hits use RuneScape's melee formulas: hit chance from your Attack level and bonus against the goblin's defence, and
   max hit from Strength. With the sword, a hit every 4 ticks (2.4 s). Red hitsplats show damage, blue ones a miss,
   and a health bar shows over a goblin you're fighting.
 - Each damage point gives 4 xp in the chosen style's skill plus 1.33 Hitpoints xp. Hitpoints starts at level 10.
-- A dead goblin drops **1–30 coins** on the ground (weighted towards small amounts) and respawns after 15 s.
+- A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
   Its stats and drops are in `NpcDefs.Goblin` in `Assets/Scripts/Core/Combat.cs`.
 
 ## Melee abilities (action bar)
@@ -138,7 +141,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - Target: the monster you're fighting, else the one under the mouse (tile mode) or crosshair (first person), else the last one you hit.
   It must be next to you (within reach in first person), except for Barge.
 - In tile mode you keep auto-attacking the target afterwards, and the next auto-attack waits a full weapon swing.
-- Goblins don't fight back yet, so a stun just stops them in place (they show "Stunned").
+- A stunned goblin stops moving and attacking for 3 s (it shows "Stunned").
 - The abilities are defined in `Assets/Scripts/Core/Abilities.cs`.
 
 ## Firemaking
@@ -180,9 +183,33 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
   Lost health comes back **1 point a minute**.
 - **Eat** cooked food by clicking it in your inventory (or right-click, **Eat**): **shrimps heal 3**, **anchovies heal 1**. Burnt food can't be eaten.
   A bite takes 3 ticks and holds back your next attack by as much.
-- Nothing hurts you yet (goblins don't fight back), so the dev tools have **Hurt me 3**, **Heal fully** and **5 shrimps** for testing.
+- Goblins hurt you when you fight them. The dev tools also have **Hurt me 3**, **Heal fully** and **5 shrimps** for testing.
   At 0 health you die ("Oh dear, you are dead!") and wake up at spawn with full health, keeping your items.
 - Health is saved. Rules are in `Assets/Scripts/Core/Health.cs`.
+
+## Prayer
+
+- **Train it** by burying bones (goblins always drop them): click them in your inventory, or right-click and choose **Bury**.
+  Each gives **4.5 Prayer xp**, one every 2 ticks.
+- **Prayer points** equal your Prayer level. They show in the blue bar beside the health bar; click that bar to turn every prayer off.
+  Recharge them at the **altar** next to the bank (**Pray-at Altar**, two tiles west of the bank booth). You kneel to pray.
+- The **Pray** tab holds Old School RuneScape's first melee prayers. Click one to turn it on or off. Prayers of the same kind replace each other.
+
+| Prayer | Level | Effect | Drains a point every |
+|---|---|---|---|
+| Thick Skin | 1 | +5% Defence | 36 s |
+| Burst of Strength | 4 | +5% Strength | 36 s |
+| Clarity of Thought | 7 | +5% Attack | 36 s |
+| Rock Skin | 10 | +10% Defence | 6 s |
+| Superhuman Strength | 13 | +10% Strength | 6 s |
+| Improved Reflexes | 16 | +10% Attack | 6 s |
+| Protect from Melee | 43 | blocks monsters' melee hits completely | 3 s |
+
+- Boosts apply to your effective levels in the combat formulas, abilities included. Protect from Melee shows its symbol over
+  your head (top of the view in first person).
+- Drain works like OSRS: each tick the active prayers' drain effects add up, and every 60 costs a point. At 0 every prayer switches off.
+- Prayer counts towards your combat level (half of it, in the Defence and Hitpoints part). Dying recharges your points. Points are saved.
+- Rules are in `Assets/Scripts/Core/Prayer.cs`. The altar is `Assets/Scripts/Runtime/Altar.cs`.
 
 ## The player model
 

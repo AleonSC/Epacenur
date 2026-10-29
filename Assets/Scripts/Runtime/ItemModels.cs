@@ -56,6 +56,17 @@ namespace Epacenur.Runtime
                 hatchet.localRotation = Quaternion.Euler(0f, 0f, 90f);
                 PlayerController.BuildAxe(hatchet);
             }
+            else if (def == ItemDefs.Bones)
+            {
+                var bone = new GameObject("Bone").transform;
+                bone.SetParent(parent, false);
+                bone.localPosition = new Vector3(0f, 0.04f, 0f);
+                bone.localRotation = Quaternion.Euler(90f, 30f, 0f);
+                Visuals.Prim(PrimitiveType.Cylinder, bone, Vector3.zero, new Vector3(0.06f, 0.15f, 0.06f), c);
+                foreach (float y in new[] { -0.15f, 0.15f })
+                    foreach (float x in new[] { -0.035f, 0.035f })
+                        Visuals.Prim(PrimitiveType.Sphere, bone, new Vector3(x, y, 0f), Vector3.one * 0.07f, c);
+            }
             else if (def == ItemDefs.Ashes)
             {
                 Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, 0.02f, 0f), new Vector3(0.3f, 0.08f, 0.26f), c);

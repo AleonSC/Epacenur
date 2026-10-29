@@ -131,7 +131,7 @@ static class CoreTests
         Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
         Check(CombatRules.CombatLevel(fresh) == 3, "a new player is combat level 3");
         foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints }) fresh.SetLevel(id, 99);
-        Check(CombatRules.CombatLevel(fresh) == 113, "99 in all melee skills is combat level 113 (no Prayer yet)");
+        Check(CombatRules.CombatLevel(fresh) == 113, "99 in Attack, Strength, Defence and Hitpoints is combat level 113");
         var eq = new Equipment();
         inv.Clear();
         inv.Add(ItemDefs.BronzeSword.Id);
@@ -230,6 +230,36 @@ static class CoreTests
         hp.SetMax(12);
         Check(hp.Max == 12 && hp.Current == 8, "a Hitpoints level gained adds to current health");
         inv.Clear();
+
+        Console.WriteLine("Prayer and monsters fighting back");
+        var pb = new PrayerBook(10);
+        Check(pb.Toggle(PrayerId.ThickSkin, 10) == null && pb.IsActive(PrayerId.ThickSkin) && Math.Abs(pb.DefenceMultiplier - 1.05) < 1e-9, "Thick Skin: +5% Defence");
+        Check(pb.Toggle(PrayerId.RockSkin, 10) == null && !pb.IsActive(PrayerId.ThickSkin) && Math.Abs(pb.DefenceMultiplier - 1.10) < 1e-9, "Rock Skin replaces Thick Skin");
+        Check(pb.Toggle(PrayerId.ProtectFromMelee, 10) != null && !pb.ProtectsFromMelee, "Protect from Melee needs level 43");
+        pb.Toggle(PrayerId.RockSkin, 10);
+        pb.Toggle(PrayerId.ThickSkin, 10);
+        for (int i = 0; i < 59; i++) pb.Tick();
+        Check(pb.Points == 10, "Thick Skin hasn't drained a point after 59 ticks");
+        pb.Tick();
+        Check(pb.Points == 9, "...and has after 60 ticks (36 s)");
+        var pb2 = new PrayerBook(43);
+        pb2.Toggle(PrayerId.ProtectFromMelee, 43);
+        for (int i = 0; i < 5; i++) pb2.Tick();
+        Check(pb2.Points == 42 && pb2.ProtectsFromMelee, "Protect from Melee drains a point every 5 ticks");
+        pb2.SetPoints(1);
+        for (int i = 0; i < 5; i++) pb2.Tick();
+        Check(pb2.Points == 0 && !pb2.AnyActive, "out of points: prayers switch off");
+        pb2.Recharge();
+        Check(pb2.Points == 43, "an altar recharges points");
+        Check(Prayers.BuryXp(ItemDefs.Bones.Id) == 4.5 && Prayers.BuryXp(ItemDefs.Logs.Id) == null, "bones bury for 4.5 Prayer xp");
+        Check(NpcDefs.Goblin.AlwaysDrops.Length == 1 && NpcDefs.Goblin.AlwaysDrops[0] == ItemDefs.Bones, "goblins always drop bones");
+        double gob = CombatRules.MonsterHitChance(NpcDefs.Goblin, 1, 0, CombatStyle.Accurate);
+        double gobDef = CombatRules.MonsterHitChance(NpcDefs.Goblin, 20, 5, CombatStyle.Defensive, 1.1);
+        Check(gob > 0.4 && gob < 0.6 && gobDef < gob / 2, "a goblin hits a new player about half the time (" + gob.ToString("0.00") + "), far less with Defence");
+        Check(CombatRules.MaxHit(10, 0, CombatStyle.Accurate, 1.1) == CombatRules.MaxHit(11, 0, CombatStyle.Accurate), "Strength prayers boost the level used for max hit");
+        var ps = new SkillSet();
+        foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints, SkillId.Prayer }) ps.SetLevel(id, 99);
+        Check(CombatRules.CombatLevel(ps) == 126, "99 in every melee skill and Prayer is combat level 126");
 
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);

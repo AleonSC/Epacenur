@@ -38,7 +38,7 @@ namespace UnityEngine
     public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
     public static class Physics { public static RaycastHit[] RaycastAll(Ray r, float d) => null; public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
         public static bool Raycast(Vector3 o, Vector3 dir, out RaycastHit h, float d) { h = default(RaycastHit); return false; } }
-    public static class Mathf { public const float Deg2Rad = 0f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
+    public static class Mathf { public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Abs(float f) => f; }

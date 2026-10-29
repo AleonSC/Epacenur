@@ -26,7 +26,9 @@ namespace Epacenur.Runtime
             public int[] toolIds;    // tools on the tool belt
             public bool hatchetGiven;
             public bool hasHp;
-            public int hp;  // saves from before hatchets were needed get one on the belt
+            public int hp;
+            public bool hasPrayer;
+            public int prayerPoints;  // saves from before hatchets were needed get one on the belt
             public float x, z;
         }
 
@@ -62,6 +64,8 @@ namespace Epacenur.Runtime
             d.hatchetGiven = true;
             d.hasHp = true;
             d.hp = game.Health.Current;
+            d.hasPrayer = true;
+            d.prayerPoints = game.Prayer.Points;
             d.pouch = game.Inventory.PouchCoins;
             d.toolIds = new System.Collections.Generic.List<int>(game.ToolBelt.Owned).ToArray();
             for (int i = 0; i < Inventory.Size; i++)
@@ -112,6 +116,8 @@ namespace Epacenur.Runtime
                     game.ToolBelt.Add(id);
             game.Health.SetMax(game.Skills.GetLevel(SkillId.Hitpoints));
             game.Health.Set(d.hasHp && d.hp > 0 ? d.hp : game.Health.Max);
+            game.Prayer.SetMax(game.Skills.GetLevel(SkillId.Prayer));
+            game.Prayer.SetPoints(d.hasPrayer ? d.prayerPoints : game.Prayer.Max);
             if (!d.hatchetGiven)
                 game.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
             if (d.hasPouch)

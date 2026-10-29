@@ -29,6 +29,12 @@ namespace Epacenur.Runtime
         public bool SwingReady => swingCooldown <= 0f;
         public bool IsChopping => chopping;
         public bool IsFighting => fighting;
+        /// The monster you're walking to or fighting in tile mode (monsters wait for you rather than meet you).
+        public Npc AttackTarget => attackTarget;
+        float kneelUntil, buryCooldown;
+
+        /// Kneel for a moment (praying at an altar).
+        public void Kneel(float seconds) => kneelUntil = Time.time + seconds;
         public HeldTool FirstPersonTool { get; private set; } = HeldTool.None;
         /// Ability cooldowns, for the action bar.
         public readonly AbilityCooldowns Cooldowns = new AbilityCooldowns();
@@ -203,7 +209,7 @@ namespace Epacenur.Runtime
             walkPhase += dt * speed * 3.4f;
             float swing = Mathf.Sin(walkPhase) * 38f * stride;
 
-            float kneel = lighting ? 1f : 0f;
+            float kneel = lighting || Time.time < kneelUntil ? 1f : 0f;
             legLeft.localRotation = Quaternion.Slerp(legLeft.localRotation, Quaternion.Euler(swing - kneel * 70f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
             legRight.localRotation = Quaternion.Slerp(legRight.localRotation, Quaternion.Euler(-swing + kneel * 10f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
             float leftArm = G.Equipment.IsWearing(EquipSlot.Shield) && (fighting || attackAnim > 0f) ? -50f : -swing * 0.8f;
@@ -254,6 +260,7 @@ namespace Epacenur.Runtime
             float dt = Time.deltaTime;
             swingCooldown -= dt;
             eatCooldown -= dt;
+            buryCooldown -= dt;
             Hitsplats.RemoveAll(h => Time.time - h.Time > Npc.HitsplatSeconds);
             SwingT = Mathf.Max(0f, SwingT - dt / 0.35f);
 
@@ -844,8 +851,8 @@ namespace Epacenur.Runtime
             attackAnim = 0.4f;
             var eq = G.Equipment;
             var style = G.Style;
-            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, style, npc.Def.DefenceLevel, npc.Def.DefenceBonus);
-            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, style);
+            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, style, npc.Def.DefenceLevel, npc.Def.DefenceBonus, G.Prayer.AttackMultiplier);
+            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, style, G.Prayer.StrengthMultiplier);
             int damage = Mathf.Min(CombatRules.RollDamage(G.Rng, chance, maxHit), npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
             CombatRules.AwardXp(G.Skills, style, damage);
@@ -870,6 +877,41 @@ namespace Epacenur.Runtime
             attackTimer += delay;
             swingCooldown = Mathf.Max(swingCooldown, delay);
             GameLog.Add("You eat the " + stack.Def.Name.ToLowerInvariant() + "." + (healed > 0 ? " It heals some health." : ""));
+        }
+
+        /// Buries bones from an inventory slot for Prayer xp (one every 2 ticks).
+        public void Bury(int slot)
+        {
+            var stack = G.Inventory[slot];
+            double? xp = stack.IsEmpty ? null : Prayers.BuryXp(stack.ItemId);
+            if (xp == null || buryCooldown > 0f)
+                return;
+            buryCooldown = Prayers.BuryTicks * WoodcuttingRules.TickSeconds;
+            G.Inventory.RemoveAt(slot);
+            G.Skills.AddXp(SkillId.Prayer, xp.Value);
+            Kneel(0.6f);
+            GameLog.Add("You dig a hole in the ground... You bury the bones.");
+        }
+
+        /// A monster swings at you: Protect from Melee blocks it; otherwise it rolls against your Defence.
+        /// If you're standing idle (tile mode, sword and shield worn) you fight back, like RuneScape's auto retaliate.
+        public void TakeMonsterHit(Npc npc)
+        {
+            int damage = 0;
+            if (!G.Prayer.ProtectsFromMelee)
+            {
+                double chance = CombatRules.MonsterHitChance(npc.Def, G.Skills.GetLevel(SkillId.Defence), G.Equipment.DefenceBonus, G.Style, G.Prayer.DefenceMultiplier);
+                damage = CombatRules.RollDamage(G.Rng, chance, npc.Def.MaxHit);
+            }
+            G.HurtPlayer(damage);
+
+            bool idle = attackTarget == null && !chopping && !fishing && !cooking && !lighting && pathIndex >= path.Count;
+            bool armed = G.Equipment.IsWearing(EquipSlot.Weapon) && G.Equipment.IsWearing(EquipSlot.Shield);
+            if (Mode == ViewMode.Tile && idle && armed && !npc.IsDead)
+            {
+                attackTarget = npc;
+                npc.Engage(transform.position);
+            }
         }
 
         public void ShowDamage(int damage)
@@ -993,8 +1035,8 @@ namespace Epacenur.Runtime
         int RollAbility(AbilityDef def, Npc npc)
         {
             var eq = G.Equipment;
-            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, G.Style, npc.Def.DefenceLevel, npc.Def.DefenceBonus);
-            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, G.Style);
+            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, G.Style, npc.Def.DefenceLevel, npc.Def.DefenceBonus, G.Prayer.AttackMultiplier);
+            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, G.Style, G.Prayer.StrengthMultiplier);
             return Abilities.RollDamage(G.Rng, def, chance, maxHit, (double)npc.Hitpoints / npc.Def.Hitpoints);
         }
 

@@ -60,17 +60,22 @@ namespace Epacenur.Core
         public int Hitpoints;
         public int DefenceLevel;
         public int DefenceBonus;
+        public int AttackLevel, AttackBonus, MaxHit;  // fighting back
+        public int AttackTicks = 4;
         public float RespawnSeconds;
         public DropTable Drops;
+        public ItemDef[] AlwaysDrops = new ItemDef[0];  // dropped every kill, e.g. bones
         public float R, G, B;  // skin colour
     }
 
     public static class NpcDefs
     {
-        /// Doesn't fight back yet. Always drops some coins.
+        /// Fights back when attacked (max hit 1, as in OSRS). Always drops bones and some coins.
         public static readonly NpcDef Goblin = new NpcDef
         {
             Name = "Goblin", Examine = "An ugly green creature.", CombatLevel = 2, Hitpoints = 5, DefenceLevel = 1, DefenceBonus = -2, RespawnSeconds = 15f,
+            AttackLevel = 1, AttackBonus = 0, MaxHit = 1, AttackTicks = 4,
+            AlwaysDrops = new[] { ItemDefs.Bones },
             Drops = new DropTable()
                 .Add(ItemDefs.Coins, 1, 5, 50)
                 .Add(ItemDefs.Coins, 6, 15, 35)
@@ -84,22 +89,34 @@ namespace Epacenur.Core
     {
         public const double XpPerDamage = 4.0, HitpointsXpPerDamage = 4.0 / 3.0;
 
-        /// The largest hit you can do.
-        public static int MaxHit(int strengthLevel, int strengthBonus, CombatStyle style)
+        /// The largest hit you can do. `prayer` multiplies Strength first (1.05 for Burst of Strength...).
+        public static int MaxHit(int strengthLevel, int strengthBonus, CombatStyle style, double prayer = 1.0)
         {
-            int effective = strengthLevel + 8 + (style == CombatStyle.Aggressive ? 3 : 0);
+            int effective = (int)Math.Floor(strengthLevel * prayer) + 8 + (style == CombatStyle.Aggressive ? 3 : 0);
             return (int)Math.Floor(0.5 + effective * (strengthBonus + 64) / 640.0);
         }
 
-        /// Chance (0..1) that an attack hits the target at all.
-        public static double HitChance(int attackLevel, int attackBonus, CombatStyle style, int targetDefence, int targetDefenceBonus)
+        /// Chance (0..1) that your attack hits a monster at all. `prayer` multiplies Attack first.
+        public static double HitChance(int attackLevel, int attackBonus, CombatStyle style, int targetDefence, int targetDefenceBonus, double prayer = 1.0)
         {
-            double attackRoll = (attackLevel + 8 + (style == CombatStyle.Accurate ? 3 : 0)) * (double)(attackBonus + 64);
+            double attackRoll = ((int)Math.Floor(attackLevel * prayer) + 8 + (style == CombatStyle.Accurate ? 3 : 0)) * (double)(attackBonus + 64);
             double defenceRoll = (targetDefence + 9) * (double)(targetDefenceBonus + 64);
-            return attackRoll > defenceRoll
+            return Accuracy(attackRoll, defenceRoll);
+        }
+
+        /// Chance (0..1) that a monster's attack hits you, against your Defence (times `prayer`),
+        /// defence bonus and style (Defensive adds 3).
+        public static double MonsterHitChance(NpcDef npc, int defenceLevel, int defenceBonus, CombatStyle style, double prayer = 1.0)
+        {
+            double attackRoll = (npc.AttackLevel + 9) * (double)(npc.AttackBonus + 64);
+            double defenceRoll = ((int)Math.Floor(defenceLevel * prayer) + 8 + (style == CombatStyle.Defensive ? 3 : 0)) * (double)(defenceBonus + 64);
+            return Accuracy(attackRoll, defenceRoll);
+        }
+
+        static double Accuracy(double attackRoll, double defenceRoll) =>
+            attackRoll > defenceRoll
                 ? 1.0 - (defenceRoll + 2) / (2 * (attackRoll + 1))
                 : attackRoll / (2 * (defenceRoll + 1));
-        }
 
         /// One attack: 0 on a miss, otherwise 0..maxHit (a hit can still roll 0, like RuneScape).
         public static int RollDamage(Random rng, double hitChance, int maxHit)
@@ -109,11 +126,11 @@ namespace Epacenur.Core
             return rng.Next(0, maxHit + 1);
         }
 
-        /// RuneScape's (OSRS) combat level from melee skills. There's no Prayer, Ranged or Magic yet,
-        /// so it's 1/4 of (Defence + Hitpoints) plus 0.325 of (Attack + Strength). A new player is level 3.
+        /// RuneScape's (OSRS) combat level, melee only (no Ranged or Magic yet): 1/4 of (Defence + Hitpoints
+        /// + half of Prayer) plus 0.325 of (Attack + Strength). A new player is level 3.
         public static int CombatLevel(SkillSet s)
         {
-            double basePart = 0.25 * (s.GetLevel(SkillId.Defence) + s.GetLevel(SkillId.Hitpoints));
+            double basePart = 0.25 * (s.GetLevel(SkillId.Defence) + s.GetLevel(SkillId.Hitpoints) + s.GetLevel(SkillId.Prayer) / 2);
             double melee = 0.325 * (s.GetLevel(SkillId.Attack) + s.GetLevel(SkillId.Strength));
             return (int)Math.Floor(basePart + melee);
         }

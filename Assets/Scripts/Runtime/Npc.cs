@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// A monster you can attack (goblins for now). It wanders round its plot, stops to face you
-    /// when attacked, and doesn't fight back yet. When it dies it drops its loot on the ground and
-    /// comes back after its respawn time.
+    /// A monster you can attack (goblins for now). It wanders round its plot until you attack it,
+    /// then fights back: it chases you (not far from its plot) and hits you every few ticks.
+    /// When it dies it drops its loot on the ground and comes back after its respawn time.
     public sealed class Npc : MonoBehaviour
     {
         public const float WalkSpeed = 1.6f;   // tiles per second
@@ -34,7 +34,9 @@ namespace Epacenur.Runtime
         Collider hitbox;
         readonly List<Tile> path = new List<Tile>();
         int pathIndex;
-        float nextWander, engagedUntil, diedAt;
+        float nextWander, engagedUntil, diedAt, nextAttack;
+        bool retaliating;  // fighting back against the player
+        public bool IsFighting => retaliating && !IsDead;
         System.Random rng;
 
         public static Npc Create(NpcDef def, Tile tile, RectInt home, Transform parent, System.Random rng)
@@ -108,6 +110,12 @@ namespace Epacenur.Runtime
             damage = Mathf.Min(damage, Hitpoints);
             Hitpoints -= damage;
             LastHitTime = Time.time;
+            if (!retaliating)
+            {
+                retaliating = true;
+                // It swings back after a moment, not instantly.
+                nextAttack = Mathf.Max(nextAttack, Time.time + 2f * WoodcuttingRulesTick);
+            }
             Hitsplats.Add(new Hitsplat { Damage = damage, Time = Time.time });
             if (Hitpoints > 0)
                 return false;
@@ -118,9 +126,13 @@ namespace Epacenur.Runtime
         void Die()
         {
             IsDead = true;
+            retaliating = false;
             diedAt = Time.time;
             hitbox.enabled = false;
             path.Clear();
+            var tile = Game.Instance.World.NearestWalkable(Tile);
+            foreach (var item in Def.AlwaysDrops)
+                Game.Instance.World.SpawnGroundItem(item.Id, 1, tile);
             if (Def.Drops != null && Def.Drops.Roll(rng, out int itemId, out int count))
                 Game.Instance.World.SpawnGroundItem(itemId, count, Game.Instance.World.NearestWalkable(Tile));
         }
@@ -132,12 +144,93 @@ namespace Epacenur.Runtime
             Hitsplats.Clear();
             LastHitTime = -100f;
             StunnedUntil = -100f;
+            retaliating = false;
+            path.Clear();
+            pathIndex = 0;
             transform.position = World.TileCenter(RandomHomeTile());
             model.localRotation = Quaternion.identity;
             model.localPosition = Vector3.zero;
             model.gameObject.SetActive(true);
             hitbox.enabled = true;
         }
+
+        const float WoodcuttingRulesTick = WoodcuttingRules.TickSeconds;
+
+        /// Fighting back: walk up next to the player, then hit them every AttackTicks.
+        /// It gives up if the player gets far away or leaves the area around its plot.
+        void UpdateFighting()
+        {
+            var player = Game.Instance.Player;
+            Vector3 d = player.transform.position - transform.position;
+            d.y = 0f;
+            Tile playerTile = World.TileAt(player.transform.position);
+            bool nearHome = playerTile.X >= home.x - 3 && playerTile.X < home.x + home.width + 3
+                && playerTile.Z >= home.y - 3 && playerTile.Z < home.y + home.height + 3;
+            if (d.magnitude > 12f || !nearHome)
+            {
+                retaliating = false;
+                path.Clear();
+                engagedUntil = 0f;
+                return;
+            }
+            if (IsStunned)
+                return;
+
+            Vector3 offTile = transform.position - World.TileCenter(Tile);
+            offTile.y = 0f;
+            bool inRange = Tile.IsCardinalNeighbour(playerTile) && offTile.sqrMagnitude < 0.02f;
+            if (inRange)
+            {
+                path.Clear();
+                if (d.sqrMagnitude > 0.01f)
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(d), 1f - Mathf.Exp(-12f * Time.deltaTime));
+                if (Time.time >= nextAttack)
+                {
+                    nextAttack = Time.time + Def.AttackTicks * WoodcuttingRulesTick;
+                    attackAnim = 0.4f;
+                    player.TakeMonsterHit(this);
+                }
+                return;
+            }
+
+            // The player is walking up to fight it: wait for them rather than dancing around.
+            if (player.AttackTarget == this && player.Mode == ViewMode.Tile)
+                return;
+            if (pathIndex >= path.Count || !path[path.Count - 1].IsCardinalNeighbour(playerTile))
+            {
+                path.Clear();
+                pathIndex = 0;
+                var p = Pathfinder.PathToInteract(Game.Instance.World.Grid, Tile, playerTile);
+                if (p != null)
+                    path.AddRange(p);
+                if (path.Count == 0)
+                    path.Add(Tile);  // back onto its tile's centre
+            }
+            Step(WalkSpeed * 1.6f);
+        }
+
+        void Step(float speed)
+        {
+            Vector3 to = World.TileCenter(path[pathIndex]) - transform.position;
+            to.y = 0f;
+            float step = speed * Time.deltaTime;
+            if (to.magnitude <= step)
+            {
+                transform.position += to;
+                if (++pathIndex >= path.Count)
+                {
+                    path.Clear();
+                    pathIndex = 0;
+                }
+            }
+            else
+            {
+                transform.position += to.normalized * step;
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-8f * Time.deltaTime));
+            }
+        }
+
+        float attackAnim;
 
         Tile RandomHomeTile()
         {
@@ -166,25 +259,18 @@ namespace Epacenur.Runtime
                     Respawn();
                 return;
             }
+            // A lunge forward when it swings.
+            attackAnim = Mathf.Max(0f, attackAnim - Time.deltaTime);
+            model.localPosition = new Vector3(0f, 0f, Mathf.Sin(attackAnim / 0.4f * Mathf.PI) * 0.25f);
+            if (retaliating)
+            {
+                UpdateFighting();
+                return;
+            }
             if (Time.time < engagedUntil)
                 return;
             if (pathIndex < path.Count)
-            {
-                Vector3 to = World.TileCenter(path[pathIndex]) - transform.position;
-                to.y = 0f;
-                float step = WalkSpeed * Time.deltaTime;
-                if (to.magnitude <= step)
-                {
-                    transform.position += to;
-                    if (++pathIndex >= path.Count)
-                        path.Clear();
-                }
-                else
-                {
-                    transform.position += to.normalized * step;
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-8f * Time.deltaTime));
-                }
-            }
+                Step(WalkSpeed);
             else if (Time.time >= nextWander)
             {
                 nextWander = Time.time + 3f + (float)rng.NextDouble() * 5f;
