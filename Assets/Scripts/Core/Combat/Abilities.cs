@@ -24,7 +24,7 @@ namespace Epacenur.Core
     {
         public AbilityId Id;
         public string Name, Description;
-        public SkillId Skill;
+        public string Skill;  // skill id
         public int Level;
         public float CooldownSeconds;
         public double MinMultiplier, MaxMultiplier;
@@ -43,31 +43,31 @@ namespace Epacenur.Core
         /// The action bar's 9 slots, in order (keys 1-9).
         public static readonly AbilityDef[] All =
         {
-            new AbilityDef { Id = AbilityId.Slice, Name = "Slice", Skill = SkillId.Attack, Level = 1, CooldownSeconds = 3f,
+            new AbilityDef { Id = AbilityId.Slice, Name = "Slice", Skill = SkillIds.Attack, Level = 1, CooldownSeconds = 3f,
                 MinMultiplier = 0.3, MaxMultiplier = 1.2, R = 0.85f, G = 0.75f, B = 0.3f,
                 Description = "A quick cut." },
-            new AbilityDef { Id = AbilityId.Smash, Name = "Smash", Skill = SkillId.Strength, Level = 1, CooldownSeconds = 10f,
+            new AbilityDef { Id = AbilityId.Smash, Name = "Smash", Skill = SkillIds.Strength, Level = 1, CooldownSeconds = 10f,
                 MinMultiplier = 0.4, MaxMultiplier = 1.25, Effect = AbilityEffect.Area, R = 0.75f, G = 0.45f, B = 0.2f,
                 Description = "Hits your target and every monster next to it." },
-            new AbilityDef { Id = AbilityId.Barge, Name = "Barge", Skill = SkillId.Attack, Level = 3, CooldownSeconds = 20f,
+            new AbilityDef { Id = AbilityId.Barge, Name = "Barge", Skill = SkillIds.Attack, Level = 3, CooldownSeconds = 20f,
                 MinMultiplier = 0.4, MaxMultiplier = 1.0, Effect = AbilityEffect.Charge, R = 0.6f, G = 0.6f, B = 0.65f,
                 Description = "Charge a monster up to 10 tiles away and hit it." },
-            new AbilityDef { Id = AbilityId.Havoc, Name = "Havoc", Skill = SkillId.Attack, Level = 7, CooldownSeconds = 10f,
+            new AbilityDef { Id = AbilityId.Havoc, Name = "Havoc", Skill = SkillIds.Attack, Level = 7, CooldownSeconds = 10f,
                 MinMultiplier = 0.5, MaxMultiplier = 1.25, R = 0.9f, G = 0.35f, B = 0.2f,
                 Description = "A strong strike." },
-            new AbilityDef { Id = AbilityId.Sever, Name = "Sever", Skill = SkillId.Attack, Level = 8, CooldownSeconds = 15f,
+            new AbilityDef { Id = AbilityId.Sever, Name = "Sever", Skill = SkillIds.Attack, Level = 8, CooldownSeconds = 15f,
                 MinMultiplier = 0.4, MaxMultiplier = 1.9, R = 0.75f, G = 0.15f, B = 0.2f,
                 Description = "A heavy slash that can hit very hard." },
-            new AbilityDef { Id = AbilityId.Punish, Name = "Punish", Skill = SkillId.Strength, Level = 8, CooldownSeconds = 3f,
+            new AbilityDef { Id = AbilityId.Punish, Name = "Punish", Skill = SkillIds.Strength, Level = 8, CooldownSeconds = 3f,
                 MinMultiplier = 0.2, MaxMultiplier = 1.0, Effect = AbilityEffect.Execute, R = 0.55f, G = 0.2f, B = 0.6f,
                 Description = "Triple damage against a target below half health." },
-            new AbilityDef { Id = AbilityId.Dismember, Name = "Dismember", Skill = SkillId.Strength, Level = 14, CooldownSeconds = 15f,
+            new AbilityDef { Id = AbilityId.Dismember, Name = "Dismember", Skill = SkillIds.Strength, Level = 14, CooldownSeconds = 15f,
                 MinMultiplier = 1.0, MaxMultiplier = 2.0, Effect = AbilityEffect.Bleed, R = 0.6f, G = 0.05f, B = 0.1f,
                 Description = "Makes the target bleed: three hits over a few seconds." },
-            new AbilityDef { Id = AbilityId.Backhand, Name = "Backhand", Skill = SkillId.Attack, Level = 15, CooldownSeconds = 15f,
+            new AbilityDef { Id = AbilityId.Backhand, Name = "Backhand", Skill = SkillIds.Attack, Level = 15, CooldownSeconds = 15f,
                 MinMultiplier = 0.2, MaxMultiplier = 1.0, Effect = AbilityEffect.Stun, R = 0.3f, G = 0.55f, B = 0.85f,
                 Description = "A backhanded blow that stuns the target for 3 seconds." },
-            new AbilityDef { Id = AbilityId.Kick, Name = "Kick", Skill = SkillId.Strength, Level = 15, CooldownSeconds = 15f,
+            new AbilityDef { Id = AbilityId.Kick, Name = "Kick", Skill = SkillIds.Strength, Level = 15, CooldownSeconds = 15f,
                 MinMultiplier = 0.2, MaxMultiplier = 1.0, Effect = AbilityEffect.Stun, R = 0.35f, G = 0.75f, B = 0.45f,
                 Description = "A kick that stuns the target for 3 seconds." },
         };

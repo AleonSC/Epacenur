@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// An NPC standing on a tile who runs a shop. "Trade" opens the shop window.
+    /// An NPC standing on a tile who runs a shop (from a ShopDef). "Trade" opens the shop window.
     public sealed class ShopKeeper : Interactable
     {
         /// Seconds between restock steps (each moves every item's stock one closer to normal).
@@ -11,8 +11,8 @@ namespace Epacenur.Runtime
 
         public Shop Shop { get; private set; }
         public override string Action => "Trade";
-        public override string DisplayName => "Shop keeper";
-        public override string Examine => "I can buy swords and shields from him.";
+        public override string DisplayName => Shop.Def.KeeperName;
+        public override string Examine => Shop.Def.KeeperExamine;
         public override void Interact() => Game.Instance.Hud.OpenShop(this);
 
         float nextRestock;

@@ -1,7 +1,7 @@
 {
     "name": "Epacenur.Editor",
     "rootNamespace": "Epacenur.EditorTools",
-    "references": ["Epacenur.Core", "Epacenur.Runtime"],
+    "references": ["Epacenur.Core", "Epacenur.Content", "Epacenur.Runtime"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

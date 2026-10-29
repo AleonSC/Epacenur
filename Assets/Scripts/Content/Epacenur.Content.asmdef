@@ -1,0 +1,14 @@
+{
+    "name": "Epacenur.Content",
+    "rootNamespace": "Epacenur.Content",
+    "references": ["Epacenur.Core"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

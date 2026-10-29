@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using Epacenur.Content;
 using Epacenur.Core;
 
 namespace Epacenur.Tests
@@ -12,12 +13,29 @@ public static class CoreRulesSuite
     static Action<string> info;
 
     static void Check(bool ok, string what) => check(ok, what);
+    static ItemDef Item(string id) => ContentDb.Current.Item(id);
+    const string Logs = WoodcuttingModule.Logs, Coins = ItemIds.Coins, Sword = CombatModule.BronzeSword, Shield = CombatModule.WoodenShield;
 
     /// `check(ok, description)` is called for every check, `info` for section headings and notes.
     public static void Run(Action<bool, string> checkCallback, Action<string> infoCallback)
     {
         check = checkCallback;
         info = infoCallback;
+        info("Content");
+        var db = ContentDb.Load(Modules.All);
+        Check(db.Validate().Count == 0, "every id the content refers to exists");
+        Check(db.Skills.Count == 11 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "11 skills; Hitpoints starts at 10");
+        bool dup = false;
+        try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
+        catch (ArgumentException) { dup = true; }
+        Check(dup, "two items with one id are refused");
+        var broken = new ContentDb();
+        broken.Add(new RecipeDef { Id = "r", Skill = "nope", Product = "nothing", Inputs = new Ingredient[0] });
+        Check(broken.Validate().Count == 2, "a recipe naming a missing skill and item is caught");
+        bool icons = true;
+        foreach (var it in db.Items) if (it.Icon == null || it.GroundModel == null) icons = false;
+        Check(icons, "every item has an icon and a ground model");
+
         info("Experience curve");
         Check(Experience.XpForLevel(2) == 83, "level 2 = 83 xp");
         Check(Experience.XpForLevel(99) == 13034431, "level 99 = 13,034,431 xp");
@@ -39,127 +57,128 @@ public static class CoreRulesSuite
         var skills = new SkillSet();
         int ups = 0, lastLevel = 0;
         skills.LevelledUp += (id, lvl) => { ups++; lastLevel = lvl; };
-        skills.AddXp(SkillId.Woodcutting, 25);
-        Check(skills.GetXp(SkillId.Woodcutting) == 25 && skills.GetLevel(SkillId.Woodcutting) == 1, "25 xp is level 1");
-        skills.AddXp(SkillId.Woodcutting, 67.5);
-        skills.AddXp(SkillId.Woodcutting, 67.5);
-        Check(skills.GetXpTenths(SkillId.Woodcutting) == 1600, "half xp adds up exactly (160.0)");
+        skills.AddXp(WoodcuttingModule.Skill, 25);
+        Check(skills.GetXp(WoodcuttingModule.Skill) == 25 && skills.GetLevel(WoodcuttingModule.Skill) == 1, "25 xp is level 1");
+        skills.AddXp(WoodcuttingModule.Skill, 67.5);
+        skills.AddXp(WoodcuttingModule.Skill, 67.5);
+        Check(skills.GetXpTenths(WoodcuttingModule.Skill) == 1600, "half xp adds up exactly (160.0)");
         Check(ups == 1 && lastLevel == 2, "levelled up once to 2");
-        skills.AddXpTenths(SkillId.Woodcutting, Experience.MaxXp * 100);
-        Check(skills.GetXp(SkillId.Woodcutting) == Experience.MaxXp && skills.GetLevel(SkillId.Woodcutting) == 999, "xp caps at level 999");
-        skills.SetLevel(SkillId.Woodcutting, 99);
-        Check(skills.GetLevel(SkillId.Woodcutting) == 99, "set level 99");
+        skills.AddXpTenths(WoodcuttingModule.Skill, Experience.MaxXp * 100);
+        Check(skills.GetXp(WoodcuttingModule.Skill) == Experience.MaxXp && skills.GetLevel(WoodcuttingModule.Skill) == 999, "xp caps at level 999");
+        skills.SetLevel(WoodcuttingModule.Skill, 99);
+        Check(skills.GetLevel(WoodcuttingModule.Skill) == 99, "set level 99");
 
         info("Inventory");
         var inv = new Inventory();
-        Check(inv.Add(ItemDefs.Logs.Id, 30) == 28, "28 logs fit, one per slot");
-        Check(inv.IsFull && !inv.HasRoomFor(ItemDefs.Logs.Id) && inv.Count(ItemDefs.Logs.Id) == 28, "inventory full of logs");
+        Check(inv.Add(Logs, 30) == 28, "28 logs fit, one per slot");
+        Check(inv.IsFull && !inv.HasRoomFor(Logs) && inv.Count(Logs) == 28, "inventory full of logs");
         inv.RemoveAt(5);
-        Check(inv.FreeSlots == 1 && inv.Add(ItemDefs.Logs.Id) == 1 && !inv[5].IsEmpty, "a log goes in the freed slot");
+        Check(inv.FreeSlots == 1 && inv.Add(Logs) == 1 && !inv[5].IsEmpty, "a log goes in the freed slot");
 
         info("Bank");
         var bank = new Bank();
         inv.Clear();
-        inv.Add(ItemDefs.Logs.Id, 10);
-        Check(bank.Deposit(inv, ItemDefs.Logs.Id, 3) == 3 && inv.Count(ItemDefs.Logs.Id) == 7, "deposit 3 of 10 logs");
+        inv.Add(Logs, 10);
+        Check(bank.Deposit(inv, Logs, 3) == 3 && inv.Count(Logs) == 7, "deposit 3 of 10 logs");
         Check(bank.UsedSlots == 1 && bank[0].Count == 3, "logs stack in one bank slot");
-        Check(bank.DepositAll(inv) == 7 && inv.FreeSlots == Inventory.Size && bank.UsedSlots == 1 && bank.Count(ItemDefs.Logs.Id) == 10, "deposit inventory: all 10 logs in one slot");
-        bank.Add(ItemDefs.Logs.Id, 90);
-        Check(bank.Withdraw(inv, 0, long.MaxValue) == 28 && bank.Count(ItemDefs.Logs.Id) == 72, "withdraw all: only 28 fit");
+        Check(bank.DepositAll(inv) == 7 && inv.FreeSlots == Inventory.Size && bank.UsedSlots == 1 && bank.Count(Logs) == 10, "deposit inventory: all 10 logs in one slot");
+        bank.Add(Logs, 90);
+        Check(bank.Withdraw(inv, 0, long.MaxValue) == 28 && bank.Count(Logs) == 72, "withdraw all: only 28 fit");
         Check(bank.Withdraw(inv, 0, 5) == 0, "nothing withdrawn into a full inventory");
         inv.Clear();
         bank.Clear();
-        bank.Add(ItemDefs.Logs.Id, 5);
-        Check(bank.Withdraw(inv, 0, long.MaxValue) == 5 && bank.UsedSlots == 0 && inv.Count(ItemDefs.Logs.Id) == 5, "an emptied bank slot is removed");
+        bank.Add(Logs, 5);
+        Check(bank.Withdraw(inv, 0, long.MaxValue) == 5 && bank.UsedSlots == 0 && inv.Count(Logs) == 5, "an emptied bank slot is removed");
 
         info("Shop");
-        var shop = Shops.DevAreaStore();
-        Check(shop.Items.Count == 7 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
+        var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
+        Check(shop.Items.Count == 7 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
-        inv.Add(ItemDefs.Coins.Id, 60);
-        Check(shop.Buy(inv, 1, 10, out why) == 2 && inv.Count(ItemDefs.BronzeSword.Id) == 2 && inv.Count(ItemDefs.Coins.Id) == 8, "60 coins buy two 26-coin swords");
+        inv.Add(Coins, 60);
+        Check(shop.Buy(inv, 1, 10, out why) == 2 && inv.Count(Sword) == 2 && inv.Count(Coins) == 8, "60 coins buy two 26-coin swords");
         Check(shop.Items[1].Stock == 3, "stock goes down");
-        Check(shop.Sell(inv, ItemDefs.BronzeSword.Id, 1, out why) == 1 && inv.Count(ItemDefs.Coins.Id) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
-        Check(shop.Sell(inv, ItemDefs.Coins.Id, 1, out why) == 0, "coins can't be sold");
-        inv.Add(ItemDefs.Logs.Id, 3);
-        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 8 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
+        Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
+        inv.Add(Logs, 3);
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 8 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
         Check(shop.Items.Count == 7 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
-        inv.Add(ItemDefs.Logs.Id, 27);
-        inv.Add(ItemDefs.Coins.Id, 26);
-        Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "buying with pouch coins into the last free slot");
+        inv.Add(Logs, 27);
+        inv.Add(Coins, 26);
+        Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(Coins) == 0, "buying with pouch coins into the last free slot");
 
         info("Money pouch");
         inv.Clear();
         inv.SetPouch(0);
-        inv.Add(ItemDefs.Logs.Id, 28);
-        Check(inv.Add(ItemDefs.Coins.Id, 500) == 500 && inv.PouchCoins == 500 && inv.CountInSlots(ItemDefs.Coins.Id) == 0, "coins go into the pouch, even with a full backpack");
-        Check(inv.HasRoomFor(ItemDefs.Coins.Id), "there's always room for coins");
+        inv.Add(Logs, 28);
+        Check(inv.Add(Coins, 500) == 500 && inv.PouchCoins == 500 && inv.CountInSlots(Coins) == 0, "coins go into the pouch, even with a full backpack");
+        Check(inv.HasRoomFor(Coins), "there's always room for coins");
         inv.RemoveAt(0);
-        Check(inv.WithdrawFromPouch(120) == 120 && inv.PouchCoins == 380 && inv[0].ItemId == ItemDefs.Coins.Id && inv[0].Count == 120, "withdraw 120 into the backpack as a stack");
-        Check(inv.Count(ItemDefs.Coins.Id) == 500, "Count covers pouch and backpack");
-        Check(inv.Remove(ItemDefs.Coins.Id, 400) == 400 && inv.PouchCoins == 0 && inv[0].Count == 100, "spending takes the pouch first, then the backpack");
+        Check(inv.WithdrawFromPouch(120) == 120 && inv.PouchCoins == 380 && inv[0].ItemId == Coins && inv[0].Count == 120, "withdraw 120 into the backpack as a stack");
+        Check(inv.Count(Coins) == 500, "Count covers pouch and backpack");
+        Check(inv.Remove(Coins, 400) == 400 && inv.PouchCoins == 0 && inv[0].Count == 100, "spending takes the pouch first, then the backpack");
         Check(inv.AddToPouch(0) == 100 && inv.PouchCoins == 100 && inv[0].IsEmpty, "a stack goes back into the pouch");
         inv.SetPouch(Inventory.MaxPouchCoins - 10);
-        Check(inv.Add(ItemDefs.Coins.Id, 25) == 25 && inv.PouchCoins == Inventory.MaxPouchCoins && inv.CountInSlots(ItemDefs.Coins.Id) == 15, "past 2,147,483,647 the rest spills into the backpack");
+        Check(inv.Add(Coins, 25) == 25 && inv.PouchCoins == Inventory.MaxPouchCoins && inv.CountInSlots(Coins) == 15, "past 2,147,483,647 the rest spills into the backpack");
         var pbank = new Bank();
         inv.SetPouch(1000);
-        Check(pbank.DepositAll(inv) > 0 && inv.PouchCoins == 1000 && pbank.Count(ItemDefs.Coins.Id) == 15, "Deposit inventory leaves the pouch alone");
-        Check(pbank.DepositPouch(inv) == 1000 && inv.PouchCoins == 0 && pbank.Count(ItemDefs.Coins.Id) == 1015, "Deposit money pouch");
-        Check(pbank.Withdraw(inv, pbank.IndexOf(ItemDefs.Coins.Id), 300) == 300 && inv.PouchCoins == 300, "coins withdrawn from the bank land in the pouch");
+        Check(pbank.DepositAll(inv) > 0 && inv.PouchCoins == 1000 && pbank.Count(Coins) == 15, "Deposit inventory leaves the pouch alone");
+        Check(pbank.DepositPouch(inv) == 1000 && inv.PouchCoins == 0 && pbank.Count(Coins) == 1015, "Deposit money pouch");
+        Check(pbank.Withdraw(inv, pbank.IndexOf(Coins), 300) == 300 && inv.PouchCoins == 300, "coins withdrawn from the bank land in the pouch");
         inv.Clear();
         inv.SetPouch(0);
 
         info("Tool belt");
         var belt = new ToolBelt();
         inv.Clear();
-        inv.Add(ItemDefs.Tinderbox.Id);
-        inv.Add(ItemDefs.Tinderbox.Id);
-        inv.Add(ItemDefs.Logs.Id);
-        Check(ToolBelt.IsTool(ItemDefs.BronzeHatchet.Id) && Array.IndexOf(WoodcuttingRules.Hatchets, ItemDefs.BronzeHatchet) >= 0, "the bronze hatchet chops and goes on the belt");
-        Check(!ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id) && ToolBelt.HasTool(belt, inv, ItemDefs.Tinderbox.Id), "a tinderbox in the backpack counts as having one");
-        Check(belt.AddFromInventory(inv, 0, out string bwhy) && belt.Has(ItemDefs.Tinderbox.Id) && inv[0].IsEmpty, "add a tinderbox: it leaves the backpack");
+        inv.Add(FiremakingModule.Tinderbox);
+        inv.Add(FiremakingModule.Tinderbox);
+        inv.Add(Logs);
+        Check(ToolBelt.IsTool(WoodcuttingModule.BronzeHatchet) && Item(WoodcuttingModule.BronzeHatchet).ToolType == "hatchet", "the bronze hatchet chops and goes on the belt");
+        Check(ToolBelt.Find(belt, inv, "hatchet") == null && ToolBelt.Find(belt, inv, "tinderbox") == Item(FiremakingModule.Tinderbox), "finding a tool by type");
+        Check(!ToolBelt.HasItem(belt, new Inventory(), FiremakingModule.Tinderbox) && ToolBelt.HasItem(belt, inv, FiremakingModule.Tinderbox), "a tinderbox in the backpack counts as having one");
+        Check(belt.AddFromInventory(inv, 0, out string bwhy) && belt.Has(FiremakingModule.Tinderbox) && inv[0].IsEmpty, "add a tinderbox: it leaves the backpack");
         Check(!belt.AddFromInventory(inv, 1, out bwhy) && bwhy == "That is already on your tool belt." && !inv[1].IsEmpty, "a second one stays in the backpack");
         Check(!belt.AddFromInventory(inv, 2, out bwhy) && !inv[2].IsEmpty, "logs aren't a tool");
-        Check(ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id), "a tool on the belt counts with an empty backpack");
+        Check(ToolBelt.HasItem(belt, new Inventory(), FiremakingModule.Tinderbox), "a tool on the belt counts with an empty backpack");
         inv.Clear();
 
         info("Equipment and combat");
         var fresh = new SkillSet();
-        Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
+        Check(fresh.GetLevel(SkillIds.Hitpoints) == 10 && fresh.GetLevel(SkillIds.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
         Check(CombatRules.CombatLevel(fresh) == 3, "a new player is combat level 3");
-        foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints }) fresh.SetLevel(id, 99);
+        foreach (var id in new[] { SkillIds.Attack, SkillIds.Strength, SkillIds.Defence, SkillIds.Hitpoints }) fresh.SetLevel(id, 99);
         Check(CombatRules.CombatLevel(fresh) == 113, "99 in Attack, Strength, Defence and Hitpoints is combat level 113");
         var eq = new Equipment();
         inv.Clear();
-        inv.Add(ItemDefs.BronzeSword.Id);
-        inv.Add(ItemDefs.WoodenShield.Id);
-        inv.Add(ItemDefs.Logs.Id);
+        inv.Add(Sword);
+        inv.Add(Shield);
+        inv.Add(Logs);
         Check(eq.Equip(inv, 0) && eq.Equip(inv, 1) && !eq.Equip(inv, 2), "wield the sword and shield, but not logs");
         Check(eq.IsWearing(EquipSlot.Weapon) && eq.IsWearing(EquipSlot.Shield) && inv.FreeSlots == 27, "both worn, out of the inventory");
         Check(eq.AttackBonus == 4 && eq.StrengthBonus == 5 && eq.DefenceBonus == 5, "bonuses add up");
-        inv.Add(ItemDefs.BronzeSword.Id);
+        inv.Add(Sword);
         int swordSlot = 0;
-        for (int i = 0; i < Inventory.Size; i++) if (!inv[i].IsEmpty && inv[i].ItemId == ItemDefs.BronzeSword.Id) swordSlot = i;
+        for (int i = 0; i < Inventory.Size; i++) if (!inv[i].IsEmpty && inv[i].ItemId == Sword) swordSlot = i;
         eq.Equip(inv, swordSlot);
-        Check(inv[swordSlot].ItemId == ItemDefs.BronzeSword.Id && eq.IsWearing(EquipSlot.Weapon), "wielding over a weapon swaps it into the same slot");
-        Check(eq.Unequip(EquipSlot.Shield, inv) && !eq.IsWearing(EquipSlot.Shield) && inv.Count(ItemDefs.WoodenShield.Id) == 1, "remove the shield");
-        inv.Add(ItemDefs.Logs.Id, 28);
+        Check(inv[swordSlot].ItemId == Sword && eq.IsWearing(EquipSlot.Weapon), "wielding over a weapon swaps it into the same slot");
+        Check(eq.Unequip(EquipSlot.Shield, inv) && !eq.IsWearing(EquipSlot.Shield) && inv.Count(Shield) == 1, "remove the shield");
+        inv.Add(Logs, 28);
         Check(!eq.Unequip(EquipSlot.Weapon, inv) && eq.IsWearing(EquipSlot.Weapon), "can't remove with a full inventory");
         Check(CombatRules.MaxHit(1, 5, CombatStyle.Accurate) == 1 && CombatRules.MaxHit(99, 0, CombatStyle.Aggressive) == 11, "max hits (1 at level 1 with a bronze sword, 11 at 99 unarmed)");
         double hc = CombatRules.HitChance(1, 4, CombatStyle.Accurate, 1, -2);
         Check(hc > 0.5 && hc < 0.7, "level 1 hits a goblin about 6 times in 10 (" + hc.ToString("0.00") + ")");
         var cs = new SkillSet();
         CombatRules.AwardXp(cs, CombatStyle.Aggressive, 3);
-        Check(cs.GetXp(SkillId.Strength) == 12 && cs.GetXpTenths(SkillId.Hitpoints) == Experience.XpForLevel(10) * 10 + 40, "3 damage: 12 Strength xp, 4 Hitpoints xp");
+        Check(cs.GetXp(SkillIds.Strength) == 12 && cs.GetXpTenths(SkillIds.Hitpoints) == Experience.XpForLevel(10) * 10 + 40, "3 damage: 12 Strength xp, 4 Hitpoints xp");
         var rng = new Random(1);
         bool allCoins = true;
         for (int i = 0; i < 200; i++)
-            if (!NpcDefs.Goblin.Drops.Roll(rng, out int id, out int n) || id != ItemDefs.Coins.Id || n < 1 || n > 30) allCoins = false;
+            if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || id != Coins || n < 1 || n > 30) allCoins = false;
         Check(allCoins, "goblins always drop 1-30 coins");
 
         info("Abilities");
@@ -193,27 +212,33 @@ public static class CoreRulesSuite
         Check(bleed.Length == 3 && bleed[0] + bleed[1] + bleed[2] == 7 && bleed[0] == 3, "a bleed of 7 lands as 3, 2, 2");
 
         info("Firemaking and fishing");
-        var burn = FiremakingRules.For(ItemDefs.Logs.Id);
-        Check(burn != null && burn.Xp == 40 && FiremakingRules.For(ItemDefs.Coins.Id) == null, "logs burn for 40 xp; coins don't burn");
-        double l1 = FiremakingRules.LightChance(burn, 1);
-        Check(l1 > 0.2 && l1 < 0.3 && FiremakingRules.LightChance(burn, 43) == 1.0, "about 1 in 4 to light at level 1, certain at 43");
+        var burn = db.Burnable(Logs);
+        Check(burn != null && burn.Xp == 40 && db.Burnable(Coins) == null, "logs burn for 40 xp; coins don't burn");
+        double l1 = Firemaking.LightChance(burn, 1);
+        Check(l1 > 0.2 && l1 < 0.3 && Firemaking.LightChance(burn, 43) == 1.0, "about 1 in 4 to light at level 1, certain at 43");
+        var spot = db.Node(FishingModule.NetSpot);
         var frng = new Random(3);
         bool onlyShrimp = true;
-        for (int i = 0; i < 300; i++) { var f = FishingRules.Roll(FishingRules.NetSpot, 14, frng); if (f != null && f != FishingRules.Shrimps) onlyShrimp = false; }
+        for (int i = 0; i < 300; i++) { var f = Gathering.Roll(spot, 14, frng); if (f != null && f.ItemId != FishingModule.RawShrimps) onlyShrimp = false; }
         Check(onlyShrimp, "below level 15 a net spot only gives shrimps");
         int anch = 0, shr = 0, none = 0;
-        for (int i = 0; i < 2000; i++) { var f = FishingRules.Roll(FishingRules.NetSpot, 30, frng); if (f == FishingRules.Anchovies) anch++; else if (f == FishingRules.Shrimps) shr++; else none++; }
+        for (int i = 0; i < 2000; i++) { var f = Gathering.Roll(spot, 30, frng); if (f == null) none++; else if (f.ItemId == FishingModule.RawAnchovies) anch++; else shr++; }
         Check(anch > 100 && shr > 100, "at 30 both anchovies (" + anch + ") and shrimps (" + shr + ") bite");
-        Check(FishingRules.MinLevel(FishingRules.NetSpot) == 1, "net fishing starts at level 1");
-        Check(new SkillSet().GetLevel(SkillId.Fishing) == 1 && SkillDefs.Get(SkillId.Firemaking).Name == "Firemaking", "Firemaking and Fishing skills exist");
+        Check(spot.MinLevel == 1 && Gathering.RollLives(spot, frng) == 0, "net fishing starts at level 1 and never runs out");
+        Check(new SkillSet().GetLevel(FishingModule.Skill) == 1 && db.Skill(FiremakingModule.Skill).Name == "Firemaking", "Firemaking and Fishing skills exist");
 
         info("Cooking");
-        var cook = CookingRules.For(ItemDefs.RawShrimps.Id);
-        Check(cook != null && cook.CookedItemId == ItemDefs.Shrimps.Id && cook.Xp == 30 && CookingRules.For(ItemDefs.Logs.Id) == null, "raw shrimps cook into shrimps for 30 xp; logs don't cook");
-        Check(CookingRules.For(ItemDefs.RawAnchovies.Id).BurntItemId == ItemDefs.BurntFish.Id, "anchovies burn into burnt fish");
-        double cookChance = CookingRules.SuccessChance(cook, 1);
+        var cook = db.RecipeUsing(FiremakingModule.Fire, FishingModule.RawShrimps);
+        Check(cook != null && cook.Product == CookingModule.Shrimps && cook.Xp == 30 && db.RecipeUsing(FiremakingModule.Fire, Logs) == null, "raw shrimps cook into shrimps for 30 xp; logs don't cook");
+        Check(db.RecipeUsing(FiremakingModule.Fire, FishingModule.RawAnchovies).FailProduct == CookingModule.BurntFish, "anchovies burn into burnt fish");
+        double cookChance = Making.SuccessChance(cook, 1);
         Check(cookChance > 0.25 && cookChance < 0.4, "about 1 in 3 cooked at level 1 (" + cookChance.ToString("0.00") + ")");
-        Check(CookingRules.SuccessChance(cook, 33) < 1.0 && CookingRules.SuccessChance(cook, 34) == 1.0, "stops burning at level 34");
+        Check(Making.SuccessChance(cook, 33) < 1.0 && Making.SuccessChance(cook, 34) == 1.0, "stops burning at level 34");
+        var cinv = new Inventory();
+        cinv.Add(Logs);
+        cinv.Add(FishingModule.RawShrimps);
+        bool failed;
+        Check(Making.Make(cook, cinv, 99, new Random(1), out failed) == CookingModule.Shrimps && !failed && cinv[1].ItemId == CookingModule.Shrimps, "cooked fish stay in their slot");
 
         info("Health and eating");
         var hp = new Health(10);
@@ -221,11 +246,11 @@ public static class CoreRulesSuite
         Check(hp.Damage(7) == 7 && hp.Current == 3 && hp.Damage(50) == 3 && hp.IsDead, "damage stops at 0");
         hp.Set(4);
         inv.Clear();
-        inv.Add(ItemDefs.Shrimps.Id);
-        inv.Add(ItemDefs.BurntShrimp.Id);
+        inv.Add(CookingModule.Shrimps);
+        inv.Add(CookingModule.BurntShrimp);
         Check(Foods.Eat(inv, 0, hp, out int healed) != null && healed == 3 && hp.Current == 7 && inv[0].IsEmpty, "shrimps heal 3 and are eaten");
         Check(Foods.Eat(inv, 1, hp, out healed) == null && !inv[1].IsEmpty, "burnt shrimp can't be eaten");
-        inv.Add(ItemDefs.Shrimps.Id);
+        inv.Add(CookingModule.Shrimps);
         Foods.Eat(inv, 0, hp, out healed);
         Check(healed == 3 && hp.Current == 10, "healing stops at the maximum");
         hp.Set(6);
@@ -253,39 +278,48 @@ public static class CoreRulesSuite
         Check(pb2.Points == 0 && !pb2.AnyActive, "out of points: prayers switch off");
         pb2.Recharge();
         Check(pb2.Points == 43, "an altar recharges points");
-        Check(Prayers.BuryXp(ItemDefs.Bones.Id) == 4.5 && Prayers.BuryXp(ItemDefs.Logs.Id) == null, "bones bury for 4.5 Prayer xp");
-        Check(NpcDefs.Goblin.AlwaysDrops.Length == 1 && NpcDefs.Goblin.AlwaysDrops[0] == ItemDefs.Bones, "goblins always drop bones");
-        double gob = CombatRules.MonsterHitChance(NpcDefs.Goblin, 1, 0, CombatStyle.Accurate);
-        double gobDef = CombatRules.MonsterHitChance(NpcDefs.Goblin, 20, 5, CombatStyle.Defensive, 1.1);
+        Check(Item(PrayerModule.Bones).BuryXp == 4.5 && Item(Logs).BuryXp == 0, "bones bury for 4.5 Prayer xp");
+        Check(db.Npc(CombatModule.Goblin).AlwaysDrops.Count == 1 && db.Npc(CombatModule.Goblin).AlwaysDrops[0] == PrayerModule.Bones, "goblins always drop bones");
+        double gob = CombatRules.MonsterHitChance(db.Npc(CombatModule.Goblin), 1, 0, CombatStyle.Accurate);
+        double gobDef = CombatRules.MonsterHitChance(db.Npc(CombatModule.Goblin), 20, 5, CombatStyle.Defensive, 1.1);
         Check(gob > 0.4 && gob < 0.6 && gobDef < gob / 2, "a goblin hits a new player about half the time (" + gob.ToString("0.00") + "), far less with Defence");
         Check(CombatRules.MaxHit(10, 0, CombatStyle.Accurate, 1.1) == CombatRules.MaxHit(11, 0, CombatStyle.Accurate), "Strength prayers boost the level used for max hit");
         var ps = new SkillSet();
-        foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints, SkillId.Prayer }) ps.SetLevel(id, 99);
+        foreach (var id in new[] { SkillIds.Attack, SkillIds.Strength, SkillIds.Defence, SkillIds.Hitpoints, SkillIds.Prayer }) ps.SetLevel(id, 99);
         Check(CombatRules.CombatLevel(ps) == 126, "99 in every melee skill and Prayer is combat level 126");
 
         info("Woodcutting");
-        double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
+        var treeYield = db.Node(WoodcuttingModule.Tree).Yields[0];
+        double c1 = Gathering.Chance(treeYield, 1), c99 = Gathering.Chance(treeYield, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");
-        Check(WoodcuttingRules.SuccessChance(TreeDefs.Basic, 999) == 1.0, "certain at high levels");
+        Check(Gathering.Chance(treeYield, 999) == 1.0, "certain at high levels");
+        int lives = Gathering.RollLives(db.Node(WoodcuttingModule.Tree), new Random(2));
+        Check(lives >= 3 && lives <= 6, "a tree gives 3-6 logs");
 
         info("Mining and smithing");
-        Check(MiningRules.Copper.OreItemId == ItemDefs.CopperOre.Id && MiningRules.Tin.Xp == 17.5, "copper and tin rocks give their ore for 17.5 xp");
-        double m1 = MiningRules.SuccessChance(MiningRules.Copper, 1);
+        var copper = db.Node(MiningModule.CopperRock);
+        Check(copper.Yields[0].ItemId == MiningModule.CopperOre && db.Node(MiningModule.TinRock).Yields[0].Xp == 17.5, "copper and tin rocks give their ore for 17.5 xp");
+        double m1 = Gathering.Chance(copper.Yields[0], 1);
         Check(m1 > 0.35 && m1 < 0.45, "about 2 in 5 swings get ore at level 1 (" + m1.ToString("0.00") + ")");
+        var bar = db.Recipe("smelt_bronze_bar");
+        var plate = db.Recipe("smith_bronze_platebody");
+        var helm = db.Recipe("smith_bronze_full_helm");
         var sinv = new Inventory();
-        sinv.Add(ItemDefs.CopperOre.Id, 6);
-        sinv.Add(ItemDefs.TinOre.Id, 5);
-        Check(SmithingRules.CanMake(SmithingRules.BronzeBar, sinv) == 5, "6 copper + 5 tin make 5 bronze bars");
-        Check(SmithingRules.Problem(SmithingRules.BronzeBar, sinv, 1) == null, "level 1 can smelt bronze");
-        for (int i = 0; i < 5; i++) SmithingRules.Make(SmithingRules.BronzeBar, sinv);
-        Check(sinv.Count(ItemDefs.BronzeBar.Id) == 5 && sinv.Count(ItemDefs.TinOre.Id) == 0 && sinv.Count(ItemDefs.CopperOre.Id) == 1, "smelted: 5 bars, 1 copper left");
-        Check(!SmithingRules.Make(SmithingRules.BronzeBar, sinv), "no tin, no bar");
-        Check(SmithingRules.Problem(SmithingRules.BronzePlatebody, sinv, 17) != null && SmithingRules.Problem(SmithingRules.BronzePlatebody, sinv, 18) == null, "platebody needs level 18");
-        Check(SmithingRules.Make(SmithingRules.BronzePlatebody, sinv) && sinv.Count(ItemDefs.BronzeBar.Id) == 0 && sinv.Count(ItemDefs.BronzePlatebody.Id) == 1, "a platebody takes 5 bars");
-        Check(SmithingRules.Problem(SmithingRules.BronzeFullHelm, sinv, 99) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
-        Check(SmithingRules.At(Station.Anvil).Count == 3 && SmithingRules.At(Station.Furnace).Count == 1, "1 furnace recipe, 3 anvil recipes");
-        Check(ItemDefs.BronzeFullHelm.Slot == EquipSlot.Head && ItemDefs.BronzePlatebody.Slot == EquipSlot.Body && ItemDefs.BronzePlatelegs.Slot == EquipSlot.Legs, "armour goes on head, body and legs");
-        Check(ToolBelt.IsTool(ItemDefs.BronzePickaxe.Id) && ToolBelt.IsTool(ItemDefs.Hammer.Id), "pickaxe and hammer go on the tool belt");
+        var srng = new Random(1);
+        sinv.Add(MiningModule.CopperOre, 6);
+        sinv.Add(MiningModule.TinOre, 5);
+        Check(Making.CanMake(bar, sinv) == 5, "6 copper + 5 tin make 5 bronze bars");
+        Check(Making.Problem(bar, sinv, 1, false) == null, "level 1 can smelt bronze");
+        for (int i = 0; i < 5; i++) Making.Make(bar, sinv, 1, srng, out failed);
+        Check(sinv.Count(SmithingModule.BronzeBar) == 5 && sinv.Count(MiningModule.TinOre) == 0 && sinv.Count(MiningModule.CopperOre) == 1, "smelted: 5 bars, 1 copper left");
+        Check(Making.Make(bar, sinv, 1, srng, out failed) == null, "no tin, no bar");
+        Check(Making.Problem(plate, sinv, 17, true) != null && Making.Problem(plate, sinv, 18, true) == null, "platebody needs level 18");
+        Check(Making.Problem(plate, sinv, 18, false) == "You need a hammer to do that.", "smithing needs a hammer");
+        Check(Making.Make(plate, sinv, 18, srng, out failed) == SmithingModule.BronzePlatebody && sinv.Count(SmithingModule.BronzeBar) == 0 && sinv.Count(SmithingModule.BronzePlatebody) == 1, "a platebody takes 5 bars");
+        Check(Making.Problem(helm, sinv, 99, true) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
+        Check(db.RecipesAt(SmithingModule.Anvil).Count == 3 && db.RecipesAt(SmithingModule.Furnace).Count == 1, "1 furnace recipe, 3 anvil recipes");
+        Check(Item(SmithingModule.BronzeFullHelm).Slot == EquipSlot.Head && Item(SmithingModule.BronzePlatebody).Slot == EquipSlot.Body && Item(SmithingModule.BronzePlatelegs).Slot == EquipSlot.Legs, "armour goes on head, body and legs");
+        Check(ToolBelt.IsTool(MiningModule.BronzePickaxe) && ToolBelt.IsTool(SmithingModule.Hammer), "pickaxe and hammer go on the tool belt");
 
         info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })

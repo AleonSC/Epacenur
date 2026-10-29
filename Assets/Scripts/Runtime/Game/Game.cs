@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Epacenur.Content;
 using Epacenur.Core;
 using UnityEngine;
 
@@ -21,11 +22,15 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Sets the whole game up when Play is pressed (there are no scenes or prefabs to wire together)
-    /// and holds the player's skills and inventory.
+    /// Sets the whole game up when Play is pressed (there are no scenes or prefabs to wire together),
+    /// holds the player's skills and inventory, and runs the game clock: a tick every 0.6 s, as in RuneScape.
     public sealed class Game : MonoBehaviour
     {
         public static Game Instance { get; private set; }
+
+        /// Fired every game tick (0.6 s), after the player's activity has moved on.
+        public event System.Action Ticked;
+        public long TickCount { get; private set; }
 
         public readonly SkillSet Skills = new SkillSet();
         public readonly Inventory Inventory = new Inventory();
@@ -36,8 +41,6 @@ namespace Epacenur.Runtime
         public Health Health { get; private set; }
         /// Prayer points and active prayers (the maximum follows the Prayer level).
         public PrayerBook Prayer { get; private set; }
-        /// Whether a tool is to hand: on the tool belt or in the backpack.
-        public bool HasTool(int itemId) => ToolBelt.HasTool(ToolBelt, Inventory, itemId);
         public CombatStyle Style = CombatStyle.Accurate;
         public readonly System.Random Rng = new System.Random();
         public World World { get; private set; }
@@ -45,7 +48,7 @@ namespace Epacenur.Runtime
         public CameraRig Rig { get; private set; }
         public Hud Hud { get; private set; }
 
-        float nextSave;
+        float nextSave, tickTimer;
         static bool booted;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -70,6 +73,7 @@ namespace Epacenur.Runtime
         {
             Instance = this;
             Application.targetFrameRate = 144;
+            Modules.Load();  // every item, skill, monster... (Assets/Scripts/Content)
             Camera cam = SetUpScene();
 
             World = World.Create();
@@ -79,8 +83,8 @@ namespace Epacenur.Runtime
 
             Skills.XpGained += (id, tenths) => Hud.AddXpDrop(id, tenths);
             Skills.LevelledUp += OnLevelUp;
-            Health = new Health(Skills.GetLevel(SkillId.Hitpoints));
-            Prayer = new PrayerBook(Skills.GetLevel(SkillId.Prayer));
+            Health = new Health(Skills.GetLevel(SkillIds.Hitpoints));
+            Prayer = new PrayerBook(Skills.GetLevel(SkillIds.Prayer));
 
             if (SaveGame.Load(this))
             {
@@ -88,7 +92,7 @@ namespace Epacenur.Runtime
             }
             else
             {
-                Inventory.Add(ItemDefs.Coins.Id, 100);  // pocket money for the shop
+                Inventory.Add(ItemIds.Coins, 100);  // pocket money for the shop
                 GiveStartingTools();
                 GameLog.Add("Welcome to Epacenur.");
             }
@@ -135,27 +139,28 @@ namespace Epacenur.Runtime
             return cam;
         }
 
-        void OnLevelUp(SkillId id, int level)
+        void OnLevelUp(string id, int level)
         {
-            string name = SkillDefs.Get(id).Name;
+            string name = ContentDb.Current.Skill(id).Name;
             GameLog.Add("Congratulations, you just advanced a " + name + " level. Your " + name + " level is now " + level + ".");
             Hud.ShowLevelUp(id, level);
         }
 
-        float regenTimer, prayerTick;
+        float regenTimer;
 
         /// A new character's tool belt: hatchet, pickaxe and hammer, so you can chop, mine and smith straight away.
+        public static readonly string[] StartingTools = { WoodcuttingModule.BronzeHatchet, MiningModule.BronzePickaxe, SmithingModule.Hammer };
+
         public void GiveStartingTools()
         {
-            ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
-            ToolBelt.Add(ItemDefs.BronzePickaxe.Id);
-            ToolBelt.Add(ItemDefs.Hammer.Id);
+            foreach (var id in StartingTools)
+                ToolBelt.Add(id);
         }
 
         /// Turns a prayer on or off from the Prayer tab.
         public void TogglePrayer(PrayerId id)
         {
-            string problem = Prayer.Toggle(id, Skills.GetLevel(SkillId.Prayer));
+            string problem = Prayer.Toggle(id, Skills.GetLevel(SkillIds.Prayer));
             if (problem != null)
                 GameLog.Add(problem);
         }
@@ -177,18 +182,16 @@ namespace Epacenur.Runtime
 
         void Update()
         {
-            // Prayer points follow the Prayer level and drain each tick while prayers are on.
-            Prayer.SetMax(Skills.GetLevel(SkillId.Prayer));
-            prayerTick += Time.deltaTime;
-            while (prayerTick >= WoodcuttingRules.TickSeconds)
+            Prayer.SetMax(Skills.GetLevel(SkillIds.Prayer));
+            tickTimer += Time.deltaTime;
+            while (tickTimer >= GameTime.TickSeconds)
             {
-                prayerTick -= WoodcuttingRules.TickSeconds;
-                if (Prayer.Tick())
-                    GameLog.Add("You have run out of Prayer points; you can recharge at an altar.");
+                tickTimer -= GameTime.TickSeconds;
+                Tick();
             }
 
             // Max health follows the Hitpoints level; lost health comes back a point a minute.
-            Health.SetMax(Skills.GetLevel(SkillId.Hitpoints));
+            Health.SetMax(Skills.GetLevel(SkillIds.Hitpoints));
             if (Health.IsFull)
             {
                 regenTimer = 0f;
@@ -208,6 +211,16 @@ namespace Epacenur.Runtime
                 nextSave = Time.time + 15f;
                 SaveGame.Save(this);
             }
+        }
+
+        /// One game tick: the player's activity moves on, and prayers drain.
+        void Tick()
+        {
+            TickCount++;
+            Player.OnTick();
+            if (Prayer.Tick())
+                GameLog.Add("You have run out of Prayer points; you can recharge at an altar.");
+            Ticked?.Invoke();
         }
 
         void OnApplicationQuit() => SaveGame.Save(this);

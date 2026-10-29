@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Epacenur.Content;
 using Epacenur.Core;
 using UnityEngine;
 
@@ -40,7 +41,7 @@ namespace Epacenur.Runtime
             for (int x = 0; x < layout.Width; x++)
                 for (int z = 0; z < layout.Height; z++)
                     if (layout.Map[x, z] == Terrain.Tree)
-                        world.AddTree(TreeDefs.Basic, G(new Tile(x, z)), rng);
+                        world.AddNode(WoodcuttingModule.Tree, G(new Tile(x, z)), rng);
 
             // Buildings.
             foreach (var b in layout.Buildings)
@@ -52,7 +53,7 @@ namespace Epacenur.Runtime
                 var tiles = shore.ConvertAll(t => G(t));
                 int spots = tiles.Count >= 14 ? 2 : 1;
                 for (int i = 0; i < spots; i++)
-                    world.AddFishingSpot(FishingRules.NetSpot, tiles[rng.Next(tiles.Count)], tiles);
+                    world.AddNode(FishingModule.NetSpot, tiles[rng.Next(tiles.Count)], rng, tiles);
             }
 
             // The goblin camp: a few tents and goblins.
@@ -63,7 +64,7 @@ namespace Epacenur.Runtime
                 for (int i = 0; i < 2; i++)
                     Tent(world, G(new Tile(camp.X + 2 + i * (camp.Width - 5), camp.ZMax - 2)));
                 for (int i = 0; i < 4; i++)
-                    world.AddNpc(NpcDefs.Goblin, new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height - 2)), home);
+                    world.AddNpc(ContentDb.Current.Npc(CombatModule.Goblin), new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height - 2)), home);
                 world.AddLabel(World.TileCenter(G(camp.Center)) + Vector3.up * 0.4f, "Goblin camp", new Color(1f, 0.6f, 0.5f));
             }
 
@@ -137,15 +138,15 @@ namespace Epacenur.Runtime
             {
                 case BuildingKind.Bank:
                     // The booth's counter faces -z, so turn its back to the door.
-                    world.AddBankBooth(feature).transform.rotation = Quaternion.LookRotation(-toDoor);
+                    world.AddStation(CommonModule.BankBooth, feature).transform.rotation = Quaternion.LookRotation(-toDoor);
                     world.AddLabel(signAt, "Bank", new Color(1f, 0.85f, 0.3f));
                     break;
                 case BuildingKind.Shop:
-                    world.AddShopKeeper(feature, Shops.DevAreaStore()).SetFacing(facingDoor);
+                    world.AddShopKeeper(feature, ShopsModule.GeneralStore).SetFacing(facingDoor);
                     world.AddLabel(signAt, "General Store", new Color(1f, 0.85f, 0.3f));
                     break;
                 case BuildingKind.Chapel:
-                    world.AddAltar(feature).transform.rotation = Quaternion.LookRotation(-toDoor);
+                    world.AddStation(PrayerModule.Altar, feature).transform.rotation = Quaternion.LookRotation(-toDoor);
                     world.AddLabel(signAt, "Chapel", new Color(1f, 0.85f, 0.3f));
                     break;
                 default:

@@ -105,8 +105,8 @@ namespace Epacenur.Runtime
             if (!IsOpen || Event.current.type != EventType.Repaint)
                 return;
             MakeStyles();
-            Hud.Fill(rect, new Color(0.36f, 0.33f, 0.27f, 1f));
-            Hud.Fill(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, HeaderH - 1f), Color.black);
+            Gui.Fill(rect, new Color(0.36f, 0.33f, 0.27f, 1f));
+            Gui.Fill(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, HeaderH - 1f), Color.black);
             GUI.Label(new Rect(rect.x + 4f, rect.y + 1f, rect.width, HeaderH), "Choose Option", header);
             int hover = Row(Event.current.mousePosition);
             for (int i = 0; i < options.Count; i++)

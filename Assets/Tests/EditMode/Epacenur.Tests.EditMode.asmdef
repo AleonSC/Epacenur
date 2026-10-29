@@ -1,7 +1,7 @@
 {
     "name": "Epacenur.Tests.EditMode",
     "rootNamespace": "Epacenur.Tests",
-    "references": ["Epacenur.Core", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+    "references": ["Epacenur.Core", "Epacenur.Content", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

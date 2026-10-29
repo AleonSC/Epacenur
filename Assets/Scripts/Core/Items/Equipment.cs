@@ -2,13 +2,6 @@ using System;
 
 namespace Epacenur.Core
 {
-    /// Where an item is worn (the slots of the equipment tab).
-    public enum EquipSlot
-    {
-        None = -1,
-        Head, Cape, Neck, Ammo, Weapon, Body, Shield, Legs, Hands, Feet, Ring,
-    }
-
     /// The items you're wearing, one per slot.
     public sealed class Equipment
     {

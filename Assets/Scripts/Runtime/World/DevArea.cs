@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Epacenur.Content;
 using Epacenur.Core;
 using UnityEngine;
 
@@ -57,7 +58,7 @@ namespace Epacenur.Runtime
                 for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 3)
                 {
                     var tile = new Tile(x + rng.Next(0, 2), z + rng.Next(0, 2));
-                    world.AddRock(i++ % 2 == 0 ? MiningRules.Copper : MiningRules.Tin, tile, rng);
+                    world.AddNode(i++ % 2 == 0 ? MiningModule.CopperRock : MiningModule.TinRock, tile, rng);
                 }
         }
     }
@@ -77,7 +78,7 @@ namespace Epacenur.Runtime
                 for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 3)
                 {
                     var tile = new Tile(x + rng.Next(0, 2), z + rng.Next(0, 2));
-                    world.AddTree(TreeDefs.Basic, tile, rng);
+                    world.AddNode(WoodcuttingModule.Tree, tile, rng);
                 }
         }
     }
@@ -95,7 +96,7 @@ namespace Epacenur.Runtime
             for (int i = 0; i < Count; i++)
             {
                 var tile = new Tile(Plot.x + 1 + rng.Next(Plot.width - 2), Plot.y + 1 + rng.Next(Plot.height - 3));
-                world.AddNpc(NpcDefs.Goblin, tile, new RectInt(Plot.x + 1, Plot.y + 1, Plot.width - 2, Plot.height - 3));
+                world.AddNpc(ContentDb.Current.Npc(CombatModule.Goblin), tile, new RectInt(Plot.x + 1, Plot.y + 1, Plot.width - 2, Plot.height - 3));
             }
         }
     }
@@ -122,7 +123,7 @@ namespace Epacenur.Runtime
                 }
             var rng = new System.Random(7);
             for (int i = 0; i < 3; i++)
-                world.AddFishingSpot(FishingRules.NetSpot, shore[rng.Next(shore.Count)], shore);
+                world.AddNode(FishingModule.NetSpot, shore[rng.Next(shore.Count)], rng, shore);
         }
     }
 

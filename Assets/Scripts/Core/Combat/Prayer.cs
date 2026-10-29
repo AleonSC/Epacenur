@@ -44,8 +44,7 @@ namespace Epacenur.Core
 
         public static PrayerDef Get(PrayerId id) => All[(int)id];
 
-        /// Burying bones: Prayer xp per item (null if it can't be buried).
-        public static double? BuryXp(int itemId) => itemId == ItemDefs.Bones.Id ? 4.5 : (double?)null;
+        /// Burying bones (any item with BuryXp) takes 2 ticks.
         public const int BuryTicks = 2;
     }
 

@@ -1,0 +1,263 @@
+using System;
+using System.Collections.Generic;
+
+namespace Epacenur.Core
+{
+    // Everything in the game is described by these definitions, registered by content modules
+    // (Assets/Scripts/Content) into the ContentDb. They are plain data: ids are text, like "bronze_bar".
+
+    /// Where an item is worn (the slots of the equipment tab).
+    public enum EquipSlot
+    {
+        None = -1,
+        Head, Cape, Neck, Ammo, Weapon, Body, Shield, Legs, Hands, Feet, Ring,
+    }
+
+    /// The parts of the player model that worn items attach to.
+    ///   Body: the model's own space (feet at y = 0, facing +z).
+    ///   LegLeft, LegRight, ArmLeft, ArmRight: the limb's pivot (hip or shoulder), hanging down -y.
+    ///   Hand: the right hand, pointing forward (+z) from the grip: weapons and tools.
+    ///   ShieldArm: the outside of the left forearm, facing out (-x): shields.
+    public enum Bone { Body, LegLeft, LegRight, ArmLeft, ArmRight, Hand, ShieldArm }
+
+    public struct WornPart
+    {
+        public Bone Bone;
+        public Model Model;
+    }
+
+    /// The verbs the game knows for items in the inventory. Most are worked out from the item
+    /// (anything with a Slot can be worn, anything with Heals eaten...); ItemDef.Verbs adds others.
+    public static class Verbs
+    {
+        public const string Wield = "Wield", Wear = "Wear", Eat = "Eat", Bury = "Bury", Light = "Light", Cook = "Cook",
+            AddToToolBelt = "Add to tool belt", AddToPouch = "Add to pouch", Drop = "Drop", Examine = "Examine";
+    }
+
+    public sealed class ItemDef
+    {
+        public string Id, Name, Examine;
+        public int Value;            // in coins: shops sell at this price and buy back for less
+        public bool Stackable;       // stackable items share one slot; everything else takes a slot each
+        public Rgb Colour;
+
+        public Icon Icon;            // in the inventory and every other slot (Size 40)
+        public Model GroundModel;    // lying on the ground, about half a tile across, resting on y = 0
+        public Model HeldModel;      // in the hand (weapons, tools, pointing +z from the grip) or on the arm (shields)
+
+        // Equipment
+        public EquipSlot Slot = EquipSlot.None;
+        public int AttackBonus, StrengthBonus, DefenceBonus;
+        public int AttackTicks = 4;  // weapons: game ticks between attacks
+        public readonly List<WornPart> Worn = new List<WornPart>();  // armour: what shows on the body
+
+        // Uses
+        public string ToolType;      // "hatchet", "pickaxe", "hammer"... (can go on the tool belt)
+        public int ToolTier;         // better tools of a type have higher tiers
+        public int Heals;            // food: hitpoints healed when eaten
+        public double BuryXp;        // bones: Prayer xp when buried
+
+        /// Extra things you can do with it from the inventory, beyond what the game works out itself
+        /// (Wield/Wear, Eat, Bury, Light, Cook, Add to tool belt, Add to pouch, Drop, Examine). Each needs a
+        /// handler registered in the game (Runtime: ItemVerbs).
+        public readonly List<string> Verbs = new List<string>();
+
+        public bool IsTool => ToolType != null;
+    }
+
+    public sealed class SkillDef
+    {
+        public string Id, Name;
+        public Rgb Colour;           // its xp drops
+        public int StartLevel = 1;   // Hitpoints starts at 10, as in RuneScape
+        public Icon Icon;            // Size 22
+    }
+
+    // ---- Gathering: trees, rocks, fishing spots ----
+
+    /// One thing a node can give, e.g. a fishing spot gives anchovies from level 15 and shrimps from level 1.
+    public sealed class NodeYield
+    {
+        public string ItemId;
+        public int Level;
+        public double Xp;
+        public int LowChance, HighChance;  // chance per attempt, out of 256, at level 1 and level 99 (it keeps rising past 99)
+        public string Message;             // "You get some logs."
+    }
+
+    /// How a node looks and behaves beyond its models (the game adds the extras).
+    public enum NodeLook { Tree, Rock, FishingSpot }
+
+    /// Something you gather from: a tree, a rock, a fishing spot.
+    public sealed class NodeDef
+    {
+        public string Id, Name, Examine, Action;     // Action: the menu verb, "Chop down", "Mine", "Net"
+        public string EmptyName, EmptyExamine;       // once used up: "Tree stump", "Rocks"
+        public string Skill, ToolType;               // the skill it trains and the tool it needs
+        public NodeYield[] Yields;                   // best first: each attempt tries the best one you have the level for first
+        public int AttemptTicks = 4;                 // tile mode: an attempt every this many ticks
+        public int FirstPersonTicks = 2;             // first person: one attempt per click, no faster than this
+        public int MinLives = 1, MaxLives = 1;       // successes before it's used up (0: never, e.g. fishing spots)
+        public float RespawnSeconds;                 // how long it stays used up
+        public float MoveMinSeconds, MoveMaxSeconds; // fishing spots move along their shore every so often (0: never)
+        public NodeLook Look;
+        public Model Model, EmptyModel;
+        public bool Blocks = true;                   // stands on its tile (trees, rocks); fishing spots sit on water instead
+        public string StartMessage;                  // "You swing your axe at the tree."
+        public string NeedToolMessage;               // "You need a hatchet to chop down this tree."
+        public string FullMessage;                   // "Your inventory is too full to hold any more logs."
+        public string LevelMessage;                  // "You need a Woodcutting level of {0} to chop down this tree."
+        public string EmptyMessage;                  // trying it while used up: "There is currently no ore available in this rock."
+                                                     // (null: a used-up node can only be examined, like a stump)
+
+        public int MinLevel
+        {
+            get
+            {
+                int min = int.MaxValue;
+                foreach (var y in Yields)
+                    min = Math.Min(min, y.Level);
+                return min;
+            }
+        }
+    }
+
+    // ---- Making: smelting, smithing, cooking ----
+
+    public struct Ingredient
+    {
+        public string ItemId;
+        public int Count;
+        public Ingredient(string itemId, int count) { ItemId = itemId; Count = count; }
+    }
+
+    /// Something made from other items at a station (furnace, anvil, fire).
+    public sealed class RecipeDef
+    {
+        public string Id, Name;          // Name: what's made, "Bronze platebody"
+        public string Station;           // where: "furnace", "anvil", "fire"
+        public string Skill;
+        public int Level;
+        public double Xp;
+        public Ingredient[] Inputs;
+        public string Product;
+        public string ToolType;          // needed on top of the inputs, e.g. "hammer" at an anvil
+        public string FailProduct;       // can fail (cooking burns): what you get instead, and no xp
+        public int LowChance, HighChance;// success chance out of 256 at level 1 and 99 when it can fail
+        public int Ticks = 4;
+        public string SuccessMessage;    // "You successfully cook some shrimps."
+        public string FailMessage;       // "You accidentally burn the shrimps."
+    }
+
+    /// What a station does when used.
+    public enum StationKind
+    {
+        MakeAll,      // makes as many as you can of its recipes, starting with the one you chose (furnace, fire)
+        MakeWindow,   // opens a window to choose what and how many to make (anvil)
+        Bank,         // opens the bank
+        Altar,        // recharges Prayer points
+    }
+
+    /// A fixed object you use: bank booth, altar, furnace, anvil (fires are stations too, lit by players).
+    public sealed class StationDef
+    {
+        public string Id, Name, Action, Examine;  // Action: the menu verb, "Smelt", "Smith", "Bank", "Pray-at"
+        public StationKind Kind;
+        public Model Model;                       // faces -z (its front)
+        public bool HasLight;                     // casts a warm glow (furnace)
+        public Rgb LightColour;
+        public string Label;                      // the name floating over it, e.g. "Bank" (null: none)
+        public float LabelHeight = 2f;            // how high it floats
+        public string Help;                       // MakeWindow: a hint at the bottom of the window
+    }
+
+    // ---- Shops ----
+
+    public struct ShopStock
+    {
+        public string ItemId;
+        public int Count;
+        public ShopStock(string itemId, int count) { ItemId = itemId; Count = count; }
+    }
+
+    public sealed class ShopDef
+    {
+        public string Id, Name;
+        public string KeeperName = "Shop keeper";
+        public string KeeperExamine = "I can buy things from him.";
+        public ShopStock[] Stock;
+        public bool BuysAnything = true;   // a general store buys anything (but coins); a specialist only its own stock
+        public double SellRate = 0.4;      // what it pays, as a share of the item's value
+    }
+
+    // ---- Monsters ----
+
+    public sealed class DropEntry
+    {
+        public string ItemId;
+        public int Min, Max, Weight;
+    }
+
+    /// A monster's possible drops. One entry is rolled by weight each kill.
+    public sealed class DropTable
+    {
+        public readonly List<DropEntry> Entries = new List<DropEntry>();
+
+        public DropTable Add(string itemId, int min, int max, int weight)
+        {
+            Entries.Add(new DropEntry { ItemId = itemId, Min = min, Max = max, Weight = weight });
+            return this;
+        }
+
+        /// The dropped item and amount, or false for no drop.
+        public bool Roll(Random rng, out string itemId, out int count)
+        {
+            itemId = null;
+            count = 0;
+            int total = 0;
+            foreach (var e in Entries)
+                total += e.Weight;
+            if (total <= 0)
+                return false;
+            int pick = rng.Next(total);
+            foreach (var e in Entries)
+            {
+                if (pick < e.Weight)
+                {
+                    itemId = e.ItemId;
+                    count = rng.Next(e.Min, e.Max + 1);
+                    return true;
+                }
+                pick -= e.Weight;
+            }
+            return false;
+        }
+    }
+
+    public sealed class NpcDef
+    {
+        public string Id, Name, Examine;
+        public int CombatLevel, Hitpoints;
+        public int DefenceLevel, DefenceBonus;
+        public int AttackLevel, AttackBonus, MaxHit;  // fighting back
+        public int AttackTicks = 4;
+        public float RespawnSeconds;
+        public float WalkSpeed = 1.6f;                // tiles per second
+        public DropTable Drops = new DropTable();
+        public readonly List<string> AlwaysDrops = new List<string>();  // every kill, e.g. bones
+        public Model Model;                           // feet at y = 0, facing +z
+        public float Height = 1.5f;                   // for its health bar and click box
+    }
+
+    // ---- Firemaking ----
+
+    /// Logs you can burn.
+    public sealed class BurnableDef
+    {
+        public string LogItemId;
+        public int Level;
+        public double Xp;
+        public int LowChance, HighChance;  // chance to light per attempt, out of 256, at level 1 and 99
+        public float MinBurnSeconds, MaxBurnSeconds;
+    }
+}

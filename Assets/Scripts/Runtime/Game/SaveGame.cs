@@ -1,83 +1,106 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
+using Epacenur.Content;
 using Epacenur.Core;
 using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Keeps skills, the inventory and money pouch, the bank, worn equipment and where you stood between sessions (in PlayerPrefs).
+    /// Keeps skills, the inventory and money pouch, the bank, worn equipment, the tool belt and where you
+    /// stood between sessions (in PlayerPrefs, as JSON). Items and skills are saved by their text ids, so
+    /// adding content never breaks a save; ids the game no longer knows are dropped.
     public static class SaveGame
     {
         public const string Key = "Epacenur.Save.v1";
-        public const int WorldVersion = 2;
+        public const int Format = 3;        // 3: text ids. Older saves used numbers (see LegacyItemIds).
+        public const int WorldVersion = 2;  // 2: the procedural main world. Older saves start in the town square.
 
         [Serializable]
         class Data
         {
-            public string[] skills;       // SkillId names
+            public int format;
+            public string[] skills;       // skill ids
             public string[] xpTenths;     // experience in tenths, as text (it can be far bigger than a long)
-            public int[] itemIds;
+            public string[] items;        // inventory, by slot ("" = empty)
             public int[] counts;
-            public int[] bankIds;
+            public string[] bank;
             public long[] bankCounts;
-            public int[] equipIds;   // by EquipSlot
+            public string[] equipped;     // by EquipSlot
+            public string[] tools;        // on the tool belt
             public int style;
-            public bool hasPouch;    // saves from before the money pouch kept coins in a slot
             public int pouch;
-            public int[] toolIds;    // tools on the tool belt
-            public bool hatchetGiven;
-            public bool miningToolsGiven;  // saves from before mining and smithing get a pickaxe and hammer
-            public bool hasHp;
             public int hp;
-            public bool hasPrayer;
-            public int prayerPoints;  // saves from before hatchets were needed get one on the belt
+            public int prayerPoints;
             public float x, z;
-            public int worldVersion;  // 2: the procedural main world. Older saves start in the town square.
+            public int worldVersion;
+
+            // Older formats (read only).
+            public int[] itemIds, bankIds, equipIds, toolIds;
+            public bool hasPouch, hatchetGiven, miningToolsGiven, hasHp, hasPrayer;
+        }
+
+        /// Format 1-2 item numbers, by their old number.
+        static readonly string[] LegacyItemIds =
+        {
+            null, WoodcuttingModule.Logs, ItemIds.Coins, FiremakingModule.Tinderbox, CombatModule.BronzeSword, CombatModule.WoodenShield,
+            FiremakingModule.Ashes, FishingModule.SmallFishingNet, FishingModule.RawShrimps, FishingModule.RawAnchovies,
+            WoodcuttingModule.BronzeHatchet, CookingModule.Shrimps, CookingModule.Anchovies, CookingModule.BurntShrimp, CookingModule.BurntFish,
+            PrayerModule.Bones, MiningModule.CopperOre, MiningModule.TinOre, SmithingModule.BronzeBar, MiningModule.BronzePickaxe,
+            SmithingModule.Hammer, SmithingModule.BronzeFullHelm, SmithingModule.BronzePlatebody, SmithingModule.BronzePlatelegs,
+        };
+
+        static string Legacy(int id) => id > 0 && id < LegacyItemIds.Length ? LegacyItemIds[id] : null;
+
+        static string[] LegacyAll(int[] ids)
+        {
+            if (ids == null)
+                return null;
+            var r = new string[ids.Length];
+            for (int i = 0; i < ids.Length; i++)
+                r[i] = Legacy(ids[i]);
+            return r;
         }
 
         public static void Save(Game game)
         {
-            var defs = SkillDefs.All;
+            var skills = ContentDb.Current.Skills;
             var d = new Data
             {
-                skills = new string[defs.Length],
-                xpTenths = new string[defs.Length],
-                itemIds = new int[Inventory.Size],
+                format = Format,
+                skills = new string[skills.Count],
+                xpTenths = new string[skills.Count],
+                items = new string[Inventory.Size],
                 counts = new int[Inventory.Size],
                 x = game.Player.transform.position.x,
                 z = game.Player.transform.position.z,
                 worldVersion = WorldVersion,
+                style = (int)game.Style,
+                pouch = game.Inventory.PouchCoins,
+                hp = game.Health.Current,
+                prayerPoints = game.Prayer.Points,
+                tools = new List<string>(game.ToolBelt.Owned).ToArray(),
             };
-            for (int i = 0; i < defs.Length; i++)
+            for (int i = 0; i < skills.Count; i++)
             {
-                d.skills[i] = defs[i].Id.ToString();
-                d.xpTenths[i] = game.Skills.GetXpTenths(defs[i].Id).ToString();
+                d.skills[i] = skills[i].Id;
+                d.xpTenths[i] = game.Skills.GetXpTenths(skills[i].Id).ToString();
             }
-            d.bankIds = new int[game.Bank.UsedSlots];
+            for (int i = 0; i < Inventory.Size; i++)
+            {
+                d.items[i] = game.Inventory[i].ItemId ?? "";
+                d.counts[i] = game.Inventory[i].Count;
+            }
+            d.bank = new string[game.Bank.UsedSlots];
             d.bankCounts = new long[game.Bank.UsedSlots];
             for (int i = 0; i < game.Bank.UsedSlots; i++)
             {
-                d.bankIds[i] = game.Bank[i].ItemId;
+                d.bank[i] = game.Bank[i].ItemId;
                 d.bankCounts[i] = game.Bank[i].Count;
             }
-            d.equipIds = new int[Equipment.SlotCount];
+            d.equipped = new string[Equipment.SlotCount];
             for (int i = 0; i < Equipment.SlotCount; i++)
-                d.equipIds[i] = game.Equipment[(EquipSlot)i].ItemId;
-            d.style = (int)game.Style;
-            d.hasPouch = true;
-            d.hatchetGiven = true;
-            d.miningToolsGiven = true;
-            d.hasHp = true;
-            d.hp = game.Health.Current;
-            d.hasPrayer = true;
-            d.prayerPoints = game.Prayer.Points;
-            d.pouch = game.Inventory.PouchCoins;
-            d.toolIds = new System.Collections.Generic.List<int>(game.ToolBelt.Owned).ToArray();
-            for (int i = 0; i < Inventory.Size; i++)
-            {
-                d.itemIds[i] = game.Inventory[i].ItemId;
-                d.counts[i] = game.Inventory[i].Count;
-            }
+                d.equipped[i] = game.Equipment[(EquipSlot)i].ItemId ?? "";
             PlayerPrefs.SetString(Key, JsonUtility.ToJson(d));
             PlayerPrefs.Save();
         }
@@ -99,48 +122,81 @@ namespace Epacenur.Runtime
             }
             if (d == null)
                 return false;
+            if (d.format < 3)
+                Upgrade(d);
 
+            var db = ContentDb.Current;
             for (int i = 0; d.skills != null && i < d.skills.Length && i < d.xpTenths.Length; i++)
-                if (Enum.TryParse(d.skills[i], out SkillId id) && BigInteger.TryParse(d.xpTenths[i], out var tenths))
-                    game.Skills.SetXpTenths(id, tenths);
+                if (db.Skill(d.skills[i]) != null && BigInteger.TryParse(d.xpTenths[i], out var tenths))
+                    game.Skills.SetXpTenths(d.skills[i], tenths);
 
-            for (int i = 0; d.itemIds != null && i < Inventory.Size && i < d.itemIds.Length; i++)
-                if (ItemDefs.Get(d.itemIds[i]) != null)
-                    game.Inventory.Set(i, new ItemStack { ItemId = d.itemIds[i], Count = d.counts[i] });
+            for (int i = 0; d.items != null && i < Inventory.Size && i < d.items.Length && i < d.counts.Length; i++)
+                if (db.Item(d.items[i]) != null)
+                    game.Inventory.Set(i, new ItemStack(d.items[i], d.counts[i]));
 
-            for (int i = 0; d.bankIds != null && d.bankCounts != null && i < d.bankIds.Length && i < d.bankCounts.Length; i++)
-                if (ItemDefs.Get(d.bankIds[i]) != null)
-                    game.Bank.Add(d.bankIds[i], d.bankCounts[i]);
+            for (int i = 0; d.bank != null && d.bankCounts != null && i < d.bank.Length && i < d.bankCounts.Length; i++)
+                if (db.Item(d.bank[i]) != null)
+                    game.Bank.Add(d.bank[i], d.bankCounts[i]);
 
-            for (int i = 0; d.equipIds != null && i < d.equipIds.Length && i < Equipment.SlotCount; i++)
-                if (ItemDefs.Get(d.equipIds[i]) != null)
-                    game.Equipment.Set((EquipSlot)i, new ItemStack { ItemId = d.equipIds[i], Count = 1 });
+            for (int i = 0; d.equipped != null && i < d.equipped.Length && i < Equipment.SlotCount; i++)
+                if (db.Item(d.equipped[i]) != null)
+                    game.Equipment.Set((EquipSlot)i, new ItemStack(d.equipped[i], 1));
             game.Style = (CombatStyle)Mathf.Clamp(d.style, 0, 2);
-            if (d.toolIds != null)
-                foreach (int id in d.toolIds)
-                    game.ToolBelt.Add(id);
-            game.Health.SetMax(game.Skills.GetLevel(SkillId.Hitpoints));
-            game.Health.Set(d.hasHp && d.hp > 0 ? d.hp : game.Health.Max);
-            game.Prayer.SetMax(game.Skills.GetLevel(SkillId.Prayer));
-            game.Prayer.SetPoints(d.hasPrayer ? d.prayerPoints : game.Prayer.Max);
-            if (!d.hatchetGiven)
-                game.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
-            if (!d.miningToolsGiven)
-            {
-                game.ToolBelt.Add(ItemDefs.BronzePickaxe.Id);
-                game.ToolBelt.Add(ItemDefs.Hammer.Id);
-            }
-            if (d.hasPouch)
-                game.Inventory.SetPouch(d.pouch);
-            else
-                for (int i = 0; i < Inventory.Size; i++)
-                    game.Inventory.AddToPouch(i);  // older save: move its coins into the new pouch
+            if (d.tools != null)
+                foreach (var id in d.tools)
+                    if (db.Item(id) != null)
+                        game.ToolBelt.Add(id);
+            game.Health.SetMax(game.Skills.GetLevel(SkillIds.Hitpoints));
+            game.Health.Set(d.hp > 0 ? d.hp : game.Health.Max);
+            game.Prayer.SetMax(game.Skills.GetLevel(SkillIds.Prayer));
+            game.Prayer.SetPoints(d.prayerPoints);
+            game.Inventory.SetPouch(d.pouch);
 
             var tile = d.worldVersion >= WorldVersion
                 ? game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)))
                 : game.World.MainSpawn;
             game.Player.Teleport(tile);
             return true;
+        }
+
+        /// Brings a format 1-2 save up to date: numbered items to text ids, skill names to ids, and the
+        /// things older versions didn't have (pouch, tool belt starters, health, prayer).
+        static void Upgrade(Data d)
+        {
+            if (d.skills != null)
+                for (int i = 0; i < d.skills.Length; i++)
+                    d.skills[i] = d.skills[i].ToLowerInvariant();  // "Woodcutting" -> "woodcutting"
+            d.items = LegacyAll(d.itemIds);
+            d.bank = LegacyAll(d.bankIds);
+            d.equipped = LegacyAll(d.equipIds);
+            var tools = new List<string>();
+            if (d.toolIds != null)
+                foreach (int id in d.toolIds)
+                    if (Legacy(id) != null)
+                        tools.Add(Legacy(id));
+            if (!d.hatchetGiven)
+                tools.Add(WoodcuttingModule.BronzeHatchet);
+            if (!d.miningToolsGiven)
+            {
+                tools.Add(MiningModule.BronzePickaxe);
+                tools.Add(SmithingModule.Hammer);
+            }
+            d.tools = tools.ToArray();
+            if (!d.hasHp)
+                d.hp = 0;  // full
+            if (!d.hasPrayer)
+                d.prayerPoints = int.MaxValue;  // full (clamped to the maximum)
+            if (!d.hasPouch && d.items != null)
+            {
+                // Before the money pouch, coins sat in a slot: move them in.
+                for (int i = 0; i < d.items.Length; i++)
+                    if (d.items[i] == ItemIds.Coins)
+                    {
+                        d.pouch += d.counts[i];
+                        d.items[i] = null;
+                    }
+            }
+            d.format = Format;
         }
 
         public static void Delete() => PlayerPrefs.DeleteKey(Key);

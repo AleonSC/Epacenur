@@ -5,34 +5,35 @@ namespace Epacenur.Core
 {
     public sealed class ShopItem
     {
-        public int ItemId;
+        public string ItemId;
         public int NormalStock;  // what the shop restocks to (0 for things players sold it)
         public int Stock;
-        public ItemDef Def => ItemDefs.Get(ItemId);
+        public ItemDef Def => ContentDb.Current.Item(ItemId);
     }
 
-    /// A shop's stock, buying and selling. Prices are the item's value; selling an item to a shop
-    /// pays 40% of its value, rounded down, like a RuneScape general store. Stock drifts back to normal
+    /// A running shop, made from a ShopDef: its stock, buying and selling. Prices are the item's value;
+    /// selling pays the shop's sell rate (40% for a general store), rounded down. Stock drifts back to normal
     /// over time (Restock), and items players sold that the shop doesn't normally stock go away.
     public sealed class Shop
     {
-        public const double SellRate = 0.4;
-        public readonly string Name;
+        public readonly ShopDef Def;
+        public string Name => Def.Name;
         public readonly List<ShopItem> Items = new List<ShopItem>();
 
         public event Action Changed;
 
-        public Shop(string name, params (ItemDef item, int stock)[] stock)
+        public Shop(ShopDef def)
         {
-            Name = name;
-            foreach (var s in stock)
-                Items.Add(new ShopItem { ItemId = s.item.Id, NormalStock = s.stock, Stock = s.stock });
+            Def = def;
+            foreach (var s in def.Stock)
+                Items.Add(new ShopItem { ItemId = s.ItemId, NormalStock = s.Count, Stock = s.Count });
         }
 
         public static int BuyPrice(ItemDef def) => Math.Max(1, def.Value);
-        public static int SellPrice(ItemDef def) => (int)Math.Floor(def.Value * SellRate);
-        /// Coins can't be sold, everything else can (this is a general store).
-        public static bool CanSell(ItemDef def) => def != null && def != ItemDefs.Coins;
+        public int SellPrice(ItemDef def) => (int)Math.Floor(def.Value * Def.SellRate);
+
+        /// Coins can't be sold anywhere; a specialist shop only buys what it stocks.
+        public bool CanSell(ItemDef def) => def != null && def.Id != ItemIds.Coins && (Def.BuysAnything || Find(def.Id) != null);
 
         /// Buys up to `amount` of the shop's item at `index`. Returns how many were bought and,
         /// when fewer than asked, why (for the chat box).
@@ -47,11 +48,11 @@ namespace Epacenur.Core
             for (; bought < amount; bought++)
             {
                 if (item.Stock <= 0) { problem = "The shop has run out of stock."; break; }
-                if (inv.Count(ItemDefs.Coins.Id) < price) { problem = "You don't have enough coins."; break; }
-                // Paying might empty the coin slot, which makes room for the item.
-                bool coinsFreeASlot = inv.Count(ItemDefs.Coins.Id) == price;
+                if (inv.Count(ItemIds.Coins) < price) { problem = "You don't have enough coins."; break; }
+                // Paying might empty a coin stack in the backpack, which makes room for the item.
+                bool coinsFreeASlot = inv.CountInSlots(ItemIds.Coins) > 0 && inv.Count(ItemIds.Coins) == price;
                 if (!inv.HasRoomFor(item.ItemId) && !coinsFreeASlot) { problem = "You don't have enough inventory space."; break; }
-                inv.Remove(ItemDefs.Coins.Id, price);
+                inv.Remove(ItemIds.Coins, price);
                 inv.Add(item.ItemId, 1);
                 item.Stock--;
             }
@@ -61,10 +62,10 @@ namespace Epacenur.Core
         }
 
         /// Sells up to `amount` of an item from the inventory. Returns how many were sold.
-        public int Sell(Inventory inv, int itemId, int amount, out string problem)
+        public int Sell(Inventory inv, string itemId, int amount, out string problem)
         {
             problem = null;
-            var def = ItemDefs.Get(itemId);
+            var def = ContentDb.Current.Item(itemId);
             if (!CanSell(def))
             {
                 problem = "You can't sell this item to this shop.";
@@ -72,10 +73,10 @@ namespace Epacenur.Core
             }
             int price = SellPrice(def);
             int sold = 0;
-            for (; sold < amount && inv.Count(itemId) > 0; sold++)
+            for (; sold < amount && inv.CountInSlots(itemId) > 0; sold++)
             {
-                inv.Remove(itemId, 1);
-                if (price > 0 && inv.Add(ItemDefs.Coins.Id, price) == 0)
+                inv.RemoveFromSlots(itemId, 1);
+                if (price > 0 && inv.Add(ItemIds.Coins, price) == 0)
                 {
                     inv.Add(itemId, 1);  // no room for the coins: undo
                     problem = "You don't have enough inventory space.";
@@ -107,25 +108,14 @@ namespace Epacenur.Core
                 Changed?.Invoke();
         }
 
-        ShopItem Find(int itemId)
+        public int IndexOf(string itemId) => Items.FindIndex(i => i.ItemId == itemId);
+
+        ShopItem Find(string itemId)
         {
             foreach (var item in Items)
                 if (item.ItemId == itemId)
                     return item;
             return null;
         }
-    }
-
-    public static class Shops
-    {
-        /// The dev area's shop. To stock something else, add it here.
-        public static Shop DevAreaStore() => new Shop("Dev Area General Store",
-            (ItemDefs.Tinderbox, 5),
-            (ItemDefs.BronzeSword, 5),
-            (ItemDefs.WoodenShield, 5),
-            (ItemDefs.SmallFishingNet, 5),
-            (ItemDefs.BronzeHatchet, 5),
-            (ItemDefs.BronzePickaxe, 5),
-            (ItemDefs.Hammer, 5));
     }
 }

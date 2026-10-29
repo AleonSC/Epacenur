@@ -1,7 +1,7 @@
 {
     "name": "Epacenur.Runtime",
     "rootNamespace": "Epacenur.Runtime",
-    "references": ["Epacenur.Core"],
+    "references": ["Epacenur.Core", "Epacenur.Content"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

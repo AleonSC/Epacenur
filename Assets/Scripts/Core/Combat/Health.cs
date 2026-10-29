@@ -62,33 +62,21 @@ namespace Epacenur.Core
         }
     }
 
-    public sealed class FoodDef
-    {
-        public int ItemId;
-        public int Heals;
-    }
-
-    /// What can be eaten and how much it heals. To add food: add it to All.
+    /// Eating: any item with Heals (ItemDef) is food.
     public static class Foods
     {
         /// Eating takes 3 ticks, and delays your next attack by as much.
         public const int EatTicks = 3;
 
-        public static readonly FoodDef[] All =
-        {
-            new FoodDef { ItemId = ItemDefs.Shrimps.Id, Heals = 3 },
-            new FoodDef { ItemId = ItemDefs.Anchovies.Id, Heals = 1 },
-        };
-
-        public static FoodDef For(int itemId) => Array.Find(All, f => f.ItemId == itemId);
+        public static bool IsFood(string itemId) => (ContentDb.Current.Item(itemId)?.Heals ?? 0) > 0;
 
         /// Eats the food in an inventory slot. Returns the food eaten (null if it isn't food) and how much it healed.
-        public static FoodDef Eat(Inventory inv, int slot, Health health, out int healed)
+        public static ItemDef Eat(Inventory inv, int slot, Health health, out int healed)
         {
             healed = 0;
             var stack = inv[slot];
-            var food = stack.IsEmpty ? null : For(stack.ItemId);
-            if (food == null)
+            var food = stack.IsEmpty ? null : stack.Def;
+            if (food == null || food.Heals <= 0)
                 return null;
             inv.RemoveAt(slot);
             healed = health.Heal(food.Heals);

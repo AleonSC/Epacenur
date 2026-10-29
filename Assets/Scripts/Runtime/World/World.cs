@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Epacenur.Content;
 using Epacenur.Core;
 using UnityEngine;
 
@@ -30,14 +31,12 @@ namespace Epacenur.Runtime
         public Tile DevSpawn => DevArea.Spawn;
 
         public TileGrid Grid { get; private set; }
-        public readonly List<TreeObject> Trees = new List<TreeObject>();
-        public readonly List<BankBooth> BankBooths = new List<BankBooth>();
+        public readonly List<NodeObject> Nodes = new List<NodeObject>();
+        public readonly List<StationObject> Stations = new List<StationObject>();
         public readonly List<ShopKeeper> ShopKeepers = new List<ShopKeeper>();
         public readonly List<Npc> Npcs = new List<Npc>();
         public readonly List<GroundItem> GroundItems = new List<GroundItem>();
         public readonly List<Fire> Fires = new List<Fire>();
-        public readonly List<FishingSpot> FishingSpots = new List<FishingSpot>();
-        public readonly List<RockObject> Rocks = new List<RockObject>();
         readonly System.Random rng = new System.Random();
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
@@ -74,11 +73,11 @@ namespace Epacenur.Runtime
             BuildGround(DevRegion, new Color(0.33f, 0.52f, 0.24f), new Color(0.27f, 0.44f, 0.2f));
             BuildWalls(DevRegion);
             AddLabel(TileCenter(DevArea.Spawn) + new Vector3(0f, 0.2f, -1.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
-            AddBankBooth(DevArea.BankBooth);
-            AddShopKeeper(DevArea.ShopKeeper, Shops.DevAreaStore());
-            AddAltar(DevArea.Altar);
-            AddFurnace(DevArea.Furnace);
-            AddAnvil(DevArea.Anvil);
+            AddStation(CommonModule.BankBooth, DevArea.BankBooth);
+            AddShopKeeper(DevArea.ShopKeeper, ShopsModule.GeneralStore);
+            AddStation(PrayerModule.Altar, DevArea.Altar);
+            AddStation(SmithingModule.Furnace, DevArea.Furnace);
+            AddStation(SmithingModule.Anvil, DevArea.Anvil);
 
             Areas.AddRange(DevArea.CreateAreas());
             foreach (var area in Areas)
@@ -141,50 +140,34 @@ namespace Epacenur.Runtime
             Labels.Add(new WorldLabel { Position = position, Text = text, Color = color });
         }
 
-        public BankBooth AddBankBooth(Tile tile)
+        /// A station (bank booth, altar, furnace...) on a tile, which it blocks, with its name floating over it.
+        public StationObject AddStation(string stationId, Tile tile)
         {
-            var booth = BankBooth.Create(tile, transform);
+            var def = ContentDb.Current.Station(stationId);
+            var station = StationObject.Create(def, tile, transform);
             Grid.SetBlocked(tile, true);
-            BankBooths.Add(booth);
-            AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Bank", new Color(1f, 0.85f, 0.3f));
-            return booth;
+            Stations.Add(station);
+            if (def.Label != null)
+                AddLabel(TileCenter(tile) + Vector3.up * def.LabelHeight, def.Label, new Color(1f, 0.85f, 0.3f));
+            return station;
         }
 
-        public RockObject AddRock(RockDef def, Tile tile, System.Random random)
+        /// A gathering node (tree, rock, fishing spot). Trees and rocks block their tile; a fishing spot sits
+        /// on water and moves between the `shore` tiles.
+        public NodeObject AddNode(string nodeId, Tile tile, System.Random random, List<Tile> shore = null)
         {
-            var rock = RockObject.Create(def, tile, transform, random);
-            Grid.SetBlocked(tile, true);
-            Rocks.Add(rock);
-            return rock;
+            var def = ContentDb.Current.Node(nodeId);
+            var node = NodeObject.Create(def, tile, transform, random, shore);
+            if (def.Blocks)
+                Grid.SetBlocked(tile, true);
+            Nodes.Add(node);
+            return node;
         }
 
-        public Furnace AddFurnace(Tile tile)
+        /// A shop keeper running a shop (each keeper has its own stock).
+        public ShopKeeper AddShopKeeper(Tile tile, string shopId)
         {
-            var furnace = Furnace.Create(tile, transform);
-            Grid.SetBlocked(tile, true);
-            AddLabel(TileCenter(tile) + Vector3.up * 2.3f, "Furnace", new Color(1f, 0.85f, 0.3f));
-            return furnace;
-        }
-
-        public Anvil AddAnvil(Tile tile)
-        {
-            var anvil = Anvil.Create(tile, transform);
-            Grid.SetBlocked(tile, true);
-            AddLabel(TileCenter(tile) + Vector3.up * 1.3f, "Anvil", new Color(1f, 0.85f, 0.3f));
-            return anvil;
-        }
-
-        public Altar AddAltar(Tile tile)
-        {
-            var altar = Altar.Create(tile, transform);
-            Grid.SetBlocked(tile, true);
-            AddLabel(TileCenter(tile) + Vector3.up * 1.6f, "Altar", new Color(1f, 0.85f, 0.3f));
-            return altar;
-        }
-
-        public ShopKeeper AddShopKeeper(Tile tile, Shop shop)
-        {
-            var npc = ShopKeeper.Create(tile, shop, transform);
+            var npc = ShopKeeper.Create(tile, new Shop(ContentDb.Current.Shop(shopId)), transform);
             Grid.SetBlocked(tile, true);
             ShopKeepers.Add(npc);
             AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Shop", new Color(1f, 0.85f, 0.3f));
@@ -199,9 +182,9 @@ namespace Epacenur.Runtime
         }
 
         /// Puts an item on the ground. A stackable item joins a pile of the same item on that tile.
-        public GroundItem SpawnGroundItem(int itemId, int count, Tile tile)
+        public GroundItem SpawnGroundItem(string itemId, int count, Tile tile)
         {
-            var def = ItemDefs.Get(itemId);
+            var def = ContentDb.Current.Item(itemId);
             if (def == null || count <= 0)
                 return null;
             if (def.Stackable)
@@ -227,6 +210,7 @@ namespace Epacenur.Runtime
             var fire = Fire.Create(tile, burnSeconds, transform);
             Grid.SetBlocked(tile, true);
             Fires.Add(fire);
+            Stations.Add(fire);
             return fire;
         }
 
@@ -234,9 +218,10 @@ namespace Epacenur.Runtime
         public void RemoveFire(Fire fire, bool leaveAshes)
         {
             Fires.Remove(fire);
+            Stations.Remove(fire);
             Grid.SetBlocked(fire.Tile, false);
             if (leaveAshes)
-                SpawnGroundItem(ItemDefs.Ashes.Id, 1, fire.Tile);
+                SpawnGroundItem(FiremakingModule.Ashes, 1, fire.Tile);
             Destroy(fire.gameObject);
         }
 
@@ -250,21 +235,6 @@ namespace Epacenur.Runtime
             Visuals.Prim(PrimitiveType.Cube, transform, center, new Vector3(area.width, 0.03f, area.height), new Color(0.2f, 0.42f, 0.7f));
             // A sandy bank round the edge.
             Visuals.Prim(PrimitiveType.Cube, transform, center - Vector3.up * 0.01f, new Vector3(area.width + 0.6f, 0.03f, area.height + 0.6f), new Color(0.76f, 0.68f, 0.48f));
-        }
-
-        public FishingSpot AddFishingSpot(FishingSpotDef def, Tile tile, List<Tile> shore)
-        {
-            var spot = FishingSpot.Create(def, tile, shore, transform);
-            FishingSpots.Add(spot);
-            return spot;
-        }
-
-        public TreeObject AddTree(TreeDef def, Tile tile, System.Random rng)
-        {
-            var tree = TreeObject.Create(def, tile, transform, rng);
-            Grid.SetBlocked(tile, true);
-            Trees.Add(tree);
-            return tree;
         }
 
         /// A walkable tile next to the given one (for teleports and getting un-stuck).

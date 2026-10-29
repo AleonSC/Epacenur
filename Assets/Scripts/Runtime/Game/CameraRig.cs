@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Epacenur.Core;
 using UnityEngine;
 
 namespace Epacenur.Runtime
@@ -17,7 +19,8 @@ namespace Epacenur.Runtime
         float orbitYaw = 0f, orbitPitch = 52f, distance = 13f;
         float lookYaw, lookPitch;
         Vector3 focus;
-        Transform fpAxe, fpSword, fpPickaxe;
+        // What you hold in first person (your weapon, or the tool for what you aim at), built on first use.
+        readonly Dictionary<string, Transform> fpHeld = new Dictionary<string, Transform>();
 
         public static CameraRig Create(Camera cam, PlayerController player)
         {
@@ -25,47 +28,6 @@ namespace Epacenur.Runtime
             rig.Cam = cam;
             rig.player = player;
             rig.focus = player.transform.position;
-
-            // The axe you see in first person, held at the bottom right of the view.
-            var holder = new GameObject("First person axe").transform;
-            holder.SetParent(cam.transform, false);
-            holder.localPosition = new Vector3(0.32f, -0.32f, 0.55f);
-            var axe = new GameObject("Axe").transform;
-            axe.SetParent(holder, false);
-            axe.localPosition = new Vector3(0f, 0f, -0.2f);
-            axe.localRotation = Quaternion.Euler(-60f, -10f, 0f);
-            PlayerController.BuildAxe(axe);
-            foreach (var r in holder.GetComponentsInChildren<Renderer>())
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            rig.fpAxe = holder;
-            holder.gameObject.SetActive(false);
-
-            // The sword, when you're wielding one.
-            var swordHolder = new GameObject("First person sword").transform;
-            swordHolder.SetParent(cam.transform, false);
-            swordHolder.localPosition = new Vector3(0.32f, -0.3f, 0.5f);
-            var sword = new GameObject("Sword").transform;
-            sword.SetParent(swordHolder, false);
-            sword.localPosition = new Vector3(0f, 0f, -0.1f);
-            sword.localRotation = Quaternion.Euler(-55f, -12f, 0f);
-            ItemModels.BuildSword(sword, Core.ItemDefs.BronzeSword);
-            foreach (var r in swordHolder.GetComponentsInChildren<Renderer>())
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            rig.fpSword = swordHolder;
-            swordHolder.gameObject.SetActive(false);
-
-            var pickHolder = new GameObject("First person pickaxe").transform;
-            pickHolder.SetParent(cam.transform, false);
-            pickHolder.localPosition = new Vector3(0.32f, -0.32f, 0.55f);
-            var pick = new GameObject("Pickaxe").transform;
-            pick.SetParent(pickHolder, false);
-            pick.localPosition = new Vector3(0f, 0f, -0.2f);
-            pick.localRotation = Quaternion.Euler(-60f, -10f, 0f);
-            ItemModels.BuildPickaxe(pick, Core.ItemDefs.BronzePickaxe);
-            foreach (var r in pickHolder.GetComponentsInChildren<Renderer>())
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            rig.fpPickaxe = pickHolder;
-            pickHolder.gameObject.SetActive(false);
 
             rig.ApplyLens();
             return rig;
@@ -86,11 +48,7 @@ namespace Epacenur.Runtime
                 LockCursor(false);
             }
             if (mode == ViewMode.Tile)
-            {
-                fpAxe.gameObject.SetActive(false);
-                fpSword.gameObject.SetActive(false);
-                fpPickaxe.gameObject.SetActive(false);
-            }
+                ShowHeld(null);
             ApplyLens();
         }
 
@@ -152,17 +110,37 @@ namespace Epacenur.Runtime
             transform.SetPositionAndRotation(focus + Vector3.up * PlayerController.EyeHeight, Quaternion.Euler(lookPitch, lookYaw, 0f));
 
             // Chop or slash: a quick downward strike, then back.
-            var tool = player.FirstPersonTool;
-            bool sword = tool == HeldTool.Sword;
-            fpAxe.gameObject.SetActive(tool == HeldTool.Axe);
-            fpSword.gameObject.SetActive(sword);
-            fpPickaxe.gameObject.SetActive(tool == HeldTool.Pickaxe);
-            if (tool == HeldTool.None)
+            var item = player.FirstPersonItem;
+            var held = ShowHeld(item);
+            if (held == null)
                 return;
+            bool weapon = item.Slot == EquipSlot.Weapon;
             float s = player.SwingT;
             float strike = s > 0.6f ? Mathf.InverseLerp(1f, 0.6f, s) : Mathf.InverseLerp(0f, 0.6f, s);
-            var held = sword ? fpSword : tool == HeldTool.Pickaxe ? fpPickaxe : fpAxe;
-            held.localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (sword ? -35f : -10f));
+            held.localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (weapon ? -35f : -10f));
+        }
+
+        /// Shows `item` in your hand at the bottom right of the view (null: empty-handed). Returns its holder.
+        Transform ShowHeld(ItemDef item)
+        {
+            Transform shown = null;
+            if (item != null && item.HeldModel != null && !fpHeld.TryGetValue(item.Id, out shown))
+            {
+                // Weapons are held a little higher and closer than tools.
+                bool weapon = item.Slot == EquipSlot.Weapon;
+                shown = new GameObject("First person " + item.Name).transform;
+                shown.SetParent(Cam.transform, false);
+                shown.localPosition = weapon ? new Vector3(0.32f, -0.3f, 0.5f) : new Vector3(0.32f, -0.32f, 0.55f);
+                var model = ModelBuilder.Build(item.HeldModel, shown);
+                model.localPosition = new Vector3(0f, 0f, weapon ? -0.1f : -0.2f);
+                model.localRotation = weapon ? Quaternion.Euler(-55f, -12f, 0f) : Quaternion.Euler(-60f, -10f, 0f);
+                foreach (var r in shown.GetComponentsInChildren<Renderer>())
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                fpHeld[item.Id] = shown;
+            }
+            foreach (var pair in fpHeld)
+                pair.Value.gameObject.SetActive(pair.Value == shown);
+            return shown;
         }
     }
 }

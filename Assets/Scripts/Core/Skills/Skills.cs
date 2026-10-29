@@ -4,94 +4,50 @@ using System.Numerics;
 
 namespace Epacenur.Core
 {
-    /// Every skill in the game. To add a skill: add it here, then give it a SkillDef in SkillDefs.All.
-    public enum SkillId
+    /// Ids of the skills the core rules use (combat). Every other skill's id lives in its content module.
+    public static class SkillIds
     {
-        Attack,
-        Strength,
-        Defence,
-        Hitpoints,
-        Prayer,
-        Woodcutting,
-        Firemaking,
-        Fishing,
-        Cooking,
-        Mining,
-        Smithing,
+        public const string Attack = "attack", Strength = "strength", Defence = "defence", Hitpoints = "hitpoints", Prayer = "prayer";
     }
 
-    public sealed class SkillDef
-    {
-        public SkillId Id;
-        public string Name;
-        public float R, G, B;  // colour of the skill's icon and xp drops
-        public int StartLevel = 1;  // Hitpoints starts at 10, as in RuneScape
-    }
-
-    public static class SkillDefs
-    {
-        public static readonly SkillDef[] All =
-        {
-            new SkillDef { Id = SkillId.Attack, Name = "Attack", R = 0.85f, G = 0.55f, B = 0.15f },
-            new SkillDef { Id = SkillId.Strength, Name = "Strength", R = 0.2f, G = 0.7f, B = 0.55f },
-            new SkillDef { Id = SkillId.Defence, Name = "Defence", R = 0.45f, G = 0.6f, B = 0.95f },
-            new SkillDef { Id = SkillId.Hitpoints, Name = "Hitpoints", R = 0.9f, G = 0.25f, B = 0.3f, StartLevel = 10 },
-            new SkillDef { Id = SkillId.Prayer, Name = "Prayer", R = 0.95f, G = 0.92f, B = 0.6f },
-            new SkillDef { Id = SkillId.Woodcutting, Name = "Woodcutting", R = 0.35f, G = 0.75f, B = 0.3f },
-            new SkillDef { Id = SkillId.Firemaking, Name = "Firemaking", R = 1f, G = 0.55f, B = 0.1f },
-            new SkillDef { Id = SkillId.Fishing, Name = "Fishing", R = 0.3f, G = 0.6f, B = 0.95f },
-            new SkillDef { Id = SkillId.Cooking, Name = "Cooking", R = 0.7f, G = 0.4f, B = 0.85f },
-            new SkillDef { Id = SkillId.Mining, Name = "Mining", R = 0.6f, G = 0.55f, B = 0.5f },
-            new SkillDef { Id = SkillId.Smithing, Name = "Smithing", R = 0.85f, G = 0.6f, B = 0.3f },
-        };
-
-        public static SkillDef Get(SkillId id)
-        {
-            foreach (var def in All)
-                if (def.Id == id)
-                    return def;
-            throw new ArgumentException("No SkillDef for " + id + ": add one to SkillDefs.All.");
-        }
-    }
-
-    /// A player's experience in every skill.
+    /// A player's experience in every skill (the skills in ContentDb.Current), by skill id.
     /// Experience is kept in tenths so half-xp rewards (like RuneScape's 67.5 for a willow log) add up exactly.
     public sealed class SkillSet
     {
-        readonly Dictionary<SkillId, BigInteger> tenths = new Dictionary<SkillId, BigInteger>();
+        readonly Dictionary<string, BigInteger> tenths = new Dictionary<string, BigInteger>();
         static readonly BigInteger MaxTenths = Experience.MaxXp * 10;
 
-        /// (skill, xp gained in tenths) after every gain.
-        public event Action<SkillId, BigInteger> XpGained;
-        /// (skill, new level) when a gain crosses one or more levels.
-        public event Action<SkillId, int> LevelledUp;
+        /// (skill id, xp gained in tenths) after every gain.
+        public event Action<string, BigInteger> XpGained;
+        /// (skill id, new level) when a gain crosses one or more levels.
+        public event Action<string, int> LevelledUp;
 
         public SkillSet()
         {
-            foreach (var def in SkillDefs.All)
+            foreach (var def in ContentDb.Current.Skills)
                 tenths[def.Id] = Experience.XpForLevel(def.StartLevel) * 10;
         }
 
-        public BigInteger GetXpTenths(SkillId id) => tenths.TryGetValue(id, out var t) ? t : BigInteger.Zero;
+        public BigInteger GetXpTenths(string id) => tenths.TryGetValue(id, out var t) ? t : BigInteger.Zero;
         /// Whole experience points (rounded down), what the level is based on.
-        public BigInteger GetXp(SkillId id) => GetXpTenths(id) / 10;
-        public int GetLevel(SkillId id) => Experience.LevelForXp(GetXp(id));
+        public BigInteger GetXp(string id) => GetXpTenths(id) / 10;
+        public int GetLevel(string id) => Experience.LevelForXp(GetXp(id));
 
         public int TotalLevel
         {
             get
             {
                 int total = 0;
-                foreach (var def in SkillDefs.All)
+                foreach (var def in ContentDb.Current.Skills)
                     total += GetLevel(def.Id);
                 return total;
             }
         }
 
-        /// Adds experience, e.g. AddXp(SkillId.Woodcutting, 25) or 67.5. Stops at the level-999 cap.
-        public void AddXp(SkillId id, double xp) => AddXpTenths(id, new BigInteger(Math.Round(xp * 10.0)));
+        /// Adds experience, e.g. AddXp("woodcutting", 25) or 67.5. Stops at the level-999 cap.
+        public void AddXp(string id, double xp) => AddXpTenths(id, new BigInteger(Math.Round(xp * 10.0)));
 
-        public void AddXpTenths(SkillId id, BigInteger amount)
+        public void AddXpTenths(string id, BigInteger amount)
         {
             if (amount.Sign <= 0)
                 return;
@@ -108,13 +64,13 @@ namespace Epacenur.Core
         }
 
         /// Sets experience directly (dev tools, loading a save). No events.
-        public void SetXpTenths(SkillId id, BigInteger value)
+        public void SetXpTenths(string id, BigInteger value)
         {
             if (value.Sign < 0)
                 value = BigInteger.Zero;
             tenths[id] = BigInteger.Min(value, MaxTenths);
         }
 
-        public void SetLevel(SkillId id, int level) => SetXpTenths(id, Experience.XpForLevel(level) * 10);
+        public void SetLevel(string id, int level) => SetXpTenths(id, Experience.XpForLevel(level) * 10);
     }
 }

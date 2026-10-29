@@ -5,21 +5,16 @@ namespace Epacenur.Core
 {
     /// RuneScape 3's tool belt: tools added to it leave the backpack for good and are used from
     /// the belt automatically, as if you carried them. They can't be taken off or dropped.
+    /// A tool is any item with a ToolType (see ItemDef); the belt can hold every one.
     public sealed class ToolBelt
     {
-        /// Every tool the belt can hold, in display order. To add one: put its ItemDef here.
-        public static readonly ItemDef[] Tools =
-        {
-            ItemDefs.BronzeHatchet, ItemDefs.BronzePickaxe, ItemDefs.Hammer, ItemDefs.Tinderbox, ItemDefs.SmallFishingNet,
-        };
-
-        readonly HashSet<int> owned = new HashSet<int>();
+        readonly HashSet<string> owned = new HashSet<string>();
 
         public event Action Changed;
 
-        public static bool IsTool(int itemId) => Array.Exists(Tools, t => t.Id == itemId);
-        public bool Has(int itemId) => owned.Contains(itemId);
-        public IEnumerable<int> Owned => owned;
+        public static bool IsTool(string itemId) => ContentDb.Current.Item(itemId)?.IsTool ?? false;
+        public bool Has(string itemId) => owned.Contains(itemId);
+        public IEnumerable<string> Owned => owned;
 
         /// Moves a tool from an inventory slot onto the belt. Returns false (and why) if it can't.
         public bool AddFromInventory(Inventory inv, int slot, out string problem)
@@ -42,8 +37,8 @@ namespace Epacenur.Core
             return true;
         }
 
-        /// Puts a tool straight on the belt (loading a save).
-        public void Add(int itemId)
+        /// Puts a tool straight on the belt (loading a save, a new character's tools).
+        public void Add(string itemId)
         {
             if (IsTool(itemId) && owned.Add(itemId))
                 Changed?.Invoke();
@@ -55,7 +50,17 @@ namespace Epacenur.Core
             Changed?.Invoke();
         }
 
-        /// Whether you have a tool to hand: on the belt or in the backpack.
-        public static bool HasTool(ToolBelt belt, Inventory inv, int itemId) => belt.Has(itemId) || inv.Count(itemId) > 0;
+        /// The best tool of a type you have to hand (on the belt or in the backpack), or null.
+        public static ItemDef Find(ToolBelt belt, Inventory inv, string toolType)
+        {
+            ItemDef best = null;
+            foreach (var tool in ContentDb.Current.Tools)
+                if (tool.ToolType == toolType && (best == null || tool.ToolTier > best.ToolTier) && (belt.Has(tool.Id) || inv.Count(tool.Id) > 0))
+                    best = tool;
+            return best;
+        }
+
+        /// Whether a specific tool item is to hand: on the belt or in the backpack.
+        public static bool HasItem(ToolBelt belt, Inventory inv, string itemId) => belt.Has(itemId) || inv.Count(itemId) > 0;
     }
 }

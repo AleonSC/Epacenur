@@ -4,12 +4,11 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// A monster you can attack (goblins for now). It wanders round its plot until you attack it,
+    /// A monster you can attack, built from an NpcDef. It wanders round its plot until you attack it,
     /// then fights back: it chases you (not far from its plot) and hits you every few ticks.
     /// When it dies it drops its loot on the ground and comes back after its respawn time.
     public sealed class Npc : MonoBehaviour
     {
-        public const float WalkSpeed = 1.6f;   // tiles per second
         public const float HitsplatSeconds = 1f;
 
         public struct Hitsplat
@@ -51,36 +50,15 @@ namespace Epacenur.Runtime
             npc.rng = rng;
             npc.Hitpoints = def.Hitpoints;
             npc.nextWander = Time.time + 1f + (float)rng.NextDouble() * 4f;
-            npc.BuildGoblin();
+            npc.model = ModelBuilder.Build(def.Model, go.transform);
             // A trigger, so it can be clicked and aimed at without pushing anyone around.
             var col = go.AddComponent<CapsuleCollider>();
             col.isTrigger = true;
             col.radius = 0.4f;
-            col.height = 1.5f;
-            col.center = new Vector3(0f, 0.75f, 0f);
+            col.height = def.Height;
+            col.center = new Vector3(0f, def.Height / 2f, 0f);
             npc.hitbox = col;
             return npc;
-        }
-
-        void BuildGoblin()
-        {
-            model = new GameObject("Model").transform;
-            model.SetParent(transform, false);
-            var skin = new Color(Def.R, Def.G, Def.B);
-            var cloth = new Color(0.45f, 0.32f, 0.2f);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(0f, 0.72f, 0f), new Vector3(0.45f, 0.4f, 0.35f), cloth);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(-0.12f, 0.22f, 0f), new Vector3(0.14f, 0.22f, 0.14f), skin);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(0.12f, 0.22f, 0f), new Vector3(0.14f, 0.22f, 0.14f), skin);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(-0.29f, 0.75f, 0.05f), new Vector3(0.11f, 0.24f, 0.11f), skin);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(0.29f, 0.75f, 0.05f), new Vector3(0.11f, 0.24f, 0.11f), skin);
-            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0f, 1.2f, 0.02f), new Vector3(0.36f, 0.34f, 0.36f), skin);
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.17f, 0.18f), new Vector3(0.07f, 0.1f, 0.08f), skin * 0.85f);       // nose
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(-0.08f, 1.25f, 0.16f), new Vector3(0.05f, 0.04f, 0.03f), new Color(0.8f, 0.1f, 0.05f));
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0.08f, 1.25f, 0.16f), new Vector3(0.05f, 0.04f, 0.03f), new Color(0.8f, 0.1f, 0.05f));
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(-0.22f, 1.26f, 0f), new Vector3(0.2f, 0.05f, 0.08f), skin)                // ears
-                .transform.localRotation = Quaternion.Euler(0f, 0f, -25f);
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0.22f, 1.26f, 0f), new Vector3(0.2f, 0.05f, 0.08f), skin)
-                .transform.localRotation = Quaternion.Euler(0f, 0f, 25f);
         }
 
         /// Being attacked: stop wandering and face the attacker for a while.
@@ -114,7 +92,7 @@ namespace Epacenur.Runtime
             {
                 retaliating = true;
                 // It swings back after a moment, not instantly.
-                nextAttack = Mathf.Max(nextAttack, Time.time + 2f * WoodcuttingRulesTick);
+                nextAttack = Mathf.Max(nextAttack, Time.time + 2f * GameTime.TickSeconds);
             }
             Hitsplats.Add(new Hitsplat { Damage = damage, Time = Time.time });
             if (Hitpoints > 0)
@@ -132,8 +110,8 @@ namespace Epacenur.Runtime
             path.Clear();
             var tile = Game.Instance.World.NearestWalkable(Tile);
             foreach (var item in Def.AlwaysDrops)
-                Game.Instance.World.SpawnGroundItem(item.Id, 1, tile);
-            if (Def.Drops != null && Def.Drops.Roll(rng, out int itemId, out int count))
+                Game.Instance.World.SpawnGroundItem(item, 1, tile);
+            if (Def.Drops != null && Def.Drops.Roll(rng, out string itemId, out int count))
                 Game.Instance.World.SpawnGroundItem(itemId, count, Game.Instance.World.NearestWalkable(Tile));
         }
 
@@ -153,8 +131,6 @@ namespace Epacenur.Runtime
             model.gameObject.SetActive(true);
             hitbox.enabled = true;
         }
-
-        const float WoodcuttingRulesTick = WoodcuttingRules.TickSeconds;
 
         /// Fighting back: walk up next to the player, then hit them every AttackTicks.
         /// It gives up if the player gets far away or leaves the area around its plot.
@@ -186,7 +162,7 @@ namespace Epacenur.Runtime
                     transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(d), 1f - Mathf.Exp(-12f * Time.deltaTime));
                 if (Time.time >= nextAttack)
                 {
-                    nextAttack = Time.time + Def.AttackTicks * WoodcuttingRulesTick;
+                    nextAttack = Time.time + Def.AttackTicks * GameTime.TickSeconds;
                     attackAnim = 0.4f;
                     player.TakeMonsterHit(this);
                 }
@@ -207,7 +183,7 @@ namespace Epacenur.Runtime
                 if (p != null)
                     path.AddRange(p);
             }
-            Step(WalkSpeed * 1.6f);
+            Step(Def.WalkSpeed * 1.6f);
         }
 
         void Step(float speed)
@@ -271,7 +247,7 @@ namespace Epacenur.Runtime
             if (Time.time < engagedUntil)
                 return;
             if (pathIndex < path.Count)
-                Step(WalkSpeed);
+                Step(Def.WalkSpeed);
             else if (Time.time >= nextWander)
             {
                 nextWander = Time.time + 3f + (float)rng.NextDouble() * 5f;

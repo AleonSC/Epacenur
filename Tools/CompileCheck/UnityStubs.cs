@@ -16,7 +16,8 @@ namespace UnityEngine
         public static GameObject CreatePrimitive(PrimitiveType t) => null; public T AddComponent<T>() where T : Component => null; public T GetComponent<T>() => default(T); public void SetActive(bool v) { } }
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
     public class Transform : Component { public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
-        public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { } }
+        public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { }
+        public int childCount => 0; public Transform GetChild(int i) => null; }
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
@@ -25,8 +26,9 @@ namespace UnityEngine
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
         public static bool operator ==(Vector3 a, Vector3 b) => true; public static bool operator !=(Vector3 a, Vector3 b) => true;
         public override bool Equals(object o) => true; public override int GetHashCode() => 0;
-        public static Vector3 operator -(Vector3 a) => a; public static Vector3 ClampMagnitude(Vector3 v, float m) => v; public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a; }
-    public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity;
+        public static Vector3 operator -(Vector3 a) => a; public static Vector3 ClampMagnitude(Vector3 v, float m) => v; public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a;
+        public static Vector3 Min(Vector3 a, Vector3 b) => a; public static Vector3 Max(Vector3 a, Vector3 b) => a; public static Vector3 operator /(Vector3 a, float b) => a; }
+    public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity; public static Quaternion Euler(Vector3 e) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
     public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }

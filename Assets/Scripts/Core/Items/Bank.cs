@@ -5,9 +5,9 @@ namespace Epacenur.Core
 {
     public struct BankSlot
     {
-        public int ItemId;
+        public string ItemId;
         public long Count;
-        public ItemDef Def => ItemDefs.Get(ItemId);
+        public ItemDef Def => ContentDb.Current.Item(ItemId);
     }
 
     /// The bank: every kind of item takes one slot and all of it stacks there, even items that
@@ -22,18 +22,18 @@ namespace Epacenur.Core
         public int UsedSlots => slots.Count;
         public BankSlot this[int slot] => slots[slot];
 
-        public long Count(int itemId)
+        public long Count(string itemId)
         {
             int i = IndexOf(itemId);
             return i < 0 ? 0 : slots[i].Count;
         }
 
         /// Whether the item already has a slot or there's a free one.
-        public bool HasRoomFor(int itemId) => IndexOf(itemId) >= 0 || slots.Count < Size;
+        public bool HasRoomFor(string itemId) => IndexOf(itemId) >= 0 || slots.Count < Size;
 
         /// Moves up to `amount` of an item from the inventory's slots into the bank (coins in the money
         /// pouch stay there: see DepositPouch). Returns how many moved.
-        public int Deposit(Inventory inv, int itemId, int amount)
+        public int Deposit(Inventory inv, string itemId, int amount)
         {
             int n = Math.Min(amount, inv.CountInSlots(itemId));
             if (n <= 0 || !HasRoomFor(itemId))
@@ -46,10 +46,10 @@ namespace Epacenur.Core
         /// "Deposit money pouch": every coin in the pouch goes into the bank. Returns how many.
         public int DepositPouch(Inventory inv)
         {
-            if (inv.PouchCoins <= 0 || !HasRoomFor(ItemDefs.Coins.Id))
+            if (inv.PouchCoins <= 0 || !HasRoomFor(ItemIds.Coins))
                 return 0;
             int n = inv.TakeFromPouch(inv.PouchCoins);
-            Add(ItemDefs.Coins.Id, n);
+            Add(ItemIds.Coins, n);
             return n;
         }
 
@@ -83,7 +83,7 @@ namespace Epacenur.Core
             return n;
         }
 
-        public void Add(int itemId, long count)
+        public void Add(string itemId, long count)
         {
             if (count <= 0)
                 return;
@@ -101,7 +101,7 @@ namespace Epacenur.Core
             Changed?.Invoke();
         }
 
-        public int IndexOf(int itemId)
+        public int IndexOf(string itemId)
         {
             for (int i = 0; i < slots.Count; i++)
                 if (slots[i].ItemId == itemId)

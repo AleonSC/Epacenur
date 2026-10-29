@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Something on a tile you click to use: the bank booth, the shop keeper.
+    /// Something on a tile you click to use: a tree, a bank booth, a fire, the shop keeper.
     /// Tile mode walks you next to it first; in first person it has to be within reach.
     public abstract class Interactable : MonoBehaviour
     {
@@ -12,6 +12,8 @@ namespace Epacenur.Runtime
         public abstract string Action { get; }
         public abstract string DisplayName { get; }
         public abstract string Examine { get; }
+        /// False when it can only be examined (a tree stump).
+        public virtual bool HasAction => true;
         public abstract void Interact();
     }
 }
