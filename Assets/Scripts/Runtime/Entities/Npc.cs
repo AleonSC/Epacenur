@@ -42,7 +42,7 @@ namespace Epacenur.Runtime
         {
             var go = new GameObject(def.Name);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = World.TileCenter(tile);
+            go.transform.localPosition = World.Local(tile);
             go.transform.localRotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
             var npc = go.AddComponent<Npc>();
             npc.Def = def;

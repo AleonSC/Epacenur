@@ -88,6 +88,16 @@ namespace Epacenur.Runtime
             cc.enabled = true;
         }
 
+        /// The world's origin moved (World): move with it, so you stay on the same tile.
+        public void ShiftBy(Vector3 delta)
+        {
+            cc.enabled = false;
+            transform.position += delta;
+            cc.enabled = true;
+            lastPosition += delta;
+            destMarker.transform.position += delta;
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;

@@ -23,7 +23,7 @@ namespace Epacenur.Runtime
             var go = new GameObject("Ground item " + def.Name);
             go.transform.SetParent(parent, false);
             // A little off the tile's centre and turned at random, so several items on a tile don't overlap.
-            go.transform.localPosition = World.TileCenter(tile) + new Vector3((float)rng.NextDouble() * 0.4f - 0.2f, 0.01f, (float)rng.NextDouble() * 0.4f - 0.2f);
+            go.transform.localPosition = World.Local(tile) + new Vector3((float)rng.NextDouble() * 0.4f - 0.2f, 0.01f, (float)rng.NextDouble() * 0.4f - 0.2f);
             go.transform.localRotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
             var item = go.AddComponent<GroundItem>();
             item.ItemId = itemId;

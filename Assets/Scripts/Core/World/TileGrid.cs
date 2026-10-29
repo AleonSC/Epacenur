@@ -23,22 +23,12 @@ namespace Epacenur.Core
         public bool IsCardinalNeighbour(Tile o) => Math.Abs(X - o.X) + Math.Abs(Z - o.Z) == 1;
     }
 
-    /// Which tiles can be walked on.
-    public sealed class TileGrid
+    /// Which tiles can be walked on. Pathfinding works on any of these: a fixed-size TileGrid, or the
+    /// endless ChunkedGrid of the overworld.
+    public abstract class WalkGrid
     {
-        public readonly int Width, Height;
-        readonly bool[,] blocked;
-
-        public TileGrid(int width, int height)
-        {
-            Width = width;
-            Height = height;
-            blocked = new bool[width, height];
-        }
-
-        public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
-        public bool IsWalkable(Tile t) => InBounds(t) && !blocked[t.X, t.Z];
-        public void SetBlocked(Tile t, bool value) { if (InBounds(t)) blocked[t.X, t.Z] = value; }
+        public abstract bool IsWalkable(Tile t);
+        public abstract void SetBlocked(Tile t, bool value);
 
         /// Whether a single step from a tile to a neighbour is allowed. As in RuneScape, a diagonal
         /// step needs both tiles it cuts past to be free, so you can't squeeze between two trees.
@@ -51,8 +41,75 @@ namespace Epacenur.Core
                 return IsWalkable(new Tile(from.X + dx, from.Z)) && IsWalkable(new Tile(from.X, from.Z + dz));
             return true;
         }
+    }
 
-        public Tile Clamp(Tile t) => new Tile(Math.Max(0, Math.Min(Width - 1, t.X)), Math.Max(0, Math.Min(Height - 1, t.Z)));
+    /// A fixed-size grid of tiles, (0, 0) to (Width - 1, Height - 1); everything outside is blocked.
+    public sealed class TileGrid : WalkGrid
+    {
+        public readonly int Width, Height;
+        readonly bool[,] blocked;
+
+        public TileGrid(int width, int height)
+        {
+            Width = width;
+            Height = height;
+            blocked = new bool[width, height];
+        }
+
+        public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
+        public override bool IsWalkable(Tile t) => InBounds(t) && !blocked[t.X, t.Z];
+        public override void SetBlocked(Tile t, bool value) { if (InBounds(t)) blocked[t.X, t.Z] = value; }
+    }
+
+    /// An endless grid held as square chunks: only the chunks that are loaded exist, and everything
+    /// outside them is blocked (so a path can't wander into the unknown).
+    public sealed class ChunkedGrid : WalkGrid
+    {
+        public readonly int ChunkSize;
+        readonly Dictionary<long, bool[]> chunks = new Dictionary<long, bool[]>();
+
+        public ChunkedGrid(int chunkSize) { ChunkSize = chunkSize; }
+
+        public static long Key(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
+
+        /// Which chunk a tile is in (floor division, so negative tiles work too).
+        public int ChunkOf(int tileCoord) => tileCoord >= 0 ? tileCoord / ChunkSize : (tileCoord + 1) / ChunkSize - 1;
+
+        public bool IsLoaded(int cx, int cz) => chunks.ContainsKey(Key(cx, cz));
+        public int LoadedCount => chunks.Count;
+
+        /// Adds a chunk: `blocked(tile)` says which of its tiles can't be walked on.
+        public void Load(int cx, int cz, Func<Tile, bool> blocked)
+        {
+            var cells = new bool[ChunkSize * ChunkSize];
+            for (int x = 0; x < ChunkSize; x++)
+                for (int z = 0; z < ChunkSize; z++)
+                    cells[x * ChunkSize + z] = blocked(new Tile(cx * ChunkSize + x, cz * ChunkSize + z));
+            chunks[Key(cx, cz)] = cells;
+        }
+
+        public void Unload(int cx, int cz) => chunks.Remove(Key(cx, cz));
+        public void Clear() => chunks.Clear();
+
+        bool[] Cells(Tile t, out int index)
+        {
+            int cx = ChunkOf(t.X), cz = ChunkOf(t.Z);
+            index = (t.X - cx * ChunkSize) * ChunkSize + (t.Z - cz * ChunkSize);
+            return chunks.TryGetValue(Key(cx, cz), out var cells) ? cells : null;
+        }
+
+        public override bool IsWalkable(Tile t)
+        {
+            var cells = Cells(t, out int i);
+            return cells != null && !cells[i];
+        }
+
+        public override void SetBlocked(Tile t, bool value)
+        {
+            var cells = Cells(t, out int i);
+            if (cells != null)
+                cells[i] = value;
+        }
     }
 
     /// A* over the tile grid with 8-way movement.
@@ -64,14 +121,14 @@ namespace Epacenur.Core
         /// Path to a tile, not including the start. If the tile can't be reached (a tree, a wall),
         /// walks to the reachable tile closest to it instead, like clicking a blocked tile in RuneScape.
         /// Empty when already there or nothing better is reachable.
-        public static List<Tile> PathTo(TileGrid grid, Tile start, Tile target)
+        public static List<Tile> PathTo(WalkGrid grid, Tile start, Tile target)
         {
             return Find(grid, start, t => t == target, t => t.StepsTo(target));
         }
 
         /// Path to any free tile directly north, south, east or west of an object (to interact with it).
         /// Returns null when no such tile can be reached.
-        public static List<Tile> PathToInteract(TileGrid grid, Tile start, Tile objectTile)
+        public static List<Tile> PathToInteract(WalkGrid grid, Tile start, Tile objectTile)
         {
             if (start.IsCardinalNeighbour(objectTile))
                 return new List<Tile>();
@@ -81,7 +138,7 @@ namespace Epacenur.Core
             return path;
         }
 
-        static List<Tile> Find(TileGrid grid, Tile start, Func<Tile, bool> isGoal, Func<Tile, int> heuristic, int maxNodes = 20000)
+        static List<Tile> Find(WalkGrid grid, Tile start, Func<Tile, bool> isGoal, Func<Tile, int> heuristic, int maxNodes = 20000)
         {
             var came = new Dictionary<Tile, Tile>();
             var cost = new Dictionary<Tile, int> { [start] = 0 };

@@ -34,7 +34,7 @@ namespace Epacenur.Runtime
         {
             var go = new GameObject(def.Name + " " + tile);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = World.TileCenter(tile);
+            go.transform.localPosition = World.Local(tile);
             var node = go.AddComponent<NodeObject>();
             node.Def = def;
             node.Tile = tile;
@@ -144,7 +144,7 @@ namespace Epacenur.Runtime
         void MoveTo(Tile tile)
         {
             Tile = tile;
-            transform.localPosition = World.TileCenter(tile);
+            transform.localPosition = World.Local(tile);
             nextMove = Time.time + Random.Range(Def.MoveMinSeconds, Def.MoveMaxSeconds);
         }
 

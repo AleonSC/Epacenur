@@ -76,7 +76,7 @@ namespace Epacenur.Runtime
             Modules.Load();  // every item, skill, monster... (Assets/Scripts/Content)
             Camera cam = SetUpScene();
 
-            World = World.Create();
+            World = World.Create(MapId.Overworld, new Overworld(World.Seed).Spawn);
             Player = PlayerController.Create(World.Spawn);
             Rig = CameraRig.Create(cam, Player);
             Hud = gameObject.AddComponent<Hud>();
@@ -134,8 +134,8 @@ namespace Epacenur.Runtime
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = sky;
-            RenderSettings.fogStartDistance = 45f;
-            RenderSettings.fogEndDistance = 110f;
+            RenderSettings.fogStartDistance = 36f;
+            RenderSettings.fogEndDistance = 78f;  // short of where the loaded chunks end (at least 80 tiles out)
             return cam;
         }
 
@@ -176,7 +176,7 @@ namespace Epacenur.Runtime
                 Health.Set(Health.Max);
                 Prayer.DeactivateAll();
                 Prayer.Recharge();
-                Player.Teleport(World.Spawn);
+                World.Travel(MapId.Overworld, World.Spawn);
             }
         }
 

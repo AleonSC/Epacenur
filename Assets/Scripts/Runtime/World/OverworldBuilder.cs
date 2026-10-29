@@ -1,0 +1,235 @@
+using System.Collections.Generic;
+using Epacenur.Content;
+using Epacenur.Core;
+using UnityEngine;
+
+namespace Epacenur.Runtime
+{
+    /// Builds the overworld's 3D pieces from the generator (Core: Overworld): a chunk's ground, roads,
+    /// ponds, trees, rocks and fishing spot, and a region's buildings, goblin camp and place names.
+    public static class OverworldBuilder
+    {
+        static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f);
+        static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
+        static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f), Timber = new Color(0.55f, 0.4f, 0.25f), Trim = new Color(0.35f, 0.25f, 0.16f);
+        static readonly Color Gold = new Color(1f, 0.85f, 0.3f);
+
+        // ---- Chunks ----
+
+        public static void BuildChunk(World world, int cx, int cz, Material groundMat)
+        {
+            var ow = world.Overworld;
+            int size = Overworld.ChunkSize, x0 = cx * size, z0 = cz * size;
+            var root = world.BuildRoot;
+            var terrain = new Terrain[size, size];
+            for (int x = 0; x < size; x++)
+                for (int z = 0; z < size; z++)
+                    terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
+
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ground.name = "Ground";
+            ground.transform.SetParent(root, false);
+            ground.transform.localPosition = new Vector3(x0 + (size - 1) * 0.5f, -0.25f, z0 + (size - 1) * 0.5f);
+            ground.transform.localScale = new Vector3(size, 0.5f, size);
+            ground.GetComponent<Renderer>().sharedMaterial = groundMat;
+
+            // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
+            Strips(terrain, Terrain.Path, x0, z0, root, Dirt, 0.012f, 0.02f, 0f);
+            Strips(terrain, Terrain.Camp, x0, z0, root, CampDirt, 0.012f, 0.02f, 0f);
+            Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
+            Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
+            Strips(terrain, Terrain.Water, x0, z0, root, Sand, 0.008f, 0.016f, 0.35f);
+            Strips(terrain, Terrain.Water, x0, z0, root, Water, 0.025f, 0.03f, 0f);
+
+            // Trees and rocks. Each chunk has its own random numbers, so it looks the same every time.
+            var rng = new System.Random((int)(ow.Hash(cx, cz, 11) * int.MaxValue));
+            var tiles = new List<Tile>();
+            for (int x = 0; x < size; x++)
+                for (int z = 0; z < size; z++)
+                {
+                    var t = new Tile(x0 + x, z0 + z);
+                    tiles.Add(t);
+                    if (terrain[x, z] == Terrain.Tree)
+                        world.AddNode(WoodcuttingModule.Tree, t, rng);
+                    else if (terrain[x, z] == Terrain.Rock)
+                        world.AddNode(ow.IsTin(t) ? MiningModule.TinRock : MiningModule.CopperRock, t, rng);
+                }
+
+            // A fishing spot on a pond's shore, moving along the part of it in this chunk.
+            var shore = ow.Shore(tiles);
+            if (shore.Count >= 4)
+                world.AddNode(FishingModule.NetSpot, shore[rng.Next(shore.Count)], rng, shore);
+        }
+
+        /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges).
+        static void Strips(Terrain[,] terrain, Terrain kind, int x0, int z0, Transform root, Color colour, float y, float thickness, float grow)
+        {
+            int size = terrain.GetLength(0);
+            for (int z = 0; z < size; z++)
+            {
+                int x = 0;
+                while (x < size)
+                {
+                    if (terrain[x, z] != kind)
+                    {
+                        x++;
+                        continue;
+                    }
+                    int start = x;
+                    while (x < size && terrain[x, z] == kind)
+                        x++;
+                    float len = x - start;
+                    var pos = new Vector3(x0 + start + (len - 1) / 2f, y, z0 + z);
+                    Visuals.Prim(PrimitiveType.Cube, root, pos, new Vector3(len + grow * 2f, thickness, 1f + grow * 2f), colour);
+                }
+            }
+        }
+
+        // ---- Regions ----
+
+        public static void BuildRegion(World world, RegionPlan plan)
+        {
+            if (plan.Kind == RegionKind.Town)
+            {
+                foreach (var b in plan.Buildings)
+                    BuildBuilding(world, b);
+                bool home = plan.RX == 0 && plan.RZ == 0;
+                world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), home ? "Epacenur" : TownName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
+            }
+            else if (plan.Kind == RegionKind.Camp)
+            {
+                var camp = plan.Camp;
+                var home = new RectInt(camp.X + 1, camp.Z + 1, camp.Width - 2, camp.Height - 2);
+                foreach (var tent in plan.Tents)
+                    Tent(world, tent);
+                var rng = new System.Random((int)(world.Overworld.Hash(plan.RX, plan.RZ, 12) * int.MaxValue));
+                var goblin = ContentDb.Current.Npc(CombatModule.Goblin);
+                for (int i = 0; i < 4; i++)
+                    world.AddNpc(goblin, new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height - 2)), home);
+                world.AddLabel(World.Local(camp.Center) + Vector3.up * 0.4f, "Goblin camp", new Color(1f, 0.6f, 0.5f));
+            }
+        }
+
+        /// A made-up name for a town, the same every time.
+        static string TownName(Overworld ow, RegionPlan plan)
+        {
+            string[] starts = { "Ash", "Bram", "Cor", "Dun", "Fen", "Glen", "Hal", "Kel", "Lor", "Mar", "Nor", "Os", "Rav", "Thorn", "Wil" };
+            string[] ends = { "by", "ford", "holm", "mere", "stead", "ton", "wick", "dale", "hollow", "bridge" };
+            return starts[(int)(ow.Hash(plan.RX, plan.RZ, 13) * starts.Length)] + ends[(int)(ow.Hash(plan.RX, plan.RZ, 14) * ends.Length)];
+        }
+
+        static void BuildBuilding(World world, Building b)
+        {
+            var root = world.BuildRoot;
+            var a = b.Footprint;
+            bool stone = b.Kind == BuildingKind.Bank || b.Kind == BuildingKind.Chapel;
+            var wallColour = stone ? Stone : Timber;
+            const float height = 1.7f, thick = 0.45f;
+
+            // Walls: the four sides, the door's side in two pieces, plus a beam over the door.
+            var lo = new Tile(a.X, a.Z);
+            var hi = new Tile(a.XMax - 1, a.ZMax - 1);
+            var door = b.Door;
+            WallRun(root, lo.X, hi.X, lo.Z, true, door, height, thick, wallColour);
+            WallRun(root, lo.X, hi.X, hi.Z, true, door, height, thick, wallColour);
+            WallRun(root, lo.Z, hi.Z, lo.X, false, door, height, thick, wallColour);
+            WallRun(root, lo.Z, hi.Z, hi.X, false, door, height, thick, wallColour);
+            bool doorOnX = door.Z == lo.Z || door.Z == hi.Z;  // door in a wall running along x
+            Visuals.Prim(PrimitiveType.Cube, root, World.Local(door) + Vector3.up * (height - 0.15f),
+                doorOnX ? new Vector3(1f, 0.3f, thick + 0.05f) : new Vector3(thick + 0.05f, 0.3f, 1f), Trim);
+            // Darker trim along the top of the walls.
+            float cx = (lo.X + hi.X) / 2f, cz = (lo.Z + hi.Z) / 2f;
+            float w = hi.X - lo.X + 1, d = hi.Z - lo.Z + 1;
+            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(cx, height, lo.Z), new Vector3(w, 0.08f, thick + 0.08f), Trim);
+            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(cx, height, hi.Z), new Vector3(w, 0.08f, thick + 0.08f), Trim);
+            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(lo.X, height, cz), new Vector3(thick + 0.08f, 0.08f, d), Trim);
+            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(hi.X, height, cz), new Vector3(thick + 0.08f, 0.08f, d), Trim);
+
+            // What's inside, against the back wall, facing the door.
+            var feature = b.Feature;
+            Vector3 toDoor = World.Local(door) - World.Local(feature);
+            var facingDoor = Quaternion.LookRotation(toDoor);
+            Vector3 signAt = World.Local(WorldGen.OutsideDoor(b)) + Vector3.up * 2.3f;
+            switch (b.Kind)
+            {
+                case BuildingKind.Bank:
+                    // The booth's counter faces -z, so turn its back to the door.
+                    world.AddStation(CommonModule.BankBooth, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddLabel(signAt, "Bank", Gold);
+                    break;
+                case BuildingKind.Shop:
+                    world.AddShopKeeper(feature, ShopsModule.GeneralStore).SetFacing(facingDoor);
+                    world.AddLabel(signAt, "General Store", Gold);
+                    break;
+                case BuildingKind.Chapel:
+                    world.AddStation(PrayerModule.Altar, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddLabel(signAt, "Chapel", Gold);
+                    break;
+                default:
+                    Table(root, feature);
+                    break;
+            }
+        }
+
+        /// A straight wall from `from` to `to` (inclusive tiles) along x (at z = `at`) or along z (at x = `at`),
+        /// leaving a gap where the door is.
+        static void WallRun(Transform root, int from, int to, int at, bool alongX, Tile door, float height, float thick, Color colour)
+        {
+            int doorPos = alongX ? (door.Z == at ? door.X : int.MinValue) : (door.X == at ? door.Z : int.MinValue);
+            if (doorPos >= from && doorPos <= to)
+            {
+                if (doorPos > from)
+                    WallPiece(root, from, doorPos - 1, at, alongX, height, thick, colour);
+                if (doorPos < to)
+                    WallPiece(root, doorPos + 1, to, at, alongX, height, thick, colour);
+            }
+            else
+            {
+                WallPiece(root, from, to, at, alongX, height, thick, colour);
+            }
+        }
+
+        static void WallPiece(Transform root, int from, int to, int at, bool alongX, float height, float thick, Color colour)
+        {
+            float mid = (from + to) / 2f, len = to - from + 1;
+            var pos = alongX ? new Vector3(mid, height / 2f, at) : new Vector3(at, height / 2f, mid);
+            var size = alongX ? new Vector3(len, height, thick) : new Vector3(thick, height, len);
+            Visuals.Prim(PrimitiveType.Cube, root, pos, size, colour, true);  // keeps its collider: WASD can't walk through
+        }
+
+        /// A table in a house (its tile is blocked by the plan).
+        static void Table(Transform root, Tile tile)
+        {
+            var t = new GameObject("Table").transform;
+            t.SetParent(root, false);
+            t.localPosition = World.Local(tile);
+            var wood = new Color(0.45f, 0.3f, 0.17f);
+            Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0f, 0.7f, 0f), new Vector3(0.9f, 0.08f, 0.7f), wood);
+            foreach (float x in new[] { -0.38f, 0.38f })
+                foreach (float z in new[] { -0.28f, 0.28f })
+                    Visuals.Prim(PrimitiveType.Cube, t, new Vector3(x, 0.35f, z), new Vector3(0.07f, 0.7f, 0.07f), wood);
+            Visuals.Prim(PrimitiveType.Cylinder, t, new Vector3(0.15f, 0.78f, 0f), new Vector3(0.15f, 0.04f, 0.15f), new Color(0.85f, 0.85f, 0.8f));
+            var box = t.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, 0.4f, 0f);
+            box.size = new Vector3(0.9f, 0.8f, 0.7f);
+        }
+
+        /// A goblin tent: a sloping hide roof on poles (its tile is blocked by the plan).
+        static void Tent(World world, Tile tile)
+        {
+            var t = new GameObject("Tent").transform;
+            t.SetParent(world.BuildRoot, false);
+            t.localPosition = World.Local(tile);
+            var hide = new Color(0.55f, 0.42f, 0.3f);
+            var left = Visuals.Prim(PrimitiveType.Cube, t, new Vector3(-0.3f, 0.55f, 0f), new Vector3(0.05f, 1.3f, 1.2f), hide);
+            left.transform.localRotation = Quaternion.Euler(0f, 0f, -30f);
+            var right = Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0.3f, 0.55f, 0f), new Vector3(0.05f, 1.3f, 1.2f), hide);
+            right.transform.localRotation = Quaternion.Euler(0f, 0f, 30f);
+            Visuals.Prim(PrimitiveType.Cylinder, t, new Vector3(0f, 1.1f, 0f), new Vector3(0.05f, 0.65f, 0.05f), new Color(0.35f, 0.24f, 0.14f))
+                .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var box = t.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, 0.6f, 0f);
+            box.size = new Vector3(1f, 1.2f, 1.2f);
+        }
+    }
+}

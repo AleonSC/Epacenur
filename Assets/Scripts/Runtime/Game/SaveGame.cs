@@ -14,7 +14,7 @@ namespace Epacenur.Runtime
     {
         public const string Key = "Epacenur.Save.v1";
         public const int Format = 3;        // 3: text ids. Older saves used numbers (see LegacyItemIds).
-        public const int WorldVersion = 2;  // 2: the procedural main world. Older saves start in the town square.
+        public const int WorldVersion = 3;  // 3: the endless overworld. Older saves start in the town square.
 
         [Serializable]
         class Data
@@ -32,7 +32,8 @@ namespace Epacenur.Runtime
             public int pouch;
             public int hp;
             public int prayerPoints;
-            public float x, z;
+            public float x, z;            // older formats: where you stood
+            public int tileX, tileZ, map;  // where you stand (MapId)
             public int worldVersion;
 
             // Older formats (read only).
@@ -72,8 +73,9 @@ namespace Epacenur.Runtime
                 xpTenths = new string[skills.Count],
                 items = new string[Inventory.Size],
                 counts = new int[Inventory.Size],
-                x = game.Player.transform.position.x,
-                z = game.Player.transform.position.z,
+                tileX = game.Player.CurrentTile.X,
+                tileZ = game.Player.CurrentTile.Z,
+                map = (int)game.World.Map,
                 worldVersion = WorldVersion,
                 style = (int)game.Style,
                 pouch = game.Inventory.PouchCoins,
@@ -152,10 +154,10 @@ namespace Epacenur.Runtime
             game.Prayer.SetPoints(d.prayerPoints);
             game.Inventory.SetPouch(d.pouch);
 
-            var tile = d.worldVersion >= WorldVersion
-                ? game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)))
-                : game.World.MainSpawn;
-            game.Player.Teleport(tile);
+            if (d.worldVersion >= WorldVersion)
+                game.World.Travel(d.map == (int)MapId.DevPlot ? MapId.DevPlot : MapId.Overworld, new Tile(d.tileX, d.tileZ));
+            else
+                game.World.Travel(MapId.Overworld, game.World.MainSpawn);
             return true;
         }
 

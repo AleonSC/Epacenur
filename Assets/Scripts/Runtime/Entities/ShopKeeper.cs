@@ -22,7 +22,7 @@ namespace Epacenur.Runtime
         {
             var go = new GameObject("Shop keeper " + tile);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = World.TileCenter(tile);
+            go.transform.localPosition = World.Local(tile);
             go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);  // faces south, towards spawn
             var npc = go.AddComponent<ShopKeeper>();
             npc.Tile = tile;

@@ -15,7 +15,7 @@ namespace Epacenur.Runtime
         {
             var go = new GameObject("Fire " + tile);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = World.TileCenter(tile);
+            go.transform.localPosition = World.Local(tile);
             var fire = go.AddComponent<Fire>();
             fire.Init(ContentDb.Current.Station(FiremakingModule.Fire), tile);
             fire.expires = Time.time + burnSeconds;

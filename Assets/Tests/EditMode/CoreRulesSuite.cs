@@ -324,34 +324,76 @@ public static class CoreRulesSuite
         info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })
         {
-            var map = WorldGen.Generate(128, 128, seed);
-            var again = WorldGen.Generate(128, 128, seed);
+            var ow = new Overworld(seed);
+            var again = new Overworld(seed);
+            const int lo = -96, hi = 160, size = hi - lo;  // a 256 x 256 window round the start
             bool same = true;
-            for (int x = 0; x < 128 && same; x++) for (int z = 0; z < 128; z++) if (map.Map[x, z] != again.Map[x, z]) { same = false; break; }
-            var reach = WorldGen.Reachable(map);
-            int trees = 0, water = 0, walkable = 0, stranded = 0;
-            for (int x = 0; x < 128; x++)
-                for (int z = 0; z < 128; z++)
+            var blocked = new bool[size, size];
+            int trees = 0, water = 0, rocks = 0, towns = 0, camps = 0;
+            for (int x = lo; x < hi; x++)
+                for (int z = lo; z < hi; z++)
                 {
-                    var t = map.Map[x, z];
-                    if (t == Terrain.Tree) trees++;
-                    if (t == Terrain.Water) water++;
-                    if (MainWorldLayout.IsWalkable(t)) { walkable++; if (!reach[x, z] && map.ToGrid().IsWalkable(new Tile(x, z))) stranded++; }
+                    var t = new Tile(x, z);
+                    var k = ow.At(t);
+                    if (k != again.At(t)) same = false;
+                    if (k == Terrain.Tree) trees++;
+                    if (k == Terrain.Water) water++;
+                    if (k == Terrain.Rock) rocks++;
+                    blocked[x - lo, z - lo] = ow.IsBlocked(t);
                 }
-            bool kinds = map.Buildings.Exists(b => b.Kind == BuildingKind.Bank) && map.Buildings.Exists(b => b.Kind == BuildingKind.Shop)
-                && map.Buildings.Exists(b => b.Kind == BuildingKind.Chapel) && map.Buildings.Exists(b => b.Kind == BuildingKind.House);
-            bool doors = map.Buildings.TrueForAll(b => reach[b.Door.X, b.Door.Z] && reach[WorldGen.OutsideDoor(b).X, WorldGen.OutsideDoor(b).Z]);
-            bool features = map.Buildings.TrueForAll(b =>
+            for (int rx = -1; rx <= 1; rx++)
+                for (int rz = -1; rz <= 1; rz++)
+                {
+                    var kind = ow.Plan(rx, rz).Kind;
+                    if (kind == RegionKind.Town) towns++;
+                    if (kind == RegionKind.Camp) camps++;
+                }
+            // Everything walkable should be reachable from the start (away from the window's edge,
+            // where the way round may lie outside it).
+            var reach = new bool[size, size];
+            var queue = new System.Collections.Generic.Queue<Tile>();
+            var start = ow.Spawn;
+            queue.Enqueue(start);
+            reach[start.X - lo, start.Z - lo] = true;
+            int[] ddx = { 1, -1, 0, 0 }, ddz = { 0, 0, 1, -1 };
+            while (queue.Count > 0)
             {
+                var t = queue.Dequeue();
+                for (int i = 0; i < 4; i++)
+                {
+                    int nx = t.X + ddx[i] - lo, nz = t.Z + ddz[i] - lo;
+                    if (nx < 0 || nz < 0 || nx >= size || nz >= size || blocked[nx, nz] || reach[nx, nz]) continue;
+                    reach[nx, nz] = true;
+                    queue.Enqueue(new Tile(t.X + ddx[i], t.Z + ddz[i]));
+                }
+            }
+            int stranded = 0;
+            for (int x = 24; x < size - 24; x++)
+                for (int z = 24; z < size - 24; z++)
+                    if (!blocked[x, z] && !reach[x, z]) stranded++;
+            var home = ow.Plan(0, 0);
+            bool kinds = home.Kind == RegionKind.Town && home.Buildings.Exists(b => b.Kind == BuildingKind.Bank)
+                && home.Buildings.Exists(b => b.Kind == BuildingKind.Shop) && home.Buildings.Exists(b => b.Kind == BuildingKind.Chapel)
+                && home.Buildings.Exists(b => b.Kind == BuildingKind.House);
+            bool doors = home.Buildings.TrueForAll(b =>
+            {
+                var o = WorldGen.OutsideDoor(b);
+                if (!reach[b.Door.X - lo, b.Door.Z - lo] || !reach[o.X - lo, o.Z - lo]) return false;
                 foreach (var n in new[] { new Tile(b.Feature.X + 1, b.Feature.Z), new Tile(b.Feature.X - 1, b.Feature.Z), new Tile(b.Feature.X, b.Feature.Z + 1), new Tile(b.Feature.X, b.Feature.Z - 1) })
-                    if (reach[n.X, n.Z]) return true;
+                    if (reach[n.X - lo, n.Z - lo]) return true;
                 return false;
             });
-            bool camp = map.GoblinCamp.Width > 0 && reach[map.GoblinCamp.Center.X, map.GoblinCamp.Center.Z];
-            Check(same && kinds && doors && features && camp && stranded == 0 && map.PondShores.Count >= 3 && trees > 300,
-                "seed " + seed + ": same every time, bank + shop + chapel + houses (" + map.Buildings.Count + "), doors and counters reachable, camp, "
-                + map.PondShores.Count + " ponds (" + water + " water tiles), " + trees + " trees, nothing walled in");
+            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 20,
+                "seed " + seed + ": same every time, a home town with bank + shop + chapel + houses, doors and counters reachable, "
+                + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks, " + water + " water tiles, "
+                + stranded + " walled-in tiles");
         }
+        var far = new Overworld(5);
+        Check(far.At(new Tile(-1000000, 2000000)) == far.At(new Tile(-1000000, 2000000)) && far.Plan(-15625, 31250) != null, "it goes on for ever (a million tiles out works)");
+        var cg = new ChunkedGrid(16);
+        cg.Load(-1, 0, t => t.X == -3);
+        Check(cg.ChunkOf(-1) == -1 && cg.ChunkOf(-16) == -1 && cg.ChunkOf(-17) == -2 && cg.ChunkOf(15) == 0, "negative tiles fall in negative chunks");
+        Check(cg.IsWalkable(new Tile(-1, 5)) && !cg.IsWalkable(new Tile(-3, 5)) && !cg.IsWalkable(new Tile(1, 5)), "a chunked grid: loaded tiles, blocked tiles, and nothing outside");
 
         info("Pathfinding");
         var grid = new TileGrid(10, 10);

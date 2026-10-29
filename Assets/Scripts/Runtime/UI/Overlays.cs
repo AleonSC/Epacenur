@@ -58,7 +58,7 @@ namespace Epacenur.Runtime
             var cam = G.Rig.Cam;
             foreach (var l in G.World.Labels)
             {
-                Vector3 sp = cam.WorldToScreenPoint(l.Position);
+                Vector3 sp = cam.WorldToScreenPoint(World.ToWorld(l.Position));
                 if (sp.z <= 0f || sp.z > 60f)
                     continue;
                 var c = l.Color;

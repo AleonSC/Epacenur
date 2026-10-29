@@ -50,7 +50,7 @@ namespace Epacenur.Runtime
         {
             var go = new GameObject(def.Name + " " + tile);
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = World.TileCenter(tile);
+            go.transform.localPosition = World.Local(tile);
             var station = go.AddComponent<StationObject>();
             station.Init(def, tile);
             ModelBuilder.AddBox(go, def.Model);

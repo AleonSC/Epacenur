@@ -52,6 +52,13 @@ namespace Epacenur.Runtime
             ApplyLens();
         }
 
+        /// The world's origin moved (World): move with it.
+        public void ShiftBy(Vector3 delta)
+        {
+            focus += delta;
+            transform.position += delta;
+        }
+
         public void LockCursor(bool locked)
         {
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
@@ -62,7 +69,7 @@ namespace Epacenur.Runtime
         {
             Cam.fieldOfView = Mode == ViewMode.FirstPerson ? 72f : 50f;
             Cam.nearClipPlane = Mode == ViewMode.FirstPerson ? 0.05f : 0.3f;
-            Cam.farClipPlane = 115f;  // the fog hides everything past 110
+            Cam.farClipPlane = 82f;  // the fog hides everything past 78
         }
 
         void LateUpdate()

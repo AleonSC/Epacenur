@@ -52,25 +52,27 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
-## The main world
+## The overworld
 
-![The main world from above, seed 2024](Docs/main-world-map.png)
+![The overworld round the start, seed 2024](Docs/overworld-map.png)
 
-*From above (seed 2024): the town square (red), bank (yellow), general store (orange), chapel (white), houses, roads, ponds, forests and the goblin camp (brown).*
+*384 × 384 tiles round the start (seed 2024; the faint grid is the 64-tile regions): the town you start in (red square in the middle),
+other towns with their bank (yellow), general store (orange) and chapel (white), goblin camps (brown), ponds, forests and rocks.*
 
-- **128 × 128 tiles**, generated when the game starts (`WorldGen` in `Assets/Scripts/Core/WorldGen.cs`).
-  The seed is fixed (`World.MainSeed`), so it's the same world every time and saved positions stay put. Change the seed for a different world.
-- **The town**: you start in its square, with dirt roads to every door and out to the four edges. Every building has walls and one door
-  facing the square. The **bank** holds a bank booth, the **general store** a shop keeper, and the **chapel** an altar.
-  There are also 3–5 **houses** with a table inside. Building names float over their doors.
-- **Forests**: trees grow thick where a smooth noise is high, and sparse elsewhere. No two trees touch, so you can always walk between them.
-- **Ponds**: 5–7 of them away from town, each with one or two moving **net fishing spots** on its shore.
-- **Goblin camp**: a clearing with tents and 4 goblins, 28–46 tiles from town.
-- A wooden palisade runs round the edge. After generation, anything shut in by trees and water is opened up,
-  and the tests check that every door, counter, shore and the camp can be walked to, on several seeds.
-- **Dev tools (F1)**: **Teleport to dev plot** takes you to the old dev area (with its Mining, Goblins, Fishing and
-  Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. The two regions aren't connected
-  any other way. Saves from before the main world start in the town square.
+- **It never ends.** The world is worked out from a seed (`World.Seed`) one tile at a time, so the same place always comes out the same.
+  Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (5 chunks each way) and taken down behind you,
+  hidden by the fog. Felled trees and lit fires don't survive being unloaded.
+- **Regions** of 64 × 64 tiles each hold a **town** (about 1 in 8; the one you start in, Epacenur, always is), a **goblin camp**
+  (1 in 5: a clearing with tents and 4 goblins) or plain countryside. Towns have a square, a **bank**, a **general store**, a **chapel**
+  with an altar and a few **houses**, joined by dirt roads that run out to the region's edges. Every town has its own made-up name.
+- **Countryside**: **forests** where a smooth noise is high, **rocky ground** with copper and tin rocks you can mine, and **ponds**,
+  each with a moving **net fishing spot** on its shore. Trees and rocks never touch, even diagonally, and water keeps clear of roads,
+  so you can always walk round them: the tests check that nothing walkable is shut in, on several seeds.
+- Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
+- **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
+  Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. Saves remember which map
+  you're on. Saves from before the endless world start in the town square.
+- The generator is `Assets/Scripts/Core/World/Overworld.cs` (towns: `WorldGen.cs`); the 3D side is `Assets/Scripts/Runtime/World`.
 
 ## Mining and Smithing (dev plot)
 
@@ -93,8 +95,8 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   over your tunic, and the platelegs on your legs. Their defence bonuses make goblins miss more.
 - The pickaxe and hammer are on every new character's tool belt (older saves get them once), and the shop sells both for 1 gp.
 - The dev tools add **5 copper + 5 tin**, **5 bronze bars**, or a **pickaxe + hammer**.
-- The trees that were on the dev plot are gone; the main world's forests have plenty. Rules: `Assets/Scripts/Core/Mining.cs` and
-  `Assets/Scripts/Core/Smithing.cs`.
+- The trees that were on the dev plot are gone; the main world's forests have plenty. Content: `Assets/Scripts/Content/Mining` and
+  `Assets/Scripts/Content/Smithing`. Copper and tin rocks also grow on rocky ground in the overworld.
 
 ## Money pouch
 
@@ -134,7 +136,7 @@ so they don't take up slots.
 
 - The **shop keeper** stands two tiles east of the bank booth. "Trade" opens the **Dev Area General Store**.
 - It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp), a **Wooden shield** (20 gp) a **Small fishing net** (5 gp) and a **Bronze hatchet** (16 gp). The stock is in
-  `Shops.DevAreaStore()` in `Assets/Scripts/Core/Shop.cs`.
+  `ShopsModule` in `Assets/Scripts/Content/Shops`.
 - Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50. Right-click for Value, Buy 1 / 5 / 10 / 50 and Examine (your own items get Value and Sell …).
 - While the shop is open, click your own items to sell them. It's a general store, so it buys anything but coins, for 40% of the item's
   value (logs sell for 1 gp). Items you sell show up in its stock.
@@ -166,7 +168,7 @@ so they don't take up slots.
   and a health bar shows over a goblin you're fighting.
 - Each damage point gives 4 xp in the chosen style's skill plus 1.33 Hitpoints xp. Hitpoints starts at level 10.
 - A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
-  Its stats and drops are in `NpcDefs.Goblin` in `Assets/Scripts/Core/Combat.cs`.
+  Its stats and drops are in `CombatModule` in `Assets/Scripts/Content/Combat`.
 
 ## Melee abilities (action bar)
 
@@ -192,7 +194,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
   It must be next to you (within reach in first person), except for Barge.
 - In tile mode you keep auto-attacking the target afterwards, and the next auto-attack waits a full weapon swing.
 - A stunned goblin stops moving and attacking for 3 s (it shows "Stunned").
-- The abilities are defined in `Assets/Scripts/Core/Abilities.cs`.
+- The abilities are defined in `Assets/Scripts/Core/Combat/Abilities.cs`.
 
 ## Firemaking
 
@@ -203,7 +205,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - A lit fire gives **40 xp**. It flickers, glows, blocks its tile and burns for 1–2 minutes, then leaves **ashes** on the ground.
   You step off it to the west (or another free side) in tile mode.
 - Fires can't be lit on a tile that already has one. The **Firemaking** plot, south-west of spawn, is open ground for it, but any free tile works.
-- Rules are in `Assets/Scripts/Core/Firemaking.cs`. Fires are `Assets/Scripts/Runtime/Fire.cs`.
+- Content is in `Assets/Scripts/Content/Firemaking`. Fires are `Assets/Scripts/Runtime/Entities/Fire.cs`.
 
 ## Fishing
 
@@ -213,7 +215,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
   until your inventory is full. In first person each click is one cast.
 - Each attempt tries the best fish you have the level for first: **raw anchovies** (level 15, 40 xp), then **raw shrimps** (level 1, 10 xp).
   Cook them on a fire (see Cooking).
-- Rules are in `Assets/Scripts/Core/Fishing.cs`. Spots are `Assets/Scripts/Runtime/FishingSpot.cs`.
+- Content is in `Assets/Scripts/Content/Fishing`. Spots are `NodeObject`s.
 
 ## Cooking
 
@@ -223,7 +225,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - Each item either cooks (**Shrimps** or **Anchovies**, 30 xp) or burns (**Burnt shrimp** or **Burnt fish**, no xp), in its own inventory slot.
   At level 1 about a third cook. Both stop burning at **level 34**, as in RuneScape.
 - Cooking stops if the fire goes out or you move away.
-- Rules are in `Assets/Scripts/Core/Cooking.cs`.
+- Content is in `Assets/Scripts/Content/Cooking`.
 
 ## Health and eating
 
@@ -235,7 +237,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
   A bite takes 3 ticks and holds back your next attack by as much.
 - Goblins hurt you when you fight them. The dev tools also have **Hurt me 3**, **Heal fully** and **5 shrimps** for testing.
   At 0 health you die ("Oh dear, you are dead!") and wake up at spawn with full health, keeping your items.
-- Health is saved. Rules are in `Assets/Scripts/Core/Health.cs`.
+- Health is saved. Rules are in `Assets/Scripts/Core/Combat/Health.cs`.
 
 ## Prayer
 
@@ -259,7 +261,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
   your head (top of the view in first person).
 - Drain works like OSRS: each tick the active prayers' drain effects add up, and every 60 costs a point. At 0 every prayer switches off.
 - Prayer counts towards your combat level (half of it, in the Defence and Hitpoints part). Dying recharges your points. Points are saved.
-- Rules are in `Assets/Scripts/Core/Prayer.cs`. The altar is `Assets/Scripts/Runtime/Altar.cs`.
+- Rules are in `Assets/Scripts/Core/Combat/Prayer.cs`. The altar is in `Assets/Scripts/Content/Prayer`.
 
 ## The player model
 
@@ -276,7 +278,7 @@ hold the net out to fish, and carry your sword, shield or net as needed. The axe
   **lives** (3–6, rolled each time it grows). With no lives left it becomes a stump, then grows back after 12 s.
 - Tile mode makes a chop attempt every 4 ticks (2.4 s) while you stand next to the tree. In first person each
   click is one attempt, at most one every 2 ticks (1.2 s). The crosshair turns green when a tree is in reach and your
-  swing is ready, and yellow while you recover. These timings are in `WoodcuttingRules` in `Assets/Scripts/Core/Woodcutting.cs`.
+  swing is ready, and yellow while you recover. These timings are on the tree's `NodeDef` in `Assets/Scripts/Content/Woodcutting`.
 - You need a **Bronze hatchet**, in your backpack or on your tool belt. New characters start with one on the belt,
   older saves are given one, and the shop sells them (16 gp). Without one: "You need a hatchet to chop down this tree."
 - You can't chop with a full inventory, and you stop when it fills up.
@@ -290,7 +292,7 @@ There's **no 200m cap**: levels go up to **999**, which needs
 **6,590,753,875,914,258,720,611,083,014,045,249,960,396,472,940 xp** (about 6.59 × 10^45).
 
 That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in tenths so half-xp rewards
-(like a willow log's 67.5) add up exactly. See `Assets/Scripts/Core/Experience.cs`.
+(like a willow log's 67.5) add up exactly. See `Assets/Scripts/Core/Skills/Experience.cs`.
 
 ## Dev tools (F1)
 
@@ -298,31 +300,39 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
 - Add 1,000 coins, a sword and shield, or the tools (hatchet, tinderbox, net) to your backpack, or fill the tool belt
-- Regrow every tree
-- Teleport to spawn or to a skill's plot
+- Regrow every tree and refill every rock
+- Teleport to the dev plot (or one of its plots) and back to the overworld
 - Save now, or reset everything
 
 ## Code layout
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank, shops, equipment, combat formulas, monsters and drop tables, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `Fire`, `FishingSpot`, `GroundItem` and `ItemModels`, `PlayerController` (the model, walking, woodcutting, combat and what's on each right-click menu) and `PlayerSkilling` (firemaking and fishing), `OptionMenu` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency (assembly `Epacenur.Core`): the content registry and definitions (`Content`), xp and skills, items, inventory, bank, tool belt, equipment, shops, combat, abilities, prayer, the gathering and making rules (`Skilling`), the overworld generator, tile grids and A* pathfinding (`World`) |
+| `Assets/Scripts/Content` | Everything in the game as data (`Epacenur.Content`), one module per skill: its items (icons and models too), trees, rocks or fishing spots, recipes, stations, monsters. `Modules.cs` lists them |
+| `Assets/Scripts/Runtime` | The Unity side (`Epacenur.Runtime`): `Game` (startup and the 0.6 s game tick), `World` (maps, chunk streaming, floating origin) with `OverworldBuilder` and `DevArea`, the things in the world (`NodeObject`, `StationObject`, `Fire`, `ShopKeeper`, `Npc`, `GroundItem`), the player (`PlayerController`, `PlayerCombat`, `PlayerModel`, and `Activities`: gathering, making, lighting fires), `ItemActions` (what you can do with an item), `ModelBuilder` (models from content), `CameraRig`, `SaveGame`, and the HUD (`UI`: `Hud`, the side panel `Tabs`, the bank / shop / making `Windows`, overlays, action bar, dev tools) |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
-| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, equipment, combat, pathfinding) |
-| `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |
+| `Assets/Tests/EditMode` | The rules suite, run by Unity's Test Runner (and by `Tools/Tests/run.sh`) |
+| `Tools/Tests` | `run.sh`: runs the rules suite without Unity (content checks, xp table, skills, inventory, bank, shop, equipment, combat, skilling, world generation, pathfinding) |
+| `Tools/CompileCheck` | `check.sh`: compiles every assembly against stubbed Unity APIs, without Unity |
 
 Both scripts need mono (`apt-get install mono-mcs mono-runtime`).
 
-### Adding a skill
+### Adding content
 
-1. Add it to `SkillId` and `SkillDefs.All` in `Assets/Scripts/Core/Skills.cs`. It then shows up in the Skills tab and the dev tools.
-2. Subclass `SkillArea` (see `MiningArea` in `Assets/Scripts/Runtime/DevArea.cs`) and put it in
-   `DevArea.CreateAreas()` in place of one of the empty plots.
-3. Give out xp with `Game.Instance.Skills.AddXp(SkillId.YourSkill, amount)`. Xp drops and level-up messages are automatic.
+Everything is registered by content modules in `Assets/Scripts/Content`, by text id. At startup every reference between
+them is checked, and the game won't start with a broken one (`run.sh` checks too).
 
-### Adding a tree or an item
-
-- Trees: add a `TreeDef` in `Assets/Scripts/Core/Woodcutting.cs` (level, xp, lives, respawn time, chop chances, colours)
-  and place it in a skill area with `world.AddTree(...)`.
-- Items: add an `ItemDef` to `ItemDefs` in `Assets/Scripts/Core/Inventory.cs`.
+- **An item**: in a module's `Register`, `db.Item(id, name, examine, value, colour)`, then set its `Icon` (rectangles on a 40 × 40 grid)
+  and `GroundModel` (primitive shapes). An item with a `Slot` can be worn (give it a `HeldModel` or `Worn` parts), with `Heals`
+  eaten, with `BuryXp` buried, with a `ToolType` put on the tool belt; the menus follow from that. Other verbs: list them in
+  `Verbs` and register a handler with `ItemActions.Register`.
+- **A skill**: add a module (copy `MiningModule`), `db.Skill(...)` with its icon, and add the module to `Modules.All`.
+  It shows up in the Skills tab and the dev tools, and saves pick it up.
+- **Something to gather** (tree, rock, fishing spot): a `NodeDef` with its yields (item, level, xp, chances), tool type, lives,
+  respawn and models. Place it with `world.AddNode(id, tile, rng)`, or have the overworld grow it (`Overworld` and `OverworldBuilder`).
+- **Something to make**: a `RecipeDef` (inputs, product, station, level, xp; a fail product for things that burn). Stations are
+  `StationDef`s: `MakeAll` stations (furnace, fire) make whatever you can, `MakeWindow` stations (anvil) open the making window.
+- **A shop**: a `ShopDef` in `ShopsModule`, and a keeper with `world.AddShopKeeper(tile, shopId)`.
+- **A monster**: an `NpcDef` (stats, drops, model), placed with `world.AddNpc(...)`.
+- **A dev plot**: subclass `SkillArea` (see `MiningArea` in `Assets/Scripts/Runtime/World/DevArea.cs`) and put it in `DevArea.CreateAreas()`.

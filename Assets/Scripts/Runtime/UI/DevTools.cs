@@ -11,6 +11,7 @@ namespace Epacenur.Runtime
         bool show, placed;
         Rect rect = new Rect(0f, 0f, 300f, 10f);
         int skill;  // which skill the level buttons change
+        static readonly System.Collections.Generic.List<SkillArea> plots = DevArea.CreateAreas();  // for their names and where they are
         Hud hud;
 
         public void Toggle() => show = !show;
@@ -90,14 +91,14 @@ namespace Epacenur.Runtime
                         n.Refill();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Teleport to dev plot"))
-                Teleport(G.World.DevSpawn, "You teleport to the dev plot.");
+                Teleport(MapId.DevPlot, G.World.DevSpawn, "You teleport to the dev plot.");
             if (GUILayout.Button("Teleport to main world"))
-                Teleport(G.World.MainSpawn, "You teleport to the town square.");
+                Teleport(MapId.Overworld, G.World.MainSpawn, "You teleport to the town square.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            foreach (var area in G.World.Areas)
+            foreach (var area in plots)
                 if (!(area is EmptyPlot) && GUILayout.Button("Go to " + area.Name))
-                    G.Player.Teleport(G.World.NearestWalkable(area.TeleportTile));
+                    Teleport(MapId.DevPlot, area.TeleportTile, "You teleport to the " + area.Name.ToLowerInvariant() + " plot.");
             GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>Save</b>", Gui.Rich);
@@ -108,10 +109,10 @@ namespace Epacenur.Runtime
             GUI.DragWindow();
         }
 
-        void Teleport(Tile tile, string message)
+        void Teleport(MapId map, Tile tile, string message)
         {
             hud.CloseWindow();
-            G.Player.Teleport(tile);
+            G.World.Travel(map, tile);
             GameLog.Add(message);
         }
 
@@ -134,7 +135,7 @@ namespace Epacenur.Runtime
             G.Prayer.SetMax(G.Skills.GetLevel(SkillIds.Prayer));
             G.Prayer.Recharge();
             G.Bank.Clear();
-            G.Player.Teleport(G.World.Spawn);
+            G.World.Travel(MapId.Overworld, G.World.Spawn);
             GameLog.Add("Progress reset.");
         }
     }
