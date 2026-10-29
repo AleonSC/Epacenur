@@ -9,7 +9,7 @@ namespace UnityEngine
         public static implicit operator bool(Object o) => o != null; }
     public enum FindObjectsSortMode { None, InstanceID }
     public class Component : Object { public GameObject gameObject; public Transform transform; public string tag;
-        public T GetComponent<T>() => default(T); public T GetComponentInParent<T>() => default(T); public T[] GetComponentsInChildren<T>() => null; }
+        public T GetComponent<T>() => default(T); public T GetComponentInParent<T>() => default(T); public T[] GetComponentsInChildren<T>() => null; public T[] GetComponentsInChildren<T>(bool inactive) => null; }
     public class Behaviour : Component { public bool enabled; }
     public class MonoBehaviour : Behaviour { }
     public sealed class GameObject : Object { public GameObject() { } public GameObject(string n) { } public Transform transform; public int layer; public string tag;
@@ -69,10 +69,10 @@ namespace UnityEngine
     public enum FilterMode { Point, Bilinear }
     public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void Apply() { } }
     public class Material : Object { public Material(Material m) { } public Color color; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } }
-    public class Collider : Component { }
+    public class Collider : Component { public bool isTrigger, enabled; }
     public sealed class BoxCollider : Collider { public Vector3 center, size; }
     public sealed class CapsuleCollider : Collider { public float radius, height; public Vector3 center; }
-    public sealed class CharacterController : Collider { public float height, radius, stepOffset, skinWidth; public Vector3 center; public bool isGrounded, enabled; public void Move(Vector3 m) { } }
+    public sealed class CharacterController : Collider { public float height, radius, stepOffset, skinWidth; public Vector3 center; public bool isGrounded; public void Move(Vector3 m) { } }
     public enum RuntimeInitializeLoadType { AfterSceneLoad, BeforeSceneLoad, SubsystemRegistration }
     public sealed class RuntimeInitializeOnLoadMethodAttribute : Attribute { public RuntimeInitializeOnLoadMethodAttribute(RuntimeInitializeLoadType t) { } }
     public enum FullScreenMode { Windowed }
@@ -87,7 +87,7 @@ namespace UnityEngine
         public static bool Button(Rect r, string s) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
     public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
-        public static bool Button(string s, params GUILayoutOption[] o) => false; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
+        public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
     public enum EventType { MouseDown, Repaint }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public void Use() { } }
 }

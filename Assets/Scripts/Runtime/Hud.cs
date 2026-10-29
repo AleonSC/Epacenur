@@ -8,7 +8,8 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace Epacenur.Runtime
 {
-    /// Everything on screen: inventory and skills panel, chat box, xp drops, level-ups,
+    /// Everything on screen: the inventory / equipment / skills panel, chat box, xp drops, level-ups,
+    /// hitsplats and health bars,
     /// the action under the mouse, the first-person crosshair, the bank and shop windows and the dev tools (F1).
     public sealed class Hud : MonoBehaviour
     {
@@ -16,7 +17,7 @@ namespace Epacenur.Runtime
         const float PanelW = Pad * 2 + Slot * 4 + Gap * 3;
         const float PanelH = Pad * 2 + TabH + 6f + Slot * 7 + Gap * 6;
 
-        enum Tab { Inventory, Skills }
+        enum Tab { Inventory, Equipment, Skills }
 
         struct XpDrop
         {
@@ -34,6 +35,7 @@ namespace Epacenur.Runtime
         int bankAmount = 1, shopAmount = 1;
         UnityEngine.Vector2 bankScroll;
         bool showDev, showHelp = true;
+        int devSkill;  // which skill the dev tools' level buttons change
         int selectedSlot = -1;
         Rect devRect = new Rect(0f, 0f, 300f, 10f);
         bool devPlaced;
@@ -130,6 +132,7 @@ namespace Epacenur.Runtime
             MakeStyles();
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
             DrawWorldLabels();
+            DrawCombatOverlays();
             DrawTopLeft();
             DrawXpDrops();
             DrawLevelUp();
@@ -197,6 +200,8 @@ namespace Epacenur.Runtime
                 action += " <color=#ffff00>" + p.HoverTarget + "</color>";
             if (p.IsChopping)
                 action = "Woodcutting...";
+            else if (p.IsFighting)
+                action = "Fighting...";
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
@@ -204,9 +209,9 @@ namespace Epacenur.Runtime
             if (!showHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop a tree\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight- or shift-click an item: drop it\nF1: dev tools"
-                : "Mouse: look    WASD: walk\nLeft-click a tree: one chop per click\nEsc: free the mouse (click the view to grab it again)\nRight- or shift-click an item: drop it\nF1: dev tools";
-            Shadowed(new Rect(10f, 50f, 420f, 110f), help, small);
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nClick a sword or shield: wield it\nRight- or shift-click an item: drop it\nF1: dev tools"
+                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nClick a sword or shield: wield it\nRight- or shift-click an item: drop it\nF1: dev tools";
+            Shadowed(new Rect(10f, 50f, 440f, 130f), help, small);
         }
 
         void DrawCrosshair()
@@ -262,20 +267,22 @@ namespace Epacenur.Runtime
             }
         }
 
-        // ---- Inventory / skills panel ----
+        // ---- Inventory / equipment / skills panel ----
 
         void DrawPanel()
         {
             var r = PanelRect;
             Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
-            float tabW = (r.width - Pad * 2 - 4f) / 2f;
-            if (GUI.Toggle(new Rect(r.x + Pad, r.y + Pad, tabW, TabH), tab == Tab.Inventory, "Inventory", GUI.skin.button))
-                tab = Tab.Inventory;
-            if (GUI.Toggle(new Rect(r.x + Pad + tabW + 4f, r.y + Pad, tabW, TabH), tab == Tab.Skills, "Skills", GUI.skin.button))
-                tab = Tab.Skills;
+            string[] names = { "Items", "Worn", "Skills" };
+            float tabW = (r.width - Pad * 2 - 8f) / 3f;
+            for (int i = 0; i < 3; i++)
+                if (GUI.Toggle(new Rect(r.x + Pad + i * (tabW + 4f), r.y + Pad, tabW, TabH), (int)tab == i, names[i], GUI.skin.button))
+                    tab = (Tab)i;
             var body = new Rect(r.x + Pad, r.y + Pad + TabH + 6f, r.width - Pad * 2, r.height - Pad * 2 - TabH - 6f);
             if (tab == Tab.Inventory)
                 DrawInventory(body);
+            else if (tab == Tab.Equipment)
+                DrawEquipment(body);
             else
                 DrawSkills(body);
         }
@@ -318,14 +325,17 @@ namespace Epacenur.Runtime
                     bool drop = e.button == 1 || e.shift;
                     if (drop && !stack.IsEmpty)
                     {
+                        // It lands on the ground under you.
                         inv.RemoveAt(i);
-                        GameLog.Add("You drop the " + stack.Def.Name.ToLowerInvariant() + ".");
+                        G.World.SpawnGroundItem(stack.ItemId, stack.Count, World.TileAt(G.Player.transform.position));
                         selectedSlot = -1;
                     }
                     else if (!drop)
                     {
-                        // Click one slot, then another, to swap them.
-                        if (selectedSlot == -1 && !stack.IsEmpty)
+                        // Click one slot, then another, to swap them. Equipment is worn on click instead.
+                        if (selectedSlot == -1 && !stack.IsEmpty && stack.Def.Slot != EquipSlot.None)
+                            G.Equipment.Equip(inv, i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty)
                             selectedSlot = i;
                         else if (selectedSlot >= 0)
                         {
@@ -339,6 +349,113 @@ namespace Epacenur.Runtime
             }
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Equipment ----
+
+        // Where each slot sits in the 3-column layout (column, row), like RuneScape's worn equipment.
+        static readonly (EquipSlot slot, int col, int row)[] EquipLayout =
+        {
+            (EquipSlot.Head, 1, 0),
+            (EquipSlot.Cape, 0, 1), (EquipSlot.Neck, 1, 1), (EquipSlot.Ammo, 2, 1),
+            (EquipSlot.Weapon, 0, 2), (EquipSlot.Body, 1, 2), (EquipSlot.Shield, 2, 2),
+            (EquipSlot.Legs, 1, 3),
+            (EquipSlot.Hands, 0, 4), (EquipSlot.Feet, 1, 4), (EquipSlot.Ring, 2, 4),
+        };
+
+        void DrawEquipment(Rect body)
+        {
+            var eq = G.Equipment;
+            var e = Event.current;
+            const float rowH = 46f;
+            float colGap = (body.width - Slot * 3) / 2f;
+            Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>Worn Equipment</b>", small);
+            float top = body.y + 18f;
+
+            // Connecting lines: down the middle column, across the rows with side slots,
+            // and from the weapon and shield down to the gloves and ring.
+            var line = new Color(0.1f, 0.08f, 0.06f, 0.9f);
+            float cx = body.x + Slot + colGap + Slot / 2f;
+            Fill(new Rect(cx - 1f, top + Slot, 2f, rowH * 4 - Slot), line);
+            foreach (int row in new[] { 1, 2, 4 })
+            {
+                float y = top + row * rowH + Slot / 2f;
+                Fill(new Rect(body.x + Slot, y - 1f, body.width - Slot * 2, 2f), line);
+            }
+            Fill(new Rect(body.x + Slot / 2f - 1f, top + 2 * rowH + Slot, 2f, rowH * 2 - Slot), line);           // weapon down to hands
+            Fill(new Rect(body.x + body.width - Slot / 2f - 1f, top + 2 * rowH + Slot, 2f, rowH * 2 - Slot), line); // shield down to ring
+
+            string tooltip = null;
+            foreach (var place in EquipLayout)
+            {
+                var slot = place.slot;
+                var r = new Rect(body.x + place.col * (Slot + colGap), top + place.row * rowH, Slot, Slot);
+                Fill(r, new Color(0.12f, 0.1f, 0.07f, 1f));
+                Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, r.height - 2f), new Color(0.3f, 0.26f, 0.2f, 1f));
+                var worn = eq[slot];
+                if (worn.IsEmpty)
+                {
+                    // An empty slot shows what goes there, faintly.
+                    var old = centered.normal.textColor;
+                    centered.normal.textColor = new Color(1f, 1f, 1f, 0.25f);
+                    GUI.Label(r, "<size=9>" + slot + "</size>", centered);
+                    centered.normal.textColor = old;
+                }
+                else
+                {
+                    DrawItemIcon(r, worn.Def);
+                    if (r.Contains(e.mousePosition))
+                        tooltip = "Remove " + worn.Def.Name;
+                    if (e.type == EventType.MouseDown && r.Contains(e.mousePosition))
+                    {
+                        if (!eq.Unequip(slot, G.Inventory))
+                            GameLog.Add("You don't have enough free inventory space to do that.");
+                        e.Use();
+                    }
+                }
+            }
+
+            // Bonuses and attack style.
+            float y0 = top + 5 * rowH - 4f;
+            GUI.Label(new Rect(body.x, y0, body.width, 18f),
+                "Att <color=#ffff00>+" + eq.AttackBonus + "</color>  Str <color=#ffff00>+" + eq.StrengthBonus + "</color>  Def <color=#ffff00>+" + eq.DefenceBonus + "</color>", small);
+            GUI.Label(new Rect(body.x, y0 + 16f, body.width, 18f), "Attack style (trains):", small);
+            string[] styles = { "Attack", "Strength", "Defence" };
+            float bw = (body.width - 8f) / 3f;
+            for (int i = 0; i < 3; i++)
+                if (GUI.Toggle(new Rect(body.x + i * (bw + 4f), y0 + 34f, bw, 22f), (int)G.Style == i, styles[i], GUI.skin.button))
+                    G.Style = (CombatStyle)i;
+            if (tooltip != null)
+                Shadowed(new Rect(e.mousePosition.x - 150f, e.mousePosition.y + 16f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Hitsplats and health bars ----
+
+        void DrawCombatOverlays()
+        {
+            var cam = G.Rig.Cam;
+            foreach (var npc in G.World.Npcs)
+            {
+                if (Time.time - npc.LastHitTime > 6f || (npc.IsDead && npc.Hitsplats.Count == 0))
+                    continue;
+                Vector3 head = cam.WorldToScreenPoint(npc.transform.position + Vector3.up * 1.75f);
+                if (head.z <= 0f)
+                    continue;
+                float x = head.x / scale, y = (Screen.height - head.y) / scale;
+                // Health bar: green for what's left, red for what's lost.
+                var bar = new Rect(x - 20f, y - 6f, 40f, 5f);
+                Fill(bar, new Color(0.8f, 0.1f, 0.1f));
+                Fill(new Rect(bar.x, bar.y, bar.width * npc.Hitpoints / npc.Def.Hitpoints, bar.height), new Color(0.1f, 0.85f, 0.15f));
+                Vector3 body = cam.WorldToScreenPoint(npc.transform.position + Vector3.up * 0.8f);
+                float bx = body.x / scale, by = (Screen.height - body.y) / scale;
+                for (int i = 0; i < npc.Hitsplats.Count; i++)
+                {
+                    var h = npc.Hitsplats[i];
+                    var r = new Rect(bx - 12f + i * 8f, by - 12f - i * 6f, 24f, 22f);
+                    Fill(r, h.Damage > 0 ? new Color(0.75f, 0.08f, 0.08f, 0.95f) : new Color(0.15f, 0.35f, 0.8f, 0.95f));
+                    Shadowed(r, "<b>" + h.Damage + "</b>", centered);
+                }
+            }
         }
 
         // ---- Bank ----
@@ -549,43 +666,59 @@ namespace Epacenur.Runtime
 
         void DrawSkills(Rect body)
         {
+            // One row per skill; the hovered one (or the first) gets the details underneath.
+            const float rowH = 30f;
+            var e = Event.current;
+            SkillDef shown = SkillDefs.All[0];
             float y = body.y;
             foreach (var def in SkillDefs.All)
             {
                 BigInteger xp = G.Skills.GetXp(def.Id);
                 int level = Experience.LevelForXp(xp);
-                Fill(new Rect(body.x, y, body.width, 92f), new Color(0f, 0f, 0f, 0.25f));
-                Fill(new Rect(body.x + 4f, y + 6f, 14f, 14f), new Color(def.R, def.G, def.B));
-                GUI.Label(new Rect(body.x + 22f, y + 2f, body.width, 20f), "<b>" + def.Name + "</b>", label);
-                GUI.Label(new Rect(body.x + 4f, y + 2f, body.width - 8f, 20f), "<color=#ffff00><b>" + level + "</b></color> / " + Experience.MaxLevel, rightLabel);
-                GUI.Label(new Rect(body.x + 4f, y + 22f, body.width - 8f, 18f), "XP: " + Experience.FormatShort(xp), small);
-                if (level < Experience.MaxLevel)
-                {
-                    GUI.Label(new Rect(body.x + 4f, y + 38f, body.width - 8f, 18f), "Next level at: " + Experience.FormatShort(Experience.XpForLevel(level + 1)), small);
-                    GUI.Label(new Rect(body.x + 4f, y + 54f, body.width - 8f, 18f), "Remaining: " + Experience.FormatShort(Experience.XpToNextLevel(xp)), small);
-                }
-                else
-                {
-                    GUI.Label(new Rect(body.x + 4f, y + 38f, body.width - 8f, 18f), "Maxed!", small);
-                }
-                var bar = new Rect(body.x + 4f, y + 74f, body.width - 8f, 10f);
-                Fill(bar, new Color(0.5f, 0.1f, 0.1f));
-                Fill(new Rect(bar.x, bar.y, bar.width * (float)Experience.LevelProgress(xp), bar.height), new Color(0.2f, 0.75f, 0.2f));
-                if (new Rect(body.x, y, body.width, 92f).Contains(Event.current.mousePosition))
-                    Shadowed(new Rect(body.x - 230f, y, 225f, 40f), "<color=#ffcc66>" + def.Name + " XP: " + Experience.Format(xp) + "</color>", rightSmall);
-                y += 96f;
+                var row = new Rect(body.x, y, body.width, rowH - 2f);
+                bool hover = row.Contains(e.mousePosition);
+                if (hover)
+                    shown = def;
+                Fill(row, hover ? new Color(1f, 1f, 1f, 0.12f) : new Color(0f, 0f, 0f, 0.25f));
+                Fill(new Rect(row.x + 4f, row.y + 6f, 12f, 12f), new Color(def.R, def.G, def.B));
+                GUI.Label(new Rect(row.x + 20f, row.y + 1f, row.width, 20f), def.Name, small);
+                GUI.Label(new Rect(row.x, row.y + 1f, row.width - 4f, 20f), "<color=#ffff00><b>" + level + "</b></color>/" + Experience.MaxLevel, rightSmall);
+                Fill(new Rect(row.x + 20f, row.yMax - 6f, row.width - 24f, 3f), new Color(0.5f, 0.1f, 0.1f));
+                Fill(new Rect(row.x + 20f, row.yMax - 6f, (row.width - 24f) * (float)Experience.LevelProgress(xp), 3f), new Color(0.2f, 0.75f, 0.2f));
+                y += rowH;
             }
-            GUI.Label(new Rect(body.x, body.yMax - 22f, body.width, 20f), "Total level: <b>" + G.Skills.TotalLevel + "</b>", label);
+
+            BigInteger sx = G.Skills.GetXp(shown.Id);
+            int sl = Experience.LevelForXp(sx);
+            y += 4f;
+            GUI.Label(new Rect(body.x, y, body.width, 18f), "<b>" + shown.Name + "</b>  level " + sl, small);
+            GUI.Label(new Rect(body.x, y + 16f, body.width, 18f), "XP: " + Experience.FormatShort(sx), small);
+            if (sl < Experience.MaxLevel)
+            {
+                GUI.Label(new Rect(body.x, y + 32f, body.width, 18f), "Next level at: " + Experience.FormatShort(Experience.XpForLevel(sl + 1)), small);
+                GUI.Label(new Rect(body.x, y + 48f, body.width, 18f), "Remaining: " + Experience.FormatShort(Experience.XpToNextLevel(sx)), small);
+            }
+            else
+            {
+                GUI.Label(new Rect(body.x, y + 32f, body.width, 18f), "Maxed!", small);
+            }
+            GUI.Label(new Rect(body.x, body.yMax - 20f, body.width, 20f), "Total level: <b>" + G.Skills.TotalLevel + "</b>", label);
         }
 
         // ---- Dev tools ----
 
         void DrawDevWindow(int id)
         {
-            foreach (var def in SkillDefs.All)
             {
+                // One skill at a time (< > to pick it), so the window stays short as skills are added.
+                devSkill = (devSkill + SkillDefs.All.Length) % SkillDefs.All.Length;
+                var def = SkillDefs.All[devSkill];
                 int level = G.Skills.GetLevel(def.Id);
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("<", GUILayout.Width(26f))) devSkill--;
                 GUILayout.Label("<b>" + def.Name + "</b>  level " + level + "  (" + Experience.FormatShort(G.Skills.GetXp(def.Id)) + " xp)", rich);
+                if (GUILayout.Button(">", GUILayout.Width(26f))) devSkill++;
+                GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("-1")) G.Skills.SetLevel(def.Id, Mathf.Max(1, level - 1));
                 if (GUILayout.Button("+1")) G.Skills.SetLevel(def.Id, Mathf.Min(Experience.MaxLevel, level + 1));
@@ -609,7 +742,10 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Empty bank")) G.Bank.Clear();
             if (GUILayout.Button("+1,000 logs in bank")) G.Bank.Add(ItemDefs.Logs.Id, 1000);
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("+1,000 coins")) G.Inventory.Add(ItemDefs.Coins.Id, 1000);
+            if (GUILayout.Button("Sword + shield")) { G.Inventory.Add(ItemDefs.BronzeSword.Id); G.Inventory.Add(ItemDefs.WoodenShield.Id); }
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
             if (GUILayout.Button("Regrow every tree"))
@@ -631,8 +767,12 @@ namespace Epacenur.Runtime
             {
                 SaveGame.Delete();
                 foreach (var def in SkillDefs.All)
-                    G.Skills.SetLevel(def.Id, 1);
+                    G.Skills.SetLevel(def.Id, def.StartLevel);
+                foreach (EquipSlot slot in System.Enum.GetValues(typeof(EquipSlot)))
+                    if (slot != EquipSlot.None)
+                        G.Equipment.Set(slot, default(ItemStack));
                 G.Inventory.Clear();
+                G.Inventory.Add(ItemDefs.Coins.Id, 100);
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");

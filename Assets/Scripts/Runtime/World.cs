@@ -19,6 +19,9 @@ namespace Epacenur.Runtime
         public readonly List<TreeObject> Trees = new List<TreeObject>();
         public readonly List<BankBooth> BankBooths = new List<BankBooth>();
         public readonly List<ShopKeeper> ShopKeepers = new List<ShopKeeper>();
+        public readonly List<Npc> Npcs = new List<Npc>();
+        public readonly List<GroundItem> GroundItems = new List<GroundItem>();
+        readonly System.Random rng = new System.Random();
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
         public Tile Spawn { get; private set; }
@@ -116,6 +119,37 @@ namespace Epacenur.Runtime
             ShopKeepers.Add(npc);
             AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Shop", new Color(1f, 0.85f, 0.3f));
             return npc;
+        }
+
+        public Npc AddNpc(NpcDef def, Tile tile, RectInt home)
+        {
+            var npc = Npc.Create(def, tile, home, transform, rng);
+            Npcs.Add(npc);
+            return npc;
+        }
+
+        /// Puts an item on the ground. A stackable item joins a pile of the same item on that tile.
+        public GroundItem SpawnGroundItem(int itemId, int count, Tile tile)
+        {
+            var def = ItemDefs.Get(itemId);
+            if (def == null || count <= 0)
+                return null;
+            if (def.Stackable)
+                foreach (var g in GroundItems)
+                    if (g.ItemId == itemId && g.Tile == tile)
+                    {
+                        g.AddCount(count);
+                        return g;
+                    }
+            var item = GroundItem.Create(itemId, count, tile, transform, rng);
+            GroundItems.Add(item);
+            return item;
+        }
+
+        public void RemoveGroundItem(GroundItem item)
+        {
+            GroundItems.Remove(item);
+            Destroy(item.gameObject);
         }
 
         public TreeObject AddTree(TreeDef def, Tile tile, System.Random rng)

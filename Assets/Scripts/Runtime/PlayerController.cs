@@ -7,10 +7,13 @@ namespace Epacenur.Runtime
     public enum ViewMode
     {
         Tile,         // top-down: click tiles to walk, click trees to chop them automatically; WASD also works
-        FirstPerson,  // mouse look + WASD; every chop is a click on the tree
+        FirstPerson,  // mouse look + WASD; every chop or attack is a click
     }
 
-    /// The player: walking (tile paths or WASD), the view toggle and woodcutting.
+    /// What the first-person view shows in your hand.
+    public enum HeldTool { Axe, Sword }
+
+    /// The player: walking (tile paths or WASD), the view toggle, woodcutting, picking things up and fighting.
     public sealed class PlayerController : MonoBehaviour
     {
         public const float PathSpeed = 3.4f;        // tiles per second when walking a clicked path
@@ -26,6 +29,8 @@ namespace Epacenur.Runtime
         public bool AimingAtTarget { get; private set; }
         public bool SwingReady => swingCooldown <= 0f;
         public bool IsChopping => chopping;
+        public bool IsFighting => fighting;
+        public HeldTool FirstPersonTool { get; private set; } = HeldTool.Axe;
         /// 1 at the start of a first-person swing, falling to 0.
         public float SwingT { get; private set; }
 
@@ -33,7 +38,7 @@ namespace Epacenur.Runtime
         Game G => Game.Instance;
 
         CharacterController cc;
-        Transform model, armPivot;
+        Transform model, armPivot, heldAxe, heldSword, heldShield;
         Renderer[] modelRenderers;
         GameObject hoverMarker, destMarker;
 
@@ -41,8 +46,10 @@ namespace Epacenur.Runtime
         int pathIndex;
         TreeObject target;      // the tree being walked to or chopped (tile mode)
         Interactable targetObject;  // the bank booth, NPC... being walked to (tile mode)
-        bool chopping;
-        float chopTimer, swingCooldown, fallSpeed, chopAnim;
+        GroundItem targetItem;      // the ground item being walked to (tile mode)
+        Npc attackTarget;           // the monster being walked to or fought (tile mode)
+        bool chopping, fighting;
+        float chopTimer, swingCooldown, fallSpeed, chopAnim, attackTimer, attackAnim;
 
         public static PlayerController Create(Tile spawn)
         {
@@ -78,11 +85,29 @@ namespace Epacenur.Runtime
             armPivot.SetParent(model, false);
             armPivot.localPosition = new Vector3(0.33f, 1.35f, 0f);
             Visuals.Prim(PrimitiveType.Capsule, armPivot, new Vector3(0f, -0.28f, 0f), new Vector3(0.14f, 0.3f, 0.14f), skin);
-            var axe = new GameObject("Axe").transform;
-            axe.SetParent(armPivot, false);
-            axe.localPosition = new Vector3(0f, -0.55f, 0.1f);
-            BuildAxe(axe);
-            modelRenderers = model.GetComponentsInChildren<Renderer>();
+            heldAxe = new GameObject("Axe").transform;
+            heldAxe.SetParent(armPivot, false);
+            heldAxe.localPosition = new Vector3(0f, -0.55f, 0.1f);
+            BuildAxe(heldAxe);
+            heldSword = new GameObject("Sword").transform;
+            heldSword.SetParent(armPivot, false);
+            heldSword.localPosition = new Vector3(0f, -0.55f, 0.02f);
+            ItemModels.BuildSword(heldSword, ItemDefs.BronzeSword);
+            // Shield strapped to the left arm.
+            heldShield = new GameObject("Shield").transform;
+            heldShield.SetParent(model, false);
+            heldShield.localPosition = new Vector3(-0.44f, 1.05f, 0.05f);
+            ItemModels.BuildShield(heldShield, ItemDefs.WoodenShield);
+            modelRenderers = model.GetComponentsInChildren<Renderer>(true);
+        }
+
+        /// Show the sword and shield you're wearing; the axe comes out to chop.
+        void UpdateHeldItems()
+        {
+            bool sword = G.Equipment.IsWearing(EquipSlot.Weapon);
+            heldSword.gameObject.SetActive(sword && !chopping);
+            heldAxe.gameObject.SetActive(chopping || !sword);
+            heldShield.gameObject.SetActive(G.Equipment.IsWearing(EquipSlot.Shield));
         }
 
         /// A small axe pointing forward along +z (shared with the first-person view).
@@ -133,6 +158,7 @@ namespace Epacenur.Runtime
                 fallSpeed -= 20f * dt;
             cc.Move(move + Vector3.up * fallSpeed * dt);
 
+            UpdateHeldItems();
             AnimateArm(dt);
             destMarker.SetActive(Mode == ViewMode.Tile && pathIndex < path.Count);
         }
@@ -151,8 +177,8 @@ namespace Epacenur.Runtime
                     ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly
                     : UnityEngine.Rendering.ShadowCastingMode.On;
             GameLog.Add(mode == ViewMode.FirstPerson
-                ? "First person: click a tree to chop it. Esc frees the mouse, V goes back."
-                : "Tile mode: click a tile to walk, click a tree to chop it.");
+                ? "First person: click a tree to chop it, a goblin to attack it. Esc frees the mouse, V goes back."
+                : "Tile mode: click a tile to walk, a tree to chop it, a goblin to attack it.");
         }
 
         /// WASD relative to where the camera faces, length 0..1.
@@ -175,7 +201,7 @@ namespace Epacenur.Runtime
 
         Vector3 UpdateTileMode(float dt)
         {
-            UpdateHover(out TreeObject hoverTree, out Interactable hoverObject, out Tile? hoverTile);
+            UpdateHover(out Component hover, out Tile? hoverTile);
             Vector3 wasd = ReadWasd();
             if (wasd != Vector3.zero)
             {
@@ -187,18 +213,26 @@ namespace Epacenur.Runtime
 
             if (Input.GetMouseButtonDown(0) && !G.Hud.IsMouseOverUi())
             {
-                if (hoverTree != null)
-                    WalkToTree(hoverTree);
-                else if (hoverObject != null)
-                    WalkToObject(hoverObject);
+                if (hover is TreeObject tree)
+                    WalkToTree(tree);
+                else if (hover is Interactable thing)
+                    WalkToObject(thing);
+                else if (hover is Npc npc)
+                    StartAttack(npc);
+                else if (hover is GroundItem item)
+                    WalkToItem(item);
                 else if (hoverTile.HasValue)
                     WalkTo(hoverTile.Value);
             }
 
+            if (attackTarget != null)
+                return UpdateAttack(dt);
             if (pathIndex < path.Count)
                 return FollowPath(dt);
             if (targetObject != null)
                 ArriveAtObject();
+            if (targetItem != null)
+                ArriveAtItem();
             if (target != null && !chopping)
                 ArriveAtTree();
             if (chopping)
@@ -206,10 +240,10 @@ namespace Epacenur.Runtime
             return Vector3.zero;
         }
 
-        void UpdateHover(out TreeObject tree, out Interactable thing, out Tile? tile)
+        /// What's under the mouse: a tree, an Interactable, an Npc, a GroundItem, or null for plain ground.
+        void UpdateHover(out Component hover, out Tile? tile)
         {
-            tree = null;
-            thing = null;
+            hover = null;
             tile = null;
             HoverAction = HoverTarget = "";
             AimingAtTarget = false;
@@ -218,21 +252,38 @@ namespace Epacenur.Runtime
                 hoverMarker.SetActive(false);
                 return;
             }
-            tree = hit.collider.GetComponentInParent<TreeObject>();
-            thing = hit.collider.GetComponentInParent<Interactable>();
+            var tree = hit.collider.GetComponentInParent<TreeObject>();
+            var thing = hit.collider.GetComponentInParent<Interactable>();
+            var npc = hit.collider.GetComponentInParent<Npc>();
+            var item = hit.collider.GetComponentInParent<GroundItem>();
             if (thing != null)
             {
+                hover = thing;
                 tile = thing.Tile;
                 HoverAction = thing.Action;
                 HoverTarget = thing.DisplayName;
+            }
+            else if (npc != null && !npc.IsDead)
+            {
+                hover = npc;
+                tile = npc.Tile;
+                HoverAction = "Attack";
+                HoverTarget = npc.HoverName;
+            }
+            else if (item != null)
+            {
+                hover = item;
+                tile = item.Tile;
+                HoverAction = "Take";
+                HoverTarget = item.Label;
             }
             else if (tree != null)
             {
                 tile = tree.Tile;
                 HoverAction = tree.IsStump ? "Walk here" : "Chop down";
                 HoverTarget = tree.IsStump ? "" : tree.Def.Name;
-                if (tree.IsStump)
-                    tree = null;  // clicking a stump just walks over to it
+                if (!tree.IsStump)
+                    hover = tree;  // clicking a stump just walks over to it
             }
             else
             {
@@ -286,6 +337,38 @@ namespace Epacenur.Runtime
             }
             transform.rotation = Quaternion.LookRotation(World.TileCenter(thing.Tile) - World.TileCenter(CurrentTile));
             thing.Interact();
+        }
+
+        void WalkToItem(GroundItem item)
+        {
+            CancelAction();
+            targetItem = item;
+            SetPath(Pathfinder.PathTo(G.World.Grid, StartTile(), item.Tile));
+        }
+
+        void ArriveAtItem()
+        {
+            var item = targetItem;
+            targetItem = null;
+            if (item == null)
+                return;  // someone else took it, or it vanished
+            if (CurrentTile != item.Tile)
+            {
+                GameLog.Add("I can't reach that!");
+                return;
+            }
+            PickUp(item);
+        }
+
+        void PickUp(GroundItem item)
+        {
+            if (!G.Inventory.HasRoomFor(item.ItemId))
+            {
+                GameLog.Add("You don't have enough inventory space to hold that item.");
+                return;
+            }
+            G.Inventory.Add(item.ItemId, item.Count);
+            G.World.RemoveGroundItem(item);
         }
 
         // Paths start from the tile you're on; after WASD you may be off its centre.
@@ -374,7 +457,10 @@ namespace Epacenur.Runtime
             pathIndex = 0;
             target = null;
             targetObject = null;
+            targetItem = null;
+            attackTarget = null;
             chopping = false;
+            fighting = false;
         }
 
         void Face(Vector3 dir, float dt)
@@ -394,6 +480,8 @@ namespace Epacenur.Runtime
             Component aimedAt = AimedObject();
             var aimed = aimedAt as TreeObject;
             var aimedObject = aimedAt as Interactable;
+            var aimedNpc = aimedAt as Npc;
+            var aimedItem = aimedAt as GroundItem;
             AimingAtTarget = aimedAt != null;
             if (aimed != null)
             {
@@ -405,6 +493,17 @@ namespace Epacenur.Runtime
                 HoverAction = aimedObject.Action;
                 HoverTarget = aimedObject.DisplayName;
             }
+            else if (aimedNpc != null)
+            {
+                HoverAction = "Attack";
+                HoverTarget = aimedNpc.HoverName;
+            }
+            else if (aimedItem != null)
+            {
+                HoverAction = "Take";
+                HoverTarget = aimedItem.Label;
+            }
+            FirstPersonTool = aimed == null && G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Sword : HeldTool.Axe;
 
             if (Input.GetMouseButtonDown(0))
             {
@@ -417,6 +516,21 @@ namespace Epacenur.Runtime
                 {
                     aimedObject.Interact();
                 }
+                else if (aimedItem != null)
+                {
+                    PickUp(aimedItem);
+                }
+                else if (aimedNpc != null)
+                {
+                    // One attack per click, no faster than the weapon's speed.
+                    if (swingCooldown <= 0f && CanFight())
+                    {
+                        swingCooldown = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
+                        SwingT = 1f;
+                        aimedNpc.Engage(transform.position);
+                        Attack(aimedNpc);
+                    }
+                }
                 else if (swingCooldown <= 0f)
                 {
                     swingCooldown = WoodcuttingRules.FirstPersonSwingTicks * WoodcuttingRules.TickSeconds;
@@ -428,13 +542,21 @@ namespace Epacenur.Runtime
             return ReadWasd() * WasdSpeed * dt;
         }
 
-        /// What's under the crosshair and within reach: a standing tree or an Interactable.
+        /// What's under the crosshair and within reach: a standing tree, an Interactable, a live Npc or a GroundItem.
         Component AimedObject()
         {
             var cam = G.Rig.Cam.transform;
             if (!Physics.Raycast(cam.position, cam.forward, out RaycastHit hit, FirstPersonReach + 1.5f))
                 return null;
             Component thing = hit.collider.GetComponentInParent<Interactable>();
+            if (thing == null)
+            {
+                var npc = hit.collider.GetComponentInParent<Npc>();
+                if (npc != null && !npc.IsDead)
+                    thing = npc;
+            }
+            if (thing == null)
+                thing = hit.collider.GetComponentInParent<GroundItem>();
             if (thing == null)
             {
                 var tree = hit.collider.GetComponentInParent<TreeObject>();
@@ -490,8 +612,95 @@ namespace Epacenur.Runtime
             return true;
         }
 
+        // ---- Combat (both modes) ----
+
+        /// For now you need both a sword and a shield worn to fight.
+        bool CanFight()
+        {
+            if (!G.Equipment.IsWearing(EquipSlot.Weapon) || !G.Equipment.IsWearing(EquipSlot.Shield))
+            {
+                GameLog.Add("You need to wield a sword and shield to fight.");
+                return false;
+            }
+            return true;
+        }
+
+        void StartAttack(Npc npc)
+        {
+            CancelAction();
+            if (!CanFight())
+                return;
+            attackTarget = npc;
+            npc.Engage(transform.position);
+        }
+
+        /// Tile mode: walk up to the monster, then hit it every few ticks until it dies.
+        Vector3 UpdateAttack(float dt)
+        {
+            var npc = attackTarget;
+            if (npc == null || npc.IsDead)
+            {
+                CancelAction();
+                return Vector3.zero;
+            }
+            Vector3 flat = transform.position - World.TileCenter(CurrentTile);
+            flat.y = 0f;
+            bool inPlace = CurrentTile.IsCardinalNeighbour(npc.Tile) && flat.sqrMagnitude < 0.01f;
+            if (!inPlace)
+            {
+                fighting = false;
+                if (pathIndex >= path.Count)
+                {
+                    var p = Pathfinder.PathToInteract(G.World.Grid, StartTile(), npc.Tile);
+                    if (p == null)
+                    {
+                        GameLog.Add("I can't reach that!");
+                        CancelAction();
+                        return Vector3.zero;
+                    }
+                    SetPath(p);
+                    if (path.Count == 0)
+                        return Vector3.zero;
+                }
+                return FollowPath(dt);
+            }
+
+            npc.Engage(transform.position);
+            Face(npc.transform.position - transform.position, dt);
+            if (!fighting)
+            {
+                fighting = true;
+                attackTimer = 0f;  // the first hit lands as soon as you arrive
+            }
+            attackTimer -= dt;
+            if (attackTimer <= 0f)
+            {
+                attackTimer = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
+                if (Attack(npc))
+                    CancelAction();
+            }
+            return Vector3.zero;
+        }
+
+        /// One melee attack. Returns true when it killed the monster.
+        bool Attack(Npc npc)
+        {
+            attackAnim = 0.4f;
+            var eq = G.Equipment;
+            var style = G.Style;
+            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, style, npc.Def.DefenceLevel, npc.Def.DefenceBonus);
+            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, style);
+            int damage = Mathf.Min(CombatRules.RollDamage(G.Rng, chance, maxHit), npc.Hitpoints);
+            bool killed = npc.TakeHit(damage);
+            CombatRules.AwardXp(G.Skills, style, damage);
+            if (killed)
+                GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
+            return killed;
+        }
+
         void AnimateArm(float dt)
         {
+            attackAnim = Mathf.Max(0f, attackAnim - dt);
             if (chopping)
                 chopAnim += dt;
             else
@@ -504,9 +713,15 @@ namespace Epacenur.Runtime
                 float t = (chopAnim % cycle) / cycle;
                 angle = t < 0.7f ? Mathf.Lerp(0f, -150f, t / 0.7f) : Mathf.Lerp(-150f, -40f, (t - 0.7f) / 0.3f);
             }
+            else if (attackAnim > 0f)
+            {
+                // A quick slash: up, then down and forward.
+                float t = 1f - attackAnim / 0.4f;
+                angle = t < 0.35f ? Mathf.Lerp(-15f, -140f, t / 0.35f) : Mathf.Lerp(-140f, -60f, (t - 0.35f) / 0.65f);
+            }
             else
             {
-                angle = -15f;
+                angle = fighting ? -60f : -15f;
             }
             armPivot.localRotation = Quaternion.Slerp(armPivot.localRotation, Quaternion.Euler(angle, 0f, 0f), 1f - Mathf.Exp(-25f * dt));
         }

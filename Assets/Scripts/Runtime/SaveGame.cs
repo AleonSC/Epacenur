@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Keeps skills, the inventory, the bank and where you stood between sessions (in PlayerPrefs).
+    /// Keeps skills, the inventory, the bank, worn equipment and where you stood between sessions (in PlayerPrefs).
     public static class SaveGame
     {
         public const string Key = "Epacenur.Save.v1";
@@ -19,6 +19,8 @@ namespace Epacenur.Runtime
             public int[] counts;
             public int[] bankIds;
             public long[] bankCounts;
+            public int[] equipIds;   // by EquipSlot
+            public int style;
             public float x, z;
         }
 
@@ -46,6 +48,10 @@ namespace Epacenur.Runtime
                 d.bankIds[i] = game.Bank[i].ItemId;
                 d.bankCounts[i] = game.Bank[i].Count;
             }
+            d.equipIds = new int[Equipment.SlotCount];
+            for (int i = 0; i < Equipment.SlotCount; i++)
+                d.equipIds[i] = game.Equipment[(EquipSlot)i].ItemId;
+            d.style = (int)game.Style;
             for (int i = 0; i < Inventory.Size; i++)
             {
                 d.itemIds[i] = game.Inventory[i].ItemId;
@@ -84,6 +90,11 @@ namespace Epacenur.Runtime
             for (int i = 0; d.bankIds != null && d.bankCounts != null && i < d.bankIds.Length && i < d.bankCounts.Length; i++)
                 if (ItemDefs.Get(d.bankIds[i]) != null)
                     game.Bank.Add(d.bankIds[i], d.bankCounts[i]);
+
+            for (int i = 0; d.equipIds != null && i < d.equipIds.Length && i < Equipment.SlotCount; i++)
+                if (ItemDefs.Get(d.equipIds[i]) != null)
+                    game.Equipment.Set((EquipSlot)i, new ItemStack { ItemId = d.equipIds[i], Count = 1 });
+            game.Style = (CombatStyle)Mathf.Clamp(d.style, 0, 2);
 
             var tile = game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)));
             game.Player.Teleport(tile);

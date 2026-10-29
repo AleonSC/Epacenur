@@ -31,7 +31,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - **Inventory**: 28 slots, one log per slot. Click a slot and then another to swap them. Right-click or shift-click to drop an item.
 - **Skills** tab: level (out of 999), xp, xp to the next level and a progress bar. Hover for the exact xp.
 - **H** shows or hides the help, and **F1** opens the dev tools.
-- Progress (skills, inventory, position) saves every 15 s and when you quit.
+- Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
 ## Bank
 

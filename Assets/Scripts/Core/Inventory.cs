@@ -9,6 +9,9 @@ namespace Epacenur.Core
         public bool Stackable;  // stackable items share one slot; everything else takes a slot each
         public string Examine;
         public int Value;       // in coins: shops sell at this price and buy back for less
+        public EquipSlot Slot = EquipSlot.None;  // where it's worn, if it can be
+        public int AttackBonus, StrengthBonus, DefenceBonus;
+        public int AttackTicks = 4;              // weapons: game ticks between attacks
         public float R, G, B;   // icon colour until there are real icons
     }
 
@@ -32,12 +35,14 @@ namespace Epacenur.Core
 
         public static readonly ItemDef BronzeSword = new ItemDef
         {
-            Id = 4, Name = "Bronze sword", Examine = "A razor-sharp sword.", Value = 26, R = 0.72f, G = 0.5f, B = 0.28f,
+            Id = 4, Name = "Bronze sword", Examine = "A razor-sharp sword.", Value = 26,
+            Slot = EquipSlot.Weapon, AttackBonus = 4, StrengthBonus = 5, AttackTicks = 4, R = 0.72f, G = 0.5f, B = 0.28f,
         };
 
         public static readonly ItemDef WoodenShield = new ItemDef
         {
-            Id = 5, Name = "Wooden shield", Examine = "A solid wooden shield.", Value = 20, R = 0.5f, G = 0.33f, B = 0.18f,
+            Id = 5, Name = "Wooden shield", Examine = "A solid wooden shield.", Value = 20,
+            Slot = EquipSlot.Shield, DefenceBonus = 5, R = 0.5f, G = 0.33f, B = 0.18f,
         };
 
         public static readonly ItemDef[] All = { Logs, Coins, Tinderbox, BronzeSword, WoodenShield };

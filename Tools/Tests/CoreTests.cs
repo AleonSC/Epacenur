@@ -90,6 +90,37 @@ static class CoreTests
         inv.Add(ItemDefs.Coins.Id, 26);
         Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "spending your last coins frees their slot for the item");
 
+        Console.WriteLine("Equipment and combat");
+        var fresh = new SkillSet();
+        Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
+        var eq = new Equipment();
+        inv.Clear();
+        inv.Add(ItemDefs.BronzeSword.Id);
+        inv.Add(ItemDefs.WoodenShield.Id);
+        inv.Add(ItemDefs.Logs.Id);
+        Check(eq.Equip(inv, 0) && eq.Equip(inv, 1) && !eq.Equip(inv, 2), "wield the sword and shield, but not logs");
+        Check(eq.IsWearing(EquipSlot.Weapon) && eq.IsWearing(EquipSlot.Shield) && inv.FreeSlots == 27, "both worn, out of the inventory");
+        Check(eq.AttackBonus == 4 && eq.StrengthBonus == 5 && eq.DefenceBonus == 5, "bonuses add up");
+        inv.Add(ItemDefs.BronzeSword.Id);
+        int swordSlot = 0;
+        for (int i = 0; i < Inventory.Size; i++) if (!inv[i].IsEmpty && inv[i].ItemId == ItemDefs.BronzeSword.Id) swordSlot = i;
+        eq.Equip(inv, swordSlot);
+        Check(inv[swordSlot].ItemId == ItemDefs.BronzeSword.Id && eq.IsWearing(EquipSlot.Weapon), "wielding over a weapon swaps it into the same slot");
+        Check(eq.Unequip(EquipSlot.Shield, inv) && !eq.IsWearing(EquipSlot.Shield) && inv.Count(ItemDefs.WoodenShield.Id) == 1, "remove the shield");
+        inv.Add(ItemDefs.Logs.Id, 28);
+        Check(!eq.Unequip(EquipSlot.Weapon, inv) && eq.IsWearing(EquipSlot.Weapon), "can't remove with a full inventory");
+        Check(CombatRules.MaxHit(1, 5, CombatStyle.Accurate) == 1 && CombatRules.MaxHit(99, 0, CombatStyle.Aggressive) == 11, "max hits (1 at level 1 with a bronze sword, 11 at 99 unarmed)");
+        double hc = CombatRules.HitChance(1, 4, CombatStyle.Accurate, 1, -2);
+        Check(hc > 0.5 && hc < 0.7, "level 1 hits a goblin about 6 times in 10 (" + hc.ToString("0.00") + ")");
+        var cs = new SkillSet();
+        CombatRules.AwardXp(cs, CombatStyle.Aggressive, 3);
+        Check(cs.GetXp(SkillId.Strength) == 12 && cs.GetXpTenths(SkillId.Hitpoints) == Experience.XpForLevel(10) * 10 + 40, "3 damage: 12 Strength xp, 4 Hitpoints xp");
+        var rng = new Random(1);
+        bool allCoins = true;
+        for (int i = 0; i < 200; i++)
+            if (!NpcDefs.Goblin.Drops.Roll(rng, out int id, out int n) || id != ItemDefs.Coins.Id || n < 1 || n > 30) allCoins = false;
+        Check(allCoins, "goblins always drop 1-30 coins");
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");

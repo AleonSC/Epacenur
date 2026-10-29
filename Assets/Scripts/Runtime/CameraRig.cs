@@ -17,7 +17,7 @@ namespace Epacenur.Runtime
         float orbitYaw = 0f, orbitPitch = 52f, distance = 13f;
         float lookYaw, lookPitch;
         Vector3 focus;
-        Transform fpAxe;
+        Transform fpAxe, fpSword;
 
         public static CameraRig Create(Camera cam, PlayerController player)
         {
@@ -40,6 +40,20 @@ namespace Epacenur.Runtime
             rig.fpAxe = holder;
             holder.gameObject.SetActive(false);
 
+            // The sword, when you're wielding one.
+            var swordHolder = new GameObject("First person sword").transform;
+            swordHolder.SetParent(cam.transform, false);
+            swordHolder.localPosition = new Vector3(0.32f, -0.3f, 0.5f);
+            var sword = new GameObject("Sword").transform;
+            sword.SetParent(swordHolder, false);
+            sword.localPosition = new Vector3(0f, 0f, -0.1f);
+            sword.localRotation = Quaternion.Euler(-55f, -12f, 0f);
+            ItemModels.BuildSword(sword, Core.ItemDefs.BronzeSword);
+            foreach (var r in swordHolder.GetComponentsInChildren<Renderer>())
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            rig.fpSword = swordHolder;
+            swordHolder.gameObject.SetActive(false);
+
             rig.ApplyLens();
             return rig;
         }
@@ -58,7 +72,11 @@ namespace Epacenur.Runtime
                 orbitYaw = lookYaw;
                 LockCursor(false);
             }
-            fpAxe.gameObject.SetActive(mode == ViewMode.FirstPerson);
+            if (mode == ViewMode.Tile)
+            {
+                fpAxe.gameObject.SetActive(false);
+                fpSword.gameObject.SetActive(false);
+            }
             ApplyLens();
         }
 
@@ -119,10 +137,13 @@ namespace Epacenur.Runtime
             focus = player.transform.position;
             transform.SetPositionAndRotation(focus + Vector3.up * PlayerController.EyeHeight, Quaternion.Euler(lookPitch, lookYaw, 0f));
 
-            // Chop: a quick downward strike, then back.
+            // Chop or slash: a quick downward strike, then back.
+            bool sword = player.FirstPersonTool == HeldTool.Sword;
+            fpAxe.gameObject.SetActive(!sword);
+            fpSword.gameObject.SetActive(sword);
             float s = player.SwingT;
             float strike = s > 0.6f ? Mathf.InverseLerp(1f, 0.6f, s) : Mathf.InverseLerp(0f, 0.6f, s);
-            fpAxe.localRotation = Quaternion.Euler(strike * 75f, 0f, strike * -10f);
+            (sword ? fpSword : fpAxe).localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (sword ? -35f : -10f));
         }
     }
 }

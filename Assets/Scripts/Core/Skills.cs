@@ -7,6 +7,10 @@ namespace Epacenur.Core
     /// Every skill in the game. To add a skill: add it here, then give it a SkillDef in SkillDefs.All.
     public enum SkillId
     {
+        Attack,
+        Strength,
+        Defence,
+        Hitpoints,
         Woodcutting,
     }
 
@@ -15,12 +19,17 @@ namespace Epacenur.Core
         public SkillId Id;
         public string Name;
         public float R, G, B;  // colour of the skill's icon and xp drops
+        public int StartLevel = 1;  // Hitpoints starts at 10, as in RuneScape
     }
 
     public static class SkillDefs
     {
         public static readonly SkillDef[] All =
         {
+            new SkillDef { Id = SkillId.Attack, Name = "Attack", R = 0.85f, G = 0.55f, B = 0.15f },
+            new SkillDef { Id = SkillId.Strength, Name = "Strength", R = 0.2f, G = 0.7f, B = 0.55f },
+            new SkillDef { Id = SkillId.Defence, Name = "Defence", R = 0.45f, G = 0.6f, B = 0.95f },
+            new SkillDef { Id = SkillId.Hitpoints, Name = "Hitpoints", R = 0.9f, G = 0.25f, B = 0.3f, StartLevel = 10 },
             new SkillDef { Id = SkillId.Woodcutting, Name = "Woodcutting", R = 0.35f, G = 0.75f, B = 0.3f },
         };
 
@@ -48,7 +57,7 @@ namespace Epacenur.Core
         public SkillSet()
         {
             foreach (var def in SkillDefs.All)
-                tenths[def.Id] = BigInteger.Zero;
+                tenths[def.Id] = Experience.XpForLevel(def.StartLevel) * 10;
         }
 
         public BigInteger GetXpTenths(SkillId id) => tenths.TryGetValue(id, out var t) ? t : BigInteger.Zero;

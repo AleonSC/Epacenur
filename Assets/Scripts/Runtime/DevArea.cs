@@ -32,7 +32,7 @@ namespace Epacenur.Runtime
             return new List<SkillArea>
             {
                 new WoodcuttingArea { Plot = new RectInt(3, 26, 13, 16) },
-                new EmptyPlot { Plot = new RectInt(18, 26, 12, 16) },
+                new GoblinArea { Plot = new RectInt(18, 26, 12, 16) },
                 new EmptyPlot { Plot = new RectInt(32, 26, 13, 16) },
             };
         }
@@ -55,6 +55,24 @@ namespace Epacenur.Runtime
                     var tile = new Tile(x + rng.Next(0, 2), z + rng.Next(0, 2));
                     world.AddTree(TreeDefs.Basic, tile, rng);
                 }
+        }
+    }
+
+    /// Goblins to fight: they wander round the plot, don't fight back yet, and drop coins.
+    public sealed class GoblinArea : SkillArea
+    {
+        public const int Count = 4;
+        public override string Name => "Goblins";
+        public override Color GroundColor => new Color(0.45f, 0.42f, 0.28f);
+
+        public override void Build(World world)
+        {
+            var rng = new System.Random(99);
+            for (int i = 0; i < Count; i++)
+            {
+                var tile = new Tile(Plot.x + 1 + rng.Next(Plot.width - 2), Plot.y + 1 + rng.Next(Plot.height - 3));
+                world.AddNpc(NpcDefs.Goblin, tile, new RectInt(Plot.x + 1, Plot.y + 1, Plot.width - 2, Plot.height - 3));
+            }
         }
     }
 
