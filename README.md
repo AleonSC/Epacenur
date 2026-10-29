@@ -37,7 +37,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   ("Chop down Tree / 2 more options"). Inventory items get Wield / Wear, Drop and Examine. Worn items get Remove and Examine.
   In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
   once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
-- **Panel tabs**: **Items** (inventory), **Worn** (equipment) and **Skills**.
+- **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt) and **Skills**.
 - **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
   slot to swap them. Shift-click an item to **drop it on the ground** (or use Drop in its right-click menu).
 - **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level
@@ -58,6 +58,17 @@ Coins live in a **money pouch** shown under the inventory, as in RuneScape 3, so
 - At the bank, click the pouch or press **Deposit money pouch** to bank every coin in it. **Deposit inventory** leaves the pouch alone.
 - The amount uses RuneScape's colours: yellow below 100K, white below 10M, green above. Left-click it to examine.
 - Saves from before the pouch move their coins into it when loaded.
+
+## Tool belt
+
+The **Tools** tab is RuneScape 3's tool belt. Tools on it are used automatically, as if they were in your backpack,
+so they don't take up slots.
+
+- Click a tool in your backpack, or right-click it and choose **Add to tool belt**, to move it onto the belt. It stays there for good:
+  it can't be taken off or dropped, and a second copy stays in the backpack.
+- It can hold the **tinderbox** (firemaking) and the **small fishing net** (fishing). The tab shows every tool it can hold,
+  with the ones you have in full colour.
+- Tools still work from the backpack too. The list of tools is `ToolBelt.Tools` in `Assets/Scripts/Core/ToolBelt.cs`.
 
 ## Bank
 
@@ -185,7 +196,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - A skill (pick it with **<** and **>**): set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
-- Add 1,000 coins, a sword and shield, or a tinderbox and net
+- Add 1,000 coins, a sword and shield, or a tinderbox and net, or fill the tool belt
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything

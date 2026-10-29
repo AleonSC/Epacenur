@@ -18,7 +18,7 @@ namespace Epacenur.Runtime
         const float PouchH = 30f;  // the money pouch under the inventory
         const float PanelH = Pad * 2 + TabH + 6f + Slot * 7 + Gap * 6 + Gap + PouchH;
 
-        enum Tab { Inventory, Equipment, Skills }
+        enum Tab { Inventory, Equipment, ToolBelt, Skills }
 
         struct XpDrop
         {
@@ -291,9 +291,9 @@ namespace Epacenur.Runtime
         {
             var r = PanelRect;
             Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
-            string[] names = { "Items", "Worn", "Skills" };
-            float tabW = (r.width - Pad * 2 - 8f) / 3f;
-            for (int i = 0; i < 3; i++)
+            string[] names = { "Inv", "Worn", "Tools", "Skills" };
+            float tabW = (r.width - Pad * 2 - 12f) / 4f;
+            for (int i = 0; i < names.Length; i++)
                 if (GUI.Toggle(new Rect(r.x + Pad + i * (tabW + 4f), r.y + Pad, tabW, TabH), (int)tab == i, names[i], GUI.skin.button))
                     tab = (Tab)i;
             var body = new Rect(r.x + Pad, r.y + Pad + TabH + 6f, r.width - Pad * 2, r.height - Pad * 2 - TabH - 6f);
@@ -301,6 +301,8 @@ namespace Epacenur.Runtime
                 DrawInventory(body);
             else if (tab == Tab.Equipment)
                 DrawEquipment(body);
+            else if (tab == Tab.ToolBelt)
+                DrawToolBelt(body);
             else
                 DrawSkills(body);
         }
@@ -358,6 +360,8 @@ namespace Epacenur.Runtime
                             G.Equipment.Equip(inv, i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && stack.ItemId == ItemDefs.Coins.Id)
                             inv.AddToPouch(i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && ToolBelt.IsTool(stack.ItemId) && !G.ToolBelt.Has(stack.ItemId))
+                            AddToToolBelt(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && FiremakingRules.For(stack.ItemId) != null && G.Player.HasTinderbox)
                             G.Player.LightFromInventory(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty)
@@ -375,6 +379,55 @@ namespace Epacenur.Runtime
             DrawPouch(new Rect(body.x, body.y + 7 * (Slot + Gap), body.width, PouchH));
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Tool belt ----
+
+        void AddToToolBelt(int slot)
+        {
+            var def = G.Inventory[slot].Def;
+            if (G.ToolBelt.AddFromInventory(G.Inventory, slot, out string problem))
+                GameLog.Add("You add the " + def.Name.ToLowerInvariant() + " to your tool belt.");
+            else
+                GameLog.Add(problem);
+        }
+
+        /// Every tool the belt can hold: the ones on it in full colour, the rest faded.
+        void DrawToolBelt(Rect body)
+        {
+            var e = Event.current;
+            Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>TOOL BELT</b>", small);
+            float top = body.y + 20f;
+            string tooltip = null;
+            var tools = ToolBelt.Tools;
+            for (int i = 0; i < tools.Length; i++)
+            {
+                var def = tools[i];
+                bool has = G.ToolBelt.Has(def.Id);
+                var slot = new Rect(body.x + (i % 4) * (Slot + Gap), top + (i / 4) * (Slot + Gap), Slot, Slot);
+                Bevel(slot);
+                DrawItemIcon(slot, def);
+                if (!has)
+                    Fill(new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f), new Color(0.12f, 0.11f, 0.09f, 0.7f));
+                if (slot.Contains(e.mousePosition))
+                {
+                    tooltip = def.Name + (has ? " (on your belt)" : ": not on your belt yet");
+                    if (e.type == EventType.MouseDown)
+                    {
+                        if (e.button == 1)
+                            OpenMenu(new List<MenuOption> { new MenuOption("Examine", MenuOption.Item(def.Name), () => GameLog.Add(def.Examine)) }, false);
+                        e.Use();
+                    }
+                }
+            }
+            int rows = (tools.Length + 3) / 4;
+            GUI.Label(new Rect(body.x, top + rows * (Slot + Gap) + 4f, body.width, 80f),
+                G.ToolBelt.Owned.GetEnumerator().MoveNext()
+                    ? "Tools here are used automatically, as if they were in your backpack. They stay on the belt for good."
+                    : "Right-click a tool in your backpack and choose Add to tool belt. It's then used from here and frees the slot.",
+                rich);
+            if (tooltip != null)
+                Shadowed(new Rect(e.mousePosition.x - 210f, e.mousePosition.y + 16f, 210f, 20f), "<color=#ffcc66>" + tooltip + "</color>", rightSmall);
         }
 
         // ---- Money pouch ----
@@ -471,6 +524,12 @@ namespace Epacenur.Runtime
                     {
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                if (ToolBelt.IsTool(def.Id))
+                    o.Add(new MenuOption("Add to tool belt", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            AddToToolBelt(slot);
                     }));
                 if (def == ItemDefs.Coins)
                     o.Add(new MenuOption("Add to pouch", name, () =>
@@ -1249,6 +1308,7 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("+1,000 coins")) G.Inventory.Add(ItemDefs.Coins.Id, 1000);
             if (GUILayout.Button("Sword + shield")) { G.Inventory.Add(ItemDefs.BronzeSword.Id); G.Inventory.Add(ItemDefs.WoodenShield.Id); }
             if (GUILayout.Button("Tinderbox + net")) { G.Inventory.Add(ItemDefs.Tinderbox.Id); G.Inventory.Add(ItemDefs.SmallFishingNet.Id); }
+            if (GUILayout.Button("Fill belt")) foreach (var t in ToolBelt.Tools) G.ToolBelt.Add(t.Id);
             GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
@@ -1278,6 +1338,7 @@ namespace Epacenur.Runtime
                 G.Inventory.Clear();
                 G.Inventory.SetPouch(0);
                 G.Inventory.Add(ItemDefs.Coins.Id, 100);
+                G.ToolBelt.Clear();
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");

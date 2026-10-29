@@ -23,6 +23,7 @@ namespace Epacenur.Runtime
             public int style;
             public bool hasPouch;    // saves from before the money pouch kept coins in a slot
             public int pouch;
+            public int[] toolIds;    // tools on the tool belt
             public float x, z;
         }
 
@@ -56,6 +57,7 @@ namespace Epacenur.Runtime
             d.style = (int)game.Style;
             d.hasPouch = true;
             d.pouch = game.Inventory.PouchCoins;
+            d.toolIds = new System.Collections.Generic.List<int>(game.ToolBelt.Owned).ToArray();
             for (int i = 0; i < Inventory.Size; i++)
             {
                 d.itemIds[i] = game.Inventory[i].ItemId;
@@ -99,6 +101,9 @@ namespace Epacenur.Runtime
                 if (ItemDefs.Get(d.equipIds[i]) != null)
                     game.Equipment.Set((EquipSlot)i, new ItemStack { ItemId = d.equipIds[i], Count = 1 });
             game.Style = (CombatStyle)Mathf.Clamp(d.style, 0, 2);
+            if (d.toolIds != null)
+                foreach (int id in d.toolIds)
+                    game.ToolBelt.Add(id);
             if (d.hasPouch)
                 game.Inventory.SetPouch(d.pouch);
             else

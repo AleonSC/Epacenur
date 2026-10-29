@@ -31,6 +31,9 @@ namespace Epacenur.Runtime
         public readonly Inventory Inventory = new Inventory();
         public readonly Bank Bank = new Bank();
         public readonly Equipment Equipment = new Equipment();
+        public readonly ToolBelt ToolBelt = new ToolBelt();
+        /// Whether a tool is to hand: on the tool belt or in the backpack.
+        public bool HasTool(int itemId) => ToolBelt.HasTool(ToolBelt, Inventory, itemId);
         public CombatStyle Style = CombatStyle.Accurate;
         public readonly System.Random Rng = new System.Random();
         public World World { get; private set; }

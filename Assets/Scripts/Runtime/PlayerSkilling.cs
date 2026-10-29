@@ -17,7 +17,7 @@ namespace Epacenur.Runtime
 
         public bool IsLighting => lighting;
         public bool IsFishing => fishing;
-        public bool HasTinderbox => G.Inventory.Count(ItemDefs.Tinderbox.Id) > 0;
+        public bool HasTinderbox => G.HasTool(ItemDefs.Tinderbox.Id);
 
         void CancelSkilling()
         {
@@ -172,7 +172,7 @@ namespace Epacenur.Runtime
 
         bool CanFish(FishingSpot spot)
         {
-            if (G.Inventory.Count(spot.Def.ToolItemId) == 0)
+            if (!G.HasTool(spot.Def.ToolItemId))
             {
                 GameLog.Add("You need a " + ItemDefs.Get(spot.Def.ToolItemId).Name.ToLowerInvariant() + " to fish here.");
                 return false;

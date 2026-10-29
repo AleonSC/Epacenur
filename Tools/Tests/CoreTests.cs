@@ -112,6 +112,19 @@ static class CoreTests
         inv.Clear();
         inv.SetPouch(0);
 
+        Console.WriteLine("Tool belt");
+        var belt = new ToolBelt();
+        inv.Clear();
+        inv.Add(ItemDefs.Tinderbox.Id);
+        inv.Add(ItemDefs.Tinderbox.Id);
+        inv.Add(ItemDefs.Logs.Id);
+        Check(!ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id) && ToolBelt.HasTool(belt, inv, ItemDefs.Tinderbox.Id), "a tinderbox in the backpack counts as having one");
+        Check(belt.AddFromInventory(inv, 0, out string bwhy) && belt.Has(ItemDefs.Tinderbox.Id) && inv[0].IsEmpty, "add a tinderbox: it leaves the backpack");
+        Check(!belt.AddFromInventory(inv, 1, out bwhy) && bwhy == "That is already on your tool belt." && !inv[1].IsEmpty, "a second one stays in the backpack");
+        Check(!belt.AddFromInventory(inv, 2, out bwhy) && !inv[2].IsEmpty, "logs aren't a tool");
+        Check(ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id), "a tool on the belt counts with an empty backpack");
+        inv.Clear();
+
         Console.WriteLine("Equipment and combat");
         var fresh = new SkillSet();
         Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
