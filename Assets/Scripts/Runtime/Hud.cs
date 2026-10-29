@@ -858,7 +858,7 @@ namespace Epacenur.Runtime
             var c = lit ? new Color(1f, 0.95f, 0.55f) : new Color(0.75f, 0.72f, 0.55f);
             Fill(new Rect(cx - 7f, cy - 1.5f, 14f, 3f), c);
             Fill(new Rect(cx - 1.5f, cy - 7f, 3f, 14f), c);
-            FillRotated(new Rect(cx - 3.5f, cy - 3.5f, 7f, 7f), c, 45f, b.center);
+            FillDiamond(cx, cy, 5f, c);
             Fill(new Rect(cx - 1.5f, cy - 1.5f, 3f, 3f), Color.white);
         }
 
@@ -1199,23 +1199,20 @@ namespace Epacenur.Runtime
             else if (def == ItemDefs.BronzeHatchet)
             {
                 var wood = new Color(0.5f, 0.32f, 0.16f);
-                var m = GUI.matrix;
-                GUIUtility.RotateAroundPivot(-35f, slot.center);
-                Fill(new Rect(ix + 18.5f, iy + 7f, 3f, 27f), wood);           // handle
-                Fill(new Rect(ix + 18.5f, iy + 6f, 11f, 8f), c);              // head
-                Fill(new Rect(ix + 27f, iy + 5f, 3f, 10f), Shade(c, 1.25f));  // edge
-                GUI.matrix = m;
+                var pivot = new Vector2(slot.x + slot.width / 2f, slot.y + slot.height / 2f);
+                FillRotated(new Rect(ix + 18.5f, iy + 7f, 3f, 27f), wood, -35f, pivot);            // handle
+                FillRotated(new Rect(ix + 18.5f, iy + 6f, 11f, 4f), c, -35f, pivot);               // head
+                FillRotated(new Rect(ix + 18.5f, iy + 10f, 11f, 4f), c, -35f, pivot);
+                FillRotated(new Rect(ix + 27f, iy + 5f, 3f, 10f), Shade(c, 1.25f), -35f, pivot);   // edge
             }
             else if (def == ItemDefs.Bones)
             {
-                var m = GUI.matrix;
-                GUIUtility.RotateAroundPivot(-35f, slot.center);
-                Fill(new Rect(ix + 17f, iy + 9f, 6f, 22f), c);
-                Fill(new Rect(ix + 13f, iy + 6f, 6f, 6f), c);
-                Fill(new Rect(ix + 21f, iy + 6f, 6f, 6f), c);
-                Fill(new Rect(ix + 13f, iy + 28f, 6f, 6f), c);
-                Fill(new Rect(ix + 21f, iy + 28f, 6f, 6f), c);
-                GUI.matrix = m;
+                var pivot = new Vector2(slot.x + slot.width / 2f, slot.y + slot.height / 2f);
+                FillRotated(new Rect(ix + 17f, iy + 9f, 6f, 22f), c, -35f, pivot);   // shaft
+                FillRotated(new Rect(ix + 13f, iy + 6f, 6f, 6f), c, -35f, pivot);    // knobs
+                FillRotated(new Rect(ix + 21f, iy + 6f, 6f, 6f), c, -35f, pivot);
+                FillRotated(new Rect(ix + 13f, iy + 28f, 6f, 6f), c, -35f, pivot);
+                FillRotated(new Rect(ix + 21f, iy + 28f, 6f, 6f), c, -35f, pivot);
             }
             else if (def == ItemDefs.Ashes)
             {
@@ -1371,12 +1368,39 @@ namespace Epacenur.Runtime
         }
 
         /// Fills a rectangle turned by `angle` degrees around `pivot` (for diagonal blades and handles).
+        /// It's drawn as a row of small squares along its length, not by rotating GUI.matrix: Unity's
+        /// RotateAroundPivot ignores the HUD's scale, which threw rotated icons off their slots
+        /// (above the inventory at 1080p).
         static void FillRotated(Rect r, Color c, float angle, Vector2 pivot)
         {
-            var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(angle, pivot);
-            Fill(r, c);
-            GUI.matrix = m;
+            float rad = angle * Mathf.Deg2Rad, cos = Mathf.Cos(rad), sin = Mathf.Sin(rad);
+            bool tall = r.height >= r.width;
+            float thick = tall ? r.width : r.height;
+            float half = ((tall ? r.height : r.width) - thick) / 2f;
+            float cx = r.x + r.width / 2f, cy = r.y + r.height / 2f;
+            // The two ends of the long axis, turned round the pivot (y points down, so +angle is clockwise).
+            float ax = tall ? cx : cx - half, ay = tall ? cy - half : cy;
+            float bx = tall ? cx : cx + half, by = tall ? cy + half : cy;
+            float x0 = pivot.x + (ax - pivot.x) * cos - (ay - pivot.y) * sin, y0 = pivot.y + (ax - pivot.x) * sin + (ay - pivot.y) * cos;
+            float x1 = pivot.x + (bx - pivot.x) * cos - (by - pivot.y) * sin, y1 = pivot.y + (bx - pivot.x) * sin + (by - pivot.y) * cos;
+            float length = Mathf.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+            int steps = Mathf.Max(1, Mathf.CeilToInt(length / Mathf.Max(0.75f, thick * 0.5f)));
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                float x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+                Fill(new Rect(x - thick / 2f, y - thick / 2f, thick, thick), c);
+            }
+        }
+
+        /// A filled diamond (a square turned 45 degrees), drawn row by row.
+        static void FillDiamond(float cx, float cy, float radius, Color c)
+        {
+            for (float dy = -radius; dy < radius; dy += 1f)
+            {
+                float w = (radius - Mathf.Abs(dy + 0.5f)) * 2f;
+                Fill(new Rect(cx - w / 2f, cy + dy, w, 1f), c);
+            }
         }
 
         /// No art yet: each skill's icon is drawn from rectangles.
@@ -1484,7 +1508,7 @@ namespace Epacenur.Runtime
                 var blue = new Color(0.35f, 0.6f, 1f);
                 Fill(new Rect(cx - 7f, cy - 2f, 14f, 4f), blue);
                 Fill(new Rect(cx - 2f, cy - 7f, 4f, 14f), blue);
-                FillRotated(new Rect(cx - 5f, cy - 5f, 10f, 10f), blue, 45f, b.center);
+                FillDiamond(cx, cy, 7f, blue);
                 Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), Color.white);
             }
         }
