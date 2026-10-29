@@ -557,11 +557,11 @@ namespace Epacenur.Runtime
                 GameLog.Add("You don't have enough inventory space to hold that item.");
                 return;
             }
-            int got = G.Inventory.Add(item.ItemId, item.Count);
-            G.Hud.ShowPickup(item.Def, got);
+            G.Inventory.Add(item.ItemId, item.Count);
             G.World.RemoveGroundItem(item);
         }
 
+        // Paths start from the tile you're on; after WASD you may be off its centre.
         /// Where a new path starts: the tile you're stepping into if you're walking (so clicking somewhere
         /// new mid-step carries on forward instead of turning back to the tile you just left), otherwise
         /// the tile you're on.
