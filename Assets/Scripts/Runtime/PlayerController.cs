@@ -64,7 +64,10 @@ namespace Epacenur.Runtime
         // A bleed (Dismember): hits still to land on a monster.
         sealed class Bleed { public Npc Npc; public int[] Hits; public int Next; public float NextTime; }
         readonly List<Bleed> bleeds = new List<Bleed>();
-        float chopTimer, swingCooldown, fallSpeed, chopAnim, attackTimer, attackAnim, eatCooldown;
+        float chopTimer, swingCooldown, fallSpeed, chopAnim, attackAnim, eatCooldown;
+        /// When your next attack can land (game time). It's kept across clicks and target changes, so
+        /// clicking a monster again can never hit faster than your weapon allows.
+        float nextAttackAt;
 
         /// Damage you've taken lately, for hitsplats over your head.
         public readonly List<Npc.Hitsplat> Hitsplats = new List<Npc.Hitsplat>();
@@ -729,7 +732,7 @@ namespace Epacenur.Runtime
         /// First person: one attack per click, no faster than the weapon's speed.
         void FirstPersonAttack(Npc npc)
         {
-            if (swingCooldown > 0f || npc.IsDead || !CanFight())
+            if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead || !CanFight())
                 return;
             swingCooldown = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
             SwingT = 1f;
@@ -801,6 +804,8 @@ namespace Epacenur.Runtime
 
         void StartAttack(Npc npc)
         {
+            if (npc == attackTarget && !npc.IsDead)
+                return;  // already on it: clicking again changes nothing
             CancelAction();
             if (!CanFight())
                 return;
@@ -841,18 +846,10 @@ namespace Epacenur.Runtime
 
             npc.Engage(transform.position);
             Face(npc.transform.position - transform.position, dt);
-            if (!fighting)
-            {
-                fighting = true;
-                attackTimer = 0f;  // the first hit lands as soon as you arrive
-            }
-            attackTimer -= dt;
-            if (attackTimer <= 0f)
-            {
-                attackTimer = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
-                if (Attack(npc))
-                    CancelAction();
-            }
+            // The first hit lands as soon as you arrive, if your weapon is ready.
+            fighting = true;
+            if (Time.time >= nextAttackAt && Attack(npc))
+                CancelAction();
             return Vector3.zero;
         }
 
@@ -860,6 +857,7 @@ namespace Epacenur.Runtime
         bool Attack(Npc npc)
         {
             lastTarget = npc;
+            nextAttackAt = Time.time + G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
             attackAnim = 0.4f;
             var eq = G.Equipment;
             var style = G.Style;
@@ -886,7 +884,7 @@ namespace Epacenur.Runtime
                 return;
             float delay = Foods.EatTicks * WoodcuttingRules.TickSeconds;
             eatCooldown = delay;
-            attackTimer += delay;
+            nextAttackAt = Mathf.Max(nextAttackAt, Time.time) + delay;
             swingCooldown = Mathf.Max(swingCooldown, delay);
             GameLog.Add("You eat the " + stack.Def.Name.ToLowerInvariant() + "." + (healed > 0 ? " It heals some health." : ""));
         }
@@ -1016,11 +1014,12 @@ namespace Epacenur.Runtime
                     attackTarget = target;
                 }
                 fighting = FlatDistance(target) <= 1.6f;
-                attackTimer = swing;
+                nextAttackAt = Mathf.Max(nextAttackAt, Time.time + swing);
             }
             else
             {
                 swingCooldown = Mathf.Max(swingCooldown, swing);
+                nextAttackAt = Mathf.Max(nextAttackAt, Time.time + swing);
             }
         }
 
