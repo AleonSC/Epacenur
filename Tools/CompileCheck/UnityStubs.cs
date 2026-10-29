@@ -32,7 +32,7 @@ namespace UnityEngine
     public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); }
-    public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
+    public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Vector2 center => default(Vector2); public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
     public struct RectInt { public int x, y, width, height; public int xMax => 0; public int yMax => 0; public RectInt(int x, int y, int w, int h) { this.x = x; this.y = y; width = w; height = h; } }
     public struct Ray { public Ray(Vector3 o, Vector3 d) { } }
     public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
@@ -88,6 +88,7 @@ namespace UnityEngine
         public static void Label(Rect r, string s, GUIStyle st) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static void DragWindow() { }
         public static bool Button(Rect r, string s) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
+    public static class GUIUtility { public static void RotateAroundPivot(float a, Vector2 p) { } }
     public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
         public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
     public enum EventType { MouseDown, MouseMove, Repaint }

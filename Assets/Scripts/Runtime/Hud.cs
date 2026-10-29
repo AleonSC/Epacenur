@@ -799,45 +799,206 @@ namespace Epacenur.Runtime
             }
         }
 
+        // ---- Skills (laid out like RuneScape 3's skills panel) ----
+
+        static readonly Color CellBg = new Color(0.12f, 0.11f, 0.09f, 1f);
+        static readonly Color BevelLight = new Color(0.36f, 0.32f, 0.25f, 1f);
+        static readonly Color BevelDark = new Color(0.04f, 0.04f, 0.03f, 1f);
+
+        /// A sunken box with a light bottom-right edge and a dark top-left edge.
+        static void Bevel(Rect r)
+        {
+            Fill(r, BevelLight);
+            Fill(new Rect(r.x, r.y, r.width - 1f, r.height - 1f), BevelDark);
+            Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, r.height - 2f), CellBg);
+        }
+
         void DrawSkills(Rect body)
         {
-            // One row per skill; the hovered one (or the first) gets the details underneath.
-            const float rowH = 30f;
+            const int cols = 3;
+            const float gap = 3f, cellH = 30f, footH = 28f;
+            float cellW = (body.width - gap * (cols - 1)) / cols;
             var e = Event.current;
-            SkillDef shown = SkillDefs.All[0];
-            float y = body.y;
-            foreach (var def in SkillDefs.All)
+            Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>SKILLS</b>", small);
+            float top = body.y + 18f;
+            SkillDef hovered = null;
+            Rect hoveredRect = default(Rect);
+
+            // One cell per skill: its icon, then the level twice, stacked (current over base,
+            // as in RuneScape; they're the same until there are boosts).
+            var defs = SkillDefs.All;
+            for (int i = 0; i < defs.Length; i++)
             {
-                BigInteger xp = G.Skills.GetXp(def.Id);
-                int level = Experience.LevelForXp(xp);
-                var row = new Rect(body.x, y, body.width, rowH - 2f);
-                bool hover = row.Contains(e.mousePosition);
-                if (hover)
-                    shown = def;
-                Fill(row, hover ? new Color(1f, 1f, 1f, 0.12f) : new Color(0f, 0f, 0f, 0.25f));
-                Fill(new Rect(row.x + 4f, row.y + 6f, 12f, 12f), new Color(def.R, def.G, def.B));
-                GUI.Label(new Rect(row.x + 20f, row.y + 1f, row.width, 20f), def.Name, small);
-                GUI.Label(new Rect(row.x, row.y + 1f, row.width - 4f, 20f), "<color=#ffff00><b>" + level + "</b></color>/" + Experience.MaxLevel, rightSmall);
-                Fill(new Rect(row.x + 20f, row.yMax - 6f, row.width - 24f, 3f), new Color(0.5f, 0.1f, 0.1f));
-                Fill(new Rect(row.x + 20f, row.yMax - 6f, (row.width - 24f) * (float)Experience.LevelProgress(xp), 3f), new Color(0.2f, 0.75f, 0.2f));
-                y += rowH;
+                var def = defs[i];
+                var cell = new Rect(body.x + (i % cols) * (cellW + gap), top + (i / cols) * (cellH + gap), cellW, cellH);
+                bool over = cell.Contains(e.mousePosition);
+                Bevel(cell);
+                if (over)
+                {
+                    Fill(new Rect(cell.x + 1f, cell.y + 1f, cell.width - 2f, cell.height - 2f), new Color(1f, 1f, 1f, 0.08f));
+                    hovered = def;
+                    hoveredRect = cell;
+                }
+                DrawSkillIcon(new Rect(cell.x + 3f, cell.y + 4f, 22f, 22f), def);
+
+                int level = G.Skills.GetLevel(def.Id);
+                var numbers = new Rect(cell.x + 25f, cell.y + 1f, cell.width - 28f, cell.height - 2f);
+                Fill(new Rect(numbers.x + 4f, numbers.y + numbers.height / 2f, numbers.width - 4f, 1f), new Color(1f, 1f, 1f, 0.12f));
+                string text = "<color=#e8e2d0>" + level + "</color>";
+                Shadowed(new Rect(numbers.x, numbers.y - 1f, numbers.width, 16f), text, rightSmall);
+                Shadowed(new Rect(numbers.x, numbers.y + numbers.height / 2f - 1f, numbers.width, 16f), text, rightSmall);
             }
 
-            BigInteger sx = G.Skills.GetXp(shown.Id);
-            int sl = Experience.LevelForXp(sx);
-            y += 4f;
-            GUI.Label(new Rect(body.x, y, body.width, 18f), "<b>" + shown.Name + "</b>  level " + sl, small);
-            GUI.Label(new Rect(body.x, y + 16f, body.width, 18f), "XP: " + Experience.FormatShort(sx), small);
-            if (sl < Experience.MaxLevel)
+            // Footer: total level, combat level, total xp.
+            var foot = new Rect(body.x, body.yMax - footH, body.width, footH);
+            float boxW = (foot.width - gap * 2) / 3f;
+            BigInteger totalXp = BigInteger.Zero;
+            foreach (var def in defs)
+                totalXp += G.Skills.GetXp(def.Id);
+            string[] values =
             {
-                GUI.Label(new Rect(body.x, y + 32f, body.width, 18f), "Next level at: " + Experience.FormatShort(Experience.XpForLevel(sl + 1)), small);
-                GUI.Label(new Rect(body.x, y + 48f, body.width, 18f), "Remaining: " + Experience.FormatShort(Experience.XpToNextLevel(sx)), small);
+                G.Skills.TotalLevel.ToString(),
+                CombatRules.CombatLevel(G.Skills).ToString(),
+                Experience.FormatShort(totalXp),
+            };
+            string[] tips = { "Total level", "Combat level", "Total XP: " + Experience.Format(totalXp) };
+            string footTip = null;
+            for (int i = 0; i < 3; i++)
+            {
+                var box = new Rect(foot.x + i * (boxW + gap), foot.y, boxW, foot.height);
+                Bevel(box);
+                DrawFooterIcon(new Rect(box.x + 3f, box.y + 4f, 20f, 20f), i);
+                Shadowed(new Rect(box.x + 22f, box.y + 6f, box.width - 25f, 18f), "<color=#e8e2d0>" + values[i] + "</color>", rightSmall);
+                if (box.Contains(e.mousePosition))
+                    footTip = tips[i];
+            }
+            if (footTip != null)
+                Shadowed(new Rect(e.mousePosition.x - 210f, e.mousePosition.y - 22f, 200f, 20f), "<color=#ffcc66>" + footTip + "</color>", rightSmall);
+
+            if (hovered != null)
+                DrawSkillTooltip(hovered, hoveredRect);
+        }
+
+        /// The hover box: name, xp, next level, xp left, and a progress bar.
+        void DrawSkillTooltip(SkillDef def, Rect cell)
+        {
+            BigInteger xp = G.Skills.GetXp(def.Id);
+            int level = Experience.LevelForXp(xp);
+            const float w = 210f, h = 84f;
+            // To the left of the panel, level with the cell.
+            var r = new Rect(Mathf.Max(4f, PanelRect.x - w - 6f), Mathf.Clamp(cell.y - 10f, 4f, H - h - 4f), w, h);
+            Fill(r, new Color(0.06f, 0.05f, 0.04f, 0.95f));
+            Fill(new Rect(r.x, r.y, r.width, 1f), BevelLight);
+            Fill(new Rect(r.x, r.yMax - 1f, r.width, 1f), BevelLight);
+            Fill(new Rect(r.x, r.y, 1f, r.height), BevelLight);
+            Fill(new Rect(r.xMax - 1f, r.y, 1f, r.height), BevelLight);
+            Shadowed(new Rect(r.x + 8f, r.y + 4f, w, 18f), "<b><color=#ffcc66>" + def.Name + "</color></b>  level " + level + " / " + Experience.MaxLevel, small);
+            GUI.Label(new Rect(r.x + 8f, r.y + 22f, w - 16f, 16f), "XP: " + Experience.Format(xp), small);
+            if (level < Experience.MaxLevel)
+            {
+                GUI.Label(new Rect(r.x + 8f, r.y + 37f, w - 16f, 16f), "Next level at: " + Experience.FormatShort(Experience.XpForLevel(level + 1)), small);
+                GUI.Label(new Rect(r.x + 8f, r.y + 52f, w - 16f, 16f), "Remaining: " + Experience.FormatShort(Experience.XpToNextLevel(xp)), small);
             }
             else
             {
-                GUI.Label(new Rect(body.x, y + 32f, body.width, 18f), "Maxed!", small);
+                GUI.Label(new Rect(r.x + 8f, r.y + 37f, w - 16f, 16f), "Maxed!", small);
             }
-            GUI.Label(new Rect(body.x, body.yMax - 20f, body.width, 20f), "Total level: <b>" + G.Skills.TotalLevel + "</b>", label);
+            var bar = new Rect(r.x + 8f, r.yMax - 12f, w - 16f, 6f);
+            Fill(bar, new Color(0.5f, 0.1f, 0.1f));
+            Fill(new Rect(bar.x, bar.y, bar.width * (float)Experience.LevelProgress(xp), bar.height), new Color(0.2f, 0.75f, 0.2f));
+        }
+
+        /// Fills a rectangle turned by `angle` degrees around `pivot` (for diagonal blades and handles).
+        static void FillRotated(Rect r, Color c, float angle, Vector2 pivot)
+        {
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(angle, pivot);
+            Fill(r, c);
+            GUI.matrix = m;
+        }
+
+        /// No art yet: each skill's icon is drawn from rectangles.
+        static void DrawSkillIcon(Rect b, SkillDef def)
+        {
+            float cx = b.center.x, cy = b.center.y;
+            var steel = new Color(0.78f, 0.8f, 0.84f);
+            var wood = new Color(0.5f, 0.32f, 0.16f);
+            var gold = new Color(0.9f, 0.72f, 0.2f);
+            var c = b.center;
+            switch (def.Id)
+            {
+                case SkillId.Attack:  // a sword, point up and to the right
+                    FillRotated(new Rect(cx - 1.5f, cy - 10f, 3f, 14f), steel, 45f, c);
+                    FillRotated(new Rect(cx - 5f, cy + 4f, 10f, 2f), gold, 45f, c);
+                    FillRotated(new Rect(cx - 1f, cy + 6f, 2f, 4f), wood, 45f, c);
+                    break;
+                case SkillId.Strength:  // a clenched fist
+                    var skin = new Color(0.86f, 0.6f, 0.4f);
+                    Fill(new Rect(cx - 6f, cy - 5f, 12f, 11f), skin);
+                    Fill(new Rect(cx - 9f, cy - 1f, 4f, 6f), skin);
+                    for (int k = 0; k < 3; k++)
+                        Fill(new Rect(cx - 3f + k * 3f, cy - 5f, 1f, 5f), Shade(skin, 0.7f));
+                    Fill(new Rect(cx - 4f, cy + 6f, 8f, 4f), new Color(0.55f, 0.35f, 0.2f));
+                    break;
+                case SkillId.Defence:  // a kite shield
+                    var rim = new Color(0.6f, 0.62f, 0.66f);
+                    var face = new Color(0.3f, 0.45f, 0.75f);
+                    Fill(new Rect(cx - 8f, cy - 9f, 16f, 11f), rim);
+                    Fill(new Rect(cx - 6f, cy + 2f, 12f, 4f), rim);
+                    Fill(new Rect(cx - 4f, cy + 6f, 8f, 3f), rim);
+                    Fill(new Rect(cx - 2f, cy + 9f, 4f, 2f), rim);
+                    Fill(new Rect(cx - 6f, cy - 7f, 12f, 9f), face);
+                    Fill(new Rect(cx - 4f, cy + 2f, 8f, 3f), face);
+                    Fill(new Rect(cx - 1f, cy - 7f, 2f, 13f), rim);
+                    break;
+                case SkillId.Hitpoints:  // a heart
+                    var red = new Color(0.85f, 0.12f, 0.15f);
+                    Fill(new Rect(cx - 8f, cy - 7f, 7f, 6f), red);
+                    Fill(new Rect(cx + 1f, cy - 7f, 7f, 6f), red);
+                    Fill(new Rect(cx - 8f, cy - 3f, 16f, 4f), red);
+                    Fill(new Rect(cx - 6f, cy + 1f, 12f, 3f), red);
+                    Fill(new Rect(cx - 4f, cy + 4f, 8f, 3f), red);
+                    Fill(new Rect(cx - 2f, cy + 7f, 4f, 2f), red);
+                    Fill(new Rect(cx - 6f, cy - 6f, 2f, 2f), new Color(1f, 0.7f, 0.7f));
+                    break;
+                case SkillId.Woodcutting:  // a hatchet
+                    FillRotated(new Rect(cx - 1.25f, cy - 10f, 2.5f, 20f), wood, -40f, c);
+                    FillRotated(new Rect(cx - 1.25f, cy - 10f, 8f, 6f), steel, -40f, c);
+                    break;
+                default:
+                    Fill(new Rect(cx - 7f, cy - 7f, 14f, 14f), new Color(def.R, def.G, def.B));
+                    break;
+            }
+        }
+
+        static void DrawFooterIcon(Rect b, int which)
+        {
+            float cx = b.center.x, cy = b.center.y;
+            if (which == 0)
+            {
+                // Total level: three bars.
+                Fill(new Rect(cx - 7f, cy + 1f, 4f, 7f), new Color(0.85f, 0.2f, 0.2f));
+                Fill(new Rect(cx - 2f, cy - 3f, 4f, 11f), new Color(0.25f, 0.75f, 0.3f));
+                Fill(new Rect(cx + 3f, cy - 7f, 4f, 15f), new Color(0.3f, 0.5f, 0.9f));
+            }
+            else if (which == 1)
+            {
+                // Combat level: crossed swords.
+                var steel = new Color(0.78f, 0.8f, 0.84f);
+                FillRotated(new Rect(cx - 1f, cy - 9f, 2f, 18f), steel, 45f, b.center);
+                FillRotated(new Rect(cx - 1f, cy - 9f, 2f, 18f), steel, -45f, b.center);
+                FillRotated(new Rect(cx - 4f, cy + 4f, 8f, 2f), new Color(0.9f, 0.72f, 0.2f), 45f, b.center);
+                FillRotated(new Rect(cx - 4f, cy + 4f, 8f, 2f), new Color(0.9f, 0.72f, 0.2f), -45f, b.center);
+            }
+            else
+            {
+                // Total xp: a blue star.
+                var blue = new Color(0.35f, 0.6f, 1f);
+                Fill(new Rect(cx - 7f, cy - 2f, 14f, 4f), blue);
+                Fill(new Rect(cx - 2f, cy - 7f, 4f, 14f), blue);
+                FillRotated(new Rect(cx - 5f, cy - 5f, 10f, 10f), blue, 45f, b.center);
+                Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), Color.white);
+            }
         }
 
         // ---- Dev tools ----

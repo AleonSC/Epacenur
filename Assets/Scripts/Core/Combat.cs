@@ -109,6 +109,15 @@ namespace Epacenur.Core
             return rng.Next(0, maxHit + 1);
         }
 
+        /// RuneScape's (OSRS) combat level from melee skills. There's no Prayer, Ranged or Magic yet,
+        /// so it's 1/4 of (Defence + Hitpoints) plus 0.325 of (Attack + Strength). A new player is level 3.
+        public static int CombatLevel(SkillSet s)
+        {
+            double basePart = 0.25 * (s.GetLevel(SkillId.Defence) + s.GetLevel(SkillId.Hitpoints));
+            double melee = 0.325 * (s.GetLevel(SkillId.Attack) + s.GetLevel(SkillId.Strength));
+            return (int)Math.Floor(basePart + melee);
+        }
+
         public static SkillId TrainedSkill(CombatStyle style) =>
             style == CombatStyle.Accurate ? SkillId.Attack : style == CombatStyle.Aggressive ? SkillId.Strength : SkillId.Defence;
 

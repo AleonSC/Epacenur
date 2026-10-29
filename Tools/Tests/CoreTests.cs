@@ -93,6 +93,9 @@ static class CoreTests
         Console.WriteLine("Equipment and combat");
         var fresh = new SkillSet();
         Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
+        Check(CombatRules.CombatLevel(fresh) == 3, "a new player is combat level 3");
+        foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints }) fresh.SetLevel(id, 99);
+        Check(CombatRules.CombatLevel(fresh) == 113, "99 in all melee skills is combat level 113 (no Prayer yet)");
         var eq = new Equipment();
         inv.Clear();
         inv.Add(ItemDefs.BronzeSword.Id);

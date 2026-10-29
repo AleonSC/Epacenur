@@ -40,7 +40,9 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - **Panel tabs**: **Items** (inventory), **Worn** (equipment) and **Skills**.
 - **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
   slot to swap them. Shift-click an item to **drop it on the ground** (or use Drop in its right-click menu).
-- **Skills** tab: every skill's level (out of 999) and progress. Hover a skill for its xp and xp to the next level.
+- **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level
+  shown twice, stacked (current over base; they match until there are boosts). Hover a cell for its xp, the next level and
+  a progress bar. The footer shows total level, combat level (OSRS formula, melee only for now) and total xp.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
