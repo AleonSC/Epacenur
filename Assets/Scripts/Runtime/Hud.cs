@@ -59,6 +59,7 @@ namespace Epacenur.Runtime
                 return new Rect(Mathf.Max(10f, (W - PanelW - 20f - w) / 2f), Mathf.Max(60f, (H - h) / 2f - 50f), w, h);
             }
         }
+        Rect BarRect => new Rect(10f, ChatRect.y - 58f, 12f + Abilities.All.Length * (Slot + Gap) - Gap, 52f);
         public bool BankOpen => openAt is BankBooth;
         public bool ShopOpen => openAt is ShopKeeper;
 
@@ -108,7 +109,7 @@ namespace Epacenur.Runtime
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
-            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
+            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
         }
 
         public void AddXpDrop(SkillId skill, BigInteger tenths)
@@ -148,6 +149,7 @@ namespace Epacenur.Runtime
             DrawXpDrops();
             DrawLevelUp();
             DrawChat();
+            DrawActionBar();
             DrawPanel();
             if (BankOpen)
                 DrawBank();
@@ -220,9 +222,9 @@ namespace Epacenur.Runtime
             if (!showHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools"
-                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools";
-            Shadowed(new Rect(10f, 50f, 440f, 130f), help, small);
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools"
+                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities (sword and shield worn)\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools";
+            Shadowed(new Rect(10f, 50f, 440f, 150f), help, small);
         }
 
         void DrawCrosshair()
@@ -556,6 +558,78 @@ namespace Epacenur.Runtime
                 Shadowed(new Rect(e.mousePosition.x - 150f, e.mousePosition.y + 16f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
         }
 
+        // ---- Action bar: the melee abilities, keys 1-9 ----
+
+        void DrawActionBar()
+        {
+            var r = BarRect;
+            var e = Event.current;
+            var p = G.Player;
+            float now = Time.time;
+            bool armed = G.Equipment.IsWearing(EquipSlot.Weapon) && G.Equipment.IsWearing(EquipSlot.Shield);
+            Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
+            AbilityDef tip = null;
+            for (int i = 0; i < Abilities.All.Length; i++)
+            {
+                var def = Abilities.All[i];
+                var slot = new Rect(r.x + 6f + i * (Slot + Gap), r.y + 6f, Slot, Slot);
+                Bevel(slot);
+                var inner = new Rect(slot.x + 2f, slot.y + 2f, slot.width - 4f, slot.height - 4f);
+                Fill(inner, Shade(new Color(def.R, def.G, def.B), 0.55f));
+                Fill(new Rect(inner.x, inner.y, inner.width, inner.height / 2f), new Color(1f, 1f, 1f, 0.08f));
+                string abbr = def.Id == AbilityId.Backhand ? "Bh" : def.Name.Substring(0, 2);
+                Shadowed(inner, "<b><size=15>" + abbr + "</size></b>", centered);
+                Shadowed(new Rect(slot.x + 3f, slot.y + 1f, 12f, 14f), "<color=#ffffff>" + (i + 1) + "</color>", small);
+
+                // Unusable: no level, or no sword and shield.
+                bool hasLevel = p.HasLevelFor(def);
+                if (!hasLevel || !armed)
+                    Fill(inner, new Color(0f, 0f, 0f, 0.55f));
+                if (!hasLevel)
+                    Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=#ff6060>Lv " + def.Level + "</color>", centered);
+
+                // Cooldown: a dark curtain that shrinks as it comes back, and the seconds left.
+                float f = p.Cooldowns.Fraction(def.Id, now);
+                if (f > 0f)
+                {
+                    Fill(new Rect(inner.x, inner.y, inner.width, inner.height * f), new Color(0f, 0f, 0f, 0.6f));
+                    float left = p.Cooldowns.Remaining(def.Id, now);
+                    if (left > Abilities.GlobalCooldownSeconds)
+                        Shadowed(inner, "<b>" + Mathf.CeilToInt(left) + "</b>", centered);
+                }
+
+                if (slot.Contains(e.mousePosition))
+                {
+                    tip = def;
+                    if (e.type == EventType.MouseDown)
+                    {
+                        var id = def.Id;
+                        if (e.button == 1)
+                            OpenMenu(new List<MenuOption>
+                            {
+                                new MenuOption("Activate", MenuOption.Item(def.Name), () => G.Player.UseAbility(id)),
+                                new MenuOption("Examine", MenuOption.Item(def.Name), () => GameLog.Add(def.Description)),
+                            }, false);
+                        else
+                            p.UseAbility(id);
+                        e.Use();
+                    }
+                }
+            }
+
+            if (tip != null)
+            {
+                const float w = 230f, h = 70f;
+                var t = new Rect(Mathf.Clamp(e.mousePosition.x - w / 2f, 4f, W - w - 4f), r.y - h - 4f, w, h);
+                Fill(t, new Color(0.06f, 0.05f, 0.04f, 0.95f));
+                bool ok = p.HasLevelFor(tip);
+                Shadowed(new Rect(t.x + 8f, t.y + 3f, w - 16f, 18f), "<b><color=#ffcc66>" + tip.Name + "</color></b>", small);
+                GUI.Label(new Rect(t.x + 8f, t.y + 19f, w - 16f, 16f),
+                    (ok ? "<color=#a0ffa0>" : "<color=#ff6060>") + "Requires " + SkillDefs.Get(tip.Skill).Name + " " + tip.Level + "</color>   Cooldown " + tip.CooldownSeconds + " s", small);
+                GUI.Label(new Rect(t.x + 8f, t.y + 35f, w - 16f, 34f), tip.Description, rich);
+            }
+        }
+
         // ---- Hitsplats and health bars ----
 
         void DrawCombatOverlays()
@@ -569,6 +643,8 @@ namespace Epacenur.Runtime
                 if (head.z <= 0f)
                     continue;
                 float x = head.x / scale, y = (Screen.height - head.y) / scale;
+                if (npc.IsStunned)
+                    Shadowed(new Rect(x - 40f, y - 22f, 80f, 16f), "<color=#ffff66>Stunned</color>", centered);
                 // Health bar: green for what's left, red for what's lost.
                 var bar = new Rect(x - 20f, y - 6f, 40f, 5f);
                 Fill(bar, new Color(0.8f, 0.1f, 0.1f));

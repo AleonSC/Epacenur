@@ -91,6 +91,32 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - A dead goblin drops **1–30 coins** on the ground (weighted towards small amounts) and respawns after 15 s.
   Its stats and drops are in `NpcDefs.Goblin` in `Assets/Scripts/Core/Combat.cs`.
 
+## Melee abilities (action bar)
+
+The bar above the chat box holds RuneScape 3's nine basic melee abilities. Use them with keys **1–9** or by clicking.
+Right-click a slot for Activate and Examine, and hover one for what it does. Like normal attacks, they need a sword and shield worn.
+
+| Key | Ability | Needs | Cooldown | Damage (× max hit) | Effect |
+|---|---|---|---|---|---|
+| 1 | Slice | Attack 1 | 3 s | 0.3–1.2 | |
+| 2 | Smash | Strength 1 | 10 s | 0.4–1.25 | also hits every monster next to the target |
+| 3 | Barge | Attack 3 | 20 s | 0.4–1.0 | charge a monster up to 10 tiles away |
+| 4 | Havoc | Attack 7 | 10 s | 0.5–1.25 | |
+| 5 | Sever | Attack 8 | 15 s | 0.4–1.9 | |
+| 6 | Punish | Strength 8 | 3 s | 0.2–1.0 | ×3 against a target below half health |
+| 7 | Dismember | Strength 14 | 15 s | 1.0–2.0 | lands as 3 bleed hits, 1.2 s apart |
+| 8 | Backhand | Attack 15 | 15 s | 0.2–1.0 | stuns for 3 s |
+| 9 | Kick | Strength 15 | 15 s | 0.2–1.0 | stuns for 3 s |
+
+- Using any ability starts a 1.8 s global cooldown for all of them. The slot darkens and fills back up as it recovers,
+  with the seconds left on longer cooldowns. Slots you lack the level for are dimmed and show the level needed.
+- An ability still rolls to hit like a normal attack. When it hits, it does at least 1. Damage gives the usual xp for your attack style.
+- Target: the monster you're fighting, else the one under the mouse (tile mode) or crosshair (first person), else the last one you hit.
+  It must be next to you (within reach in first person), except for Barge.
+- In tile mode you keep auto-attacking the target afterwards, and the next auto-attack waits a full weapon swing.
+- Goblins don't fight back yet, so a stun just stops them in place (they show "Stunned").
+- The abilities are defined in `Assets/Scripts/Core/Abilities.cs`.
+
 ## Woodcutting
 
 - A chop succeeds RuneScape style: the chance rises in a straight line from 25% at level 1 to 79% at level 99

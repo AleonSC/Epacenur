@@ -124,6 +124,36 @@ static class CoreTests
             if (!NpcDefs.Goblin.Drops.Roll(rng, out int id, out int n) || id != ItemDefs.Coins.Id || n < 1 || n > 30) allCoins = false;
         Check(allCoins, "goblins always drop 1-30 coins");
 
+        Console.WriteLine("Abilities");
+        Check(Abilities.All.Length == 9, "nine basic melee abilities for a 9-slot bar");
+        bool ordered = true;
+        for (int i = 0; i < Abilities.All.Length; i++) if ((int)Abilities.All[i].Id != i) ordered = false;
+        Check(ordered, "the bar order matches AbilityId");
+        var cd = new AbilityCooldowns();
+        cd.Use(AbilityId.Slice, 10f);
+        Check(!cd.IsReady(AbilityId.Havoc, 11f) && cd.IsReady(AbilityId.Havoc, 11.8f), "1.8 s global cooldown");
+        Check(!cd.IsReady(AbilityId.Slice, 12.9f) && cd.IsReady(AbilityId.Slice, 13f), "Slice's own 3 s cooldown");
+        Check(Math.Abs(cd.Remaining(AbilityId.Havoc, 11f) - 0.8f) < 1e-4, "remaining shows the global cooldown");
+        var arng = new Random(5);
+        bool min1 = true, maxOk = true;
+        for (int i = 0; i < 500; i++)
+        {
+            int d = Abilities.RollDamage(arng, Abilities.Get(AbilityId.Sever), 1.0, 10, 1.0);
+            if (d < 1) min1 = false;
+            if (d > 19) maxOk = false;
+        }
+        Check(min1 && maxOk, "Sever always lands 1..19 at max hit 10 when it hits");
+        Check(Abilities.RollDamage(new Random(1), Abilities.Get(AbilityId.Slice), 0.0, 10, 1.0) == 0, "a miss does 0");
+        int low = 0, high = 0;
+        for (int i = 0; i < 300; i++)
+        {
+            low += Abilities.RollDamage(new Random(i), Abilities.Get(AbilityId.Punish), 1.0, 10, 0.3);
+            high += Abilities.RollDamage(new Random(i), Abilities.Get(AbilityId.Punish), 1.0, 10, 0.9);
+        }
+        Check(low > high * 2.5, "Punish hits about 3x harder below half health");
+        var bleed = Abilities.SplitBleed(7);
+        Check(bleed.Length == 3 && bleed[0] + bleed[1] + bleed[2] == 7 && bleed[0] == 3, "a bleed of 7 lands as 3, 2, 2");
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");

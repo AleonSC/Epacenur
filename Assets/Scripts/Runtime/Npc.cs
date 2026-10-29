@@ -24,6 +24,8 @@ namespace Epacenur.Runtime
         /// The tile it's standing on (it moves, so this changes).
         public Tile Tile => World.TileAt(transform.position);
         public float LastHitTime { get; private set; } = -100f;
+        public float StunnedUntil { get; private set; } = -100f;
+        public bool IsStunned => Time.time < StunnedUntil;
         public readonly List<Hitsplat> Hitsplats = new List<Hitsplat>();
         public string HoverName => Def.Name + "  (level-" + Def.CombatLevel + ")";
 
@@ -90,6 +92,14 @@ namespace Epacenur.Runtime
                 transform.rotation = Quaternion.LookRotation(d);
         }
 
+        /// Stunned: stands still (it won't even wander) for a while.
+        public void Stun(float seconds)
+        {
+            StunnedUntil = Time.time + seconds;
+            engagedUntil = Mathf.Max(engagedUntil, StunnedUntil);
+            path.Clear();
+        }
+
         /// Takes a hit (0 shows a blue miss splat). Returns true when that killed it.
         public bool TakeHit(int damage)
         {
@@ -121,6 +131,7 @@ namespace Epacenur.Runtime
             Hitpoints = Def.Hitpoints;
             Hitsplats.Clear();
             LastHitTime = -100f;
+            StunnedUntil = -100f;
             transform.position = World.TileCenter(RandomHomeTile());
             model.localRotation = Quaternion.identity;
             model.localPosition = Vector3.zero;

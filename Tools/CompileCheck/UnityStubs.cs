@@ -41,14 +41,14 @@ namespace UnityEngine
     public static class Mathf { public const float Deg2Rad = 0f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
-        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; }
+        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; }
     public static class Time { public static float time, deltaTime; public static int frameCount; }
     public static class Screen { public static int width, height; }
     public static class Application { public static int targetFrameRate; }
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow }
+    public enum KeyCode { Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }

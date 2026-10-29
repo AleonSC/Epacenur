@@ -30,6 +30,8 @@ namespace Epacenur.Runtime
         public bool IsChopping => chopping;
         public bool IsFighting => fighting;
         public HeldTool FirstPersonTool { get; private set; } = HeldTool.Axe;
+        /// Ability cooldowns, for the action bar.
+        public readonly AbilityCooldowns Cooldowns = new AbilityCooldowns();
         /// 1 at the start of a first-person swing, falling to 0.
         public float SwingT { get; private set; }
 
@@ -47,7 +49,13 @@ namespace Epacenur.Runtime
         Interactable targetObject;  // the bank booth, NPC... being walked to (tile mode)
         GroundItem targetItem;      // the ground item being walked to (tile mode)
         Npc attackTarget;           // the monster being walked to or fought (tile mode)
+        Npc hoverNpc;               // the monster under the mouse (tile mode) or crosshair (first person)
+        Npc lastTarget;             // the last monster you hit, for abilities when nothing else is targeted
         bool chopping, fighting;
+
+        // A bleed (Dismember): hits still to land on a monster.
+        sealed class Bleed { public Npc Npc; public int[] Hits; public int Next; public float NextTime; }
+        readonly List<Bleed> bleeds = new List<Bleed>();
         float chopTimer, swingCooldown, fallSpeed, chopAnim, attackTimer, attackAnim;
 
         public static PlayerController Create(Tile spawn)
@@ -149,6 +157,11 @@ namespace Epacenur.Runtime
             if (Input.GetKeyDown(KeyCode.V))
                 SetMode(Mode == ViewMode.Tile ? ViewMode.FirstPerson : ViewMode.Tile);
 
+            for (int i = 0; i < Abilities.All.Length; i++)
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+                    UseAbility(Abilities.All[i].Id);
+            UpdateBleeds();
+
             Vector3 move = Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
 
             if (cc.isGrounded)
@@ -202,7 +215,9 @@ namespace Epacenur.Runtime
         {
             bool overUi = G.Hud.IsMouseOverUi() || G.Hud.MenuOpen;
             Tile? hoverTile = null;
-            var options = overUi ? new List<MenuOption>() : WorldOptions(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), false, out _, out hoverTile);
+            Component hovered = null;
+            var options = overUi ? new List<MenuOption>() : WorldOptions(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), false, out hovered, out hoverTile);
+            hoverNpc = hovered as Npc;
             SetHoverText(options);
             hoverMarker.SetActive(hoverTile.HasValue && !overUi);
             if (hoverTile.HasValue)
@@ -542,6 +557,7 @@ namespace Epacenur.Runtime
             // A stump only has Examine: clicking it should still swing, so it doesn't count as a target.
             bool hasAction = options.Count > 0 && options[0].Action != "Examine";
             AimingAtTarget = hasAction;
+            hoverNpc = aimed as Npc;
             FirstPersonTool = (aimed is TreeObject) || !G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Axe : HeldTool.Sword;
 
             if (Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen)
@@ -707,6 +723,7 @@ namespace Epacenur.Runtime
         /// One melee attack. Returns true when it killed the monster.
         bool Attack(Npc npc)
         {
+            lastTarget = npc;
             attackAnim = 0.4f;
             var eq = G.Equipment;
             var style = G.Style;
@@ -718,6 +735,168 @@ namespace Epacenur.Runtime
             if (killed)
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
             return killed;
+        }
+
+        // ---- Abilities (action bar, keys 1-9) ----
+
+        /// Whether the ability's level requirement is met (the bar greys out the ones that aren't).
+        public bool HasLevelFor(AbilityDef def) => G.Skills.GetLevel(def.Skill) >= def.Level;
+
+        /// Uses an ability on your target: the monster you're fighting, else the one under the mouse
+        /// or crosshair, else the last one you hit.
+        public void UseAbility(AbilityId id)
+        {
+            var def = Abilities.Get(id);
+            if (!HasLevelFor(def))
+            {
+                GameLog.Add("You need " + SkillDefs.Get(def.Skill).Name + " level " + def.Level + " to use " + def.Name + ".");
+                return;
+            }
+            if (!Cooldowns.IsReady(id, Time.time) || !CanFight())
+                return;
+
+            Npc target = AbilityTarget(def.Effect == AbilityEffect.Charge);
+            if (target == null)
+            {
+                GameLog.Add("You need a target to use " + def.Name + ".");
+                return;
+            }
+            float reach = Mode == ViewMode.FirstPerson ? FirstPersonReach : 1.6f;
+            if (FlatDistance(target) > reach)
+            {
+                if (def.Effect != AbilityEffect.Charge || FlatDistance(target) > Abilities.ChargeRange + 0.5f)
+                {
+                    GameLog.Add("Your target is too far away.");
+                    return;
+                }
+                // Barge: rush to the target.
+                var p = Pathfinder.PathToInteract(G.World.Grid, StartTile(), target.Tile);
+                if (p == null)
+                {
+                    GameLog.Add("I can't reach that!");
+                    return;
+                }
+                if (p.Count > 0)
+                    Teleport(p[p.Count - 1]);
+                Vector3 look = target.transform.position - transform.position;
+                look.y = 0f;
+                if (look.sqrMagnitude > 0.01f)
+                    transform.rotation = Quaternion.LookRotation(look);
+            }
+
+            Cooldowns.Use(id, Time.time);
+            attackAnim = 0.4f;
+            SwingT = 1f;
+            target.Engage(transform.position);
+            lastTarget = target;
+
+            int damage = RollAbility(def, target);
+            if (def.Effect == AbilityEffect.Bleed)
+            {
+                var hits = Abilities.SplitBleed(damage);
+                bleeds.Add(new Bleed { Npc = target, Hits = hits, Next = 1, NextTime = Time.time + Abilities.BleedInterval });
+                AbilityHit(target, hits[0]);
+            }
+            else
+            {
+                if (def.Effect == AbilityEffect.Stun && damage > 0)
+                    target.Stun(Abilities.StunSeconds);
+                if (def.Effect == AbilityEffect.Area)
+                    foreach (var other in G.World.Npcs)
+                        if (other != target && !other.IsDead && (other.transform.position - target.transform.position).magnitude <= 1.6f)
+                        {
+                            other.Engage(transform.position);
+                            AbilityHit(other, RollAbility(def, other));
+                        }
+                AbilityHit(target, damage);
+            }
+
+            // Keep fighting it afterwards; the next auto-attack waits a full weapon swing.
+            float swing = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
+            if (Mode == ViewMode.Tile && !target.IsDead)
+            {
+                if (attackTarget != target)
+                {
+                    CancelAction();
+                    attackTarget = target;
+                }
+                fighting = FlatDistance(target) <= 1.6f;
+                attackTimer = swing;
+            }
+            else
+            {
+                swingCooldown = Mathf.Max(swingCooldown, swing);
+            }
+        }
+
+        Npc AbilityTarget(bool longRange)
+        {
+            if (attackTarget != null && !attackTarget.IsDead)
+                return attackTarget;
+            if (hoverNpc != null && !hoverNpc.IsDead)
+                return hoverNpc;
+            if (longRange && Mode == ViewMode.FirstPerson)
+            {
+                // Barge in first person: whatever is under the crosshair, however far.
+                var cam = G.Rig.Cam.transform;
+                if (Physics.Raycast(cam.position, cam.forward, out RaycastHit hit, Abilities.ChargeRange + 2f))
+                {
+                    var npc = hit.collider.GetComponentInParent<Npc>();
+                    if (npc != null && !npc.IsDead)
+                        return npc;
+                }
+            }
+            return lastTarget != null && !lastTarget.IsDead ? lastTarget : null;
+        }
+
+        int RollAbility(AbilityDef def, Npc npc)
+        {
+            var eq = G.Equipment;
+            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillId.Attack), eq.AttackBonus, G.Style, npc.Def.DefenceLevel, npc.Def.DefenceBonus);
+            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillId.Strength), eq.StrengthBonus, G.Style);
+            return Abilities.RollDamage(G.Rng, def, chance, maxHit, (double)npc.Hitpoints / npc.Def.Hitpoints);
+        }
+
+        void AbilityHit(Npc npc, int damage)
+        {
+            if (npc.IsDead)
+                return;
+            damage = Mathf.Min(damage, npc.Hitpoints);
+            bool killed = npc.TakeHit(damage);
+            CombatRules.AwardXp(G.Skills, G.Style, damage);
+            if (killed)
+            {
+                GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
+                if (npc == attackTarget)
+                    CancelAction();
+            }
+        }
+
+        void UpdateBleeds()
+        {
+            for (int i = bleeds.Count - 1; i >= 0; i--)
+            {
+                var b = bleeds[i];
+                if (b.Npc == null || b.Npc.IsDead)
+                {
+                    bleeds.RemoveAt(i);
+                    continue;
+                }
+                if (Time.time < b.NextTime)
+                    continue;
+                AbilityHit(b.Npc, b.Hits[b.Next]);
+                b.Next++;
+                b.NextTime += Abilities.BleedInterval;
+                if (b.Next >= b.Hits.Length)
+                    bleeds.RemoveAt(i);
+            }
+        }
+
+        float FlatDistance(Component c)
+        {
+            Vector3 d = c.transform.position - transform.position;
+            d.y = 0f;
+            return d.magnitude;
         }
 
         void AnimateArm(float dt)
