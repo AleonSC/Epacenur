@@ -177,7 +177,7 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 Built from primitive shapes like everything else: hair with a fringe, eyes, brows, nose, mouth and ears; steel shoulder pads;
 a blue tunic with gold trim and a flared skirt; a belt with a gold buckle and pouch; trousers; cuffed boots; and a red cape with a gold hem.
 It has a walk cycle (legs, arms and a bobbing step) and idle breathing, and the cape flies back as you move. You kneel to light fires,
-hold the net out to fish, and carry the axe, sword, shield or net as needed.
+hold the net out to fish, and carry your sword, shield or net as needed. The axe only appears while you chop (in first person, when you aim at a tree).
 
 ## Woodcutting
 

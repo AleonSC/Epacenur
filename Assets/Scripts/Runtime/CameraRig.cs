@@ -138,9 +138,12 @@ namespace Epacenur.Runtime
             transform.SetPositionAndRotation(focus + Vector3.up * PlayerController.EyeHeight, Quaternion.Euler(lookPitch, lookYaw, 0f));
 
             // Chop or slash: a quick downward strike, then back.
-            bool sword = player.FirstPersonTool == HeldTool.Sword;
-            fpAxe.gameObject.SetActive(!sword);
+            var tool = player.FirstPersonTool;
+            bool sword = tool == HeldTool.Sword;
+            fpAxe.gameObject.SetActive(tool == HeldTool.Axe);
             fpSword.gameObject.SetActive(sword);
+            if (tool == HeldTool.None)
+                return;
             float s = player.SwingT;
             float strike = s > 0.6f ? Mathf.InverseLerp(1f, 0.6f, s) : Mathf.InverseLerp(0f, 0.6f, s);
             (sword ? fpSword : fpAxe).localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (sword ? -35f : -10f));

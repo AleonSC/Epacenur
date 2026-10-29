@@ -11,7 +11,7 @@ namespace Epacenur.Runtime
     }
 
     /// What the first-person view shows in your hand.
-    public enum HeldTool { Axe, Sword }
+    public enum HeldTool { None, Axe, Sword }
 
     /// The player: walking (tile paths or WASD), the view toggle, woodcutting, picking things up and fighting.
     public sealed partial class PlayerController : MonoBehaviour
@@ -29,7 +29,7 @@ namespace Epacenur.Runtime
         public bool SwingReady => swingCooldown <= 0f;
         public bool IsChopping => chopping;
         public bool IsFighting => fighting;
-        public HeldTool FirstPersonTool { get; private set; } = HeldTool.Axe;
+        public HeldTool FirstPersonTool { get; private set; } = HeldTool.None;
         /// Ability cooldowns, for the action bar.
         public readonly AbilityCooldowns Cooldowns = new AbilityCooldowns();
         /// 1 at the start of a first-person swing, falling to 0.
@@ -183,7 +183,7 @@ namespace Epacenur.Runtime
             bool sword = G.Equipment.IsWearing(EquipSlot.Weapon);
             heldNet.gameObject.SetActive(fishing);
             heldSword.gameObject.SetActive(sword && !chopping && !fishing);
-            heldAxe.gameObject.SetActive(chopping || (!sword && !fishing));
+            heldAxe.gameObject.SetActive(chopping);  // only out while chopping
             heldShield.gameObject.SetActive(G.Equipment.IsWearing(EquipSlot.Shield));
         }
 
@@ -660,7 +660,9 @@ namespace Epacenur.Runtime
             bool hasAction = options.Count > 0 && options[0].Action != "Examine";
             AimingAtTarget = hasAction;
             hoverNpc = aimed as Npc;
-            FirstPersonTool = (aimed is TreeObject) || !G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Axe : HeldTool.Sword;
+            // The axe only comes out for a tree; otherwise your sword if you wield one, else empty hands.
+            FirstPersonTool = aimed is TreeObject ? HeldTool.Axe
+                : G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Sword : HeldTool.None;
 
             if (Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen)
             {
