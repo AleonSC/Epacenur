@@ -1,7 +1,8 @@
 # Epacenur
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
-For now it's a **dev area** with plots for testing skills a **bank booth** and a **shop**. The only skill so far is **Woodcutting**, with basic trees.
+For now it's a **dev area** with plots for testing skills, a **bank booth** and a **shop**: **Woodcutting** with basic trees,
+and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -26,10 +27,14 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 | Camera | Arrow keys or middle-drag to rotate, scroll to zoom | Mouse look. **Esc** frees the mouse; click the view to grab it again |
 | Use the bank | Left-click the bank booth (by spawn): you walk up to it and the bank opens | Look at it and left-click (within reach) |
 | Trade with the shop keeper | Left-click him (beside the bank booth) | Look at him and left-click |
+| Attack a goblin (sword and shield worn) | Left-click it: you walk up and keep hitting it until it dies | Look at it and left-click once per hit (within reach) |
+| Pick up an item on the ground | Left-click it ("Take"): you walk onto its tile and pick it up | Look at it and left-click (within reach) |
 | Switch view | **V** | **V** |
 
-- **Inventory**: 28 slots, one log per slot. Click a slot and then another to swap them. Right-click or shift-click to drop an item.
-- **Skills** tab: level (out of 999), xp, xp to the next level and a progress bar. Hover for the exact xp.
+- **Panel tabs**: **Items** (inventory), **Worn** (equipment) and **Skills**.
+- **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
+  slot to swap them. Right-click or shift-click an item to **drop it on the ground**.
+- **Skills** tab: every skill's level (out of 999) and progress. Hover a skill for its xp and xp to the next level.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
@@ -53,7 +58,30 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   value (logs sell for 1 gp). Items you sell show up in its stock.
 - Stock drifts back to normal by one every 6 seconds, and items players sold slowly disappear.
 - New saves start with **100 coins**. The dev tools can add 1,000 more.
-- The sword, shield and tinderbox are just items for now: there's no equipment or firemaking yet.
+- The sword and shield can be wielded (see below). The tinderbox is just an item for now: there is no firemaking yet.
+
+## Items on the ground
+
+- Dropped items land on your tile and show as small 3D models: logs, a coin pile, a tinderbox, a sword, a shield.
+  Coins dropped on the same tile join one pile.
+- Click one to walk there and pick it up. In first person, look at it and click. Hovering shows "Take Logs" or "Take Coins (12)".
+- They don't block walking, and they disappear after 3 minutes.
+
+## Equipment and combat
+
+- The **Worn** tab is laid out like RuneScape's equipment screen: head; cape, neck and ammo; weapon, body and shield; legs;
+  gloves, boots and ring. Click a worn item to take it off (you need a free inventory slot). Below that are
+  your attack, strength and defence bonuses, and the **attack style**: which skill your hits train.
+- The **Bronze sword** (+4 attack, +5 strength) and **Wooden shield** (+5 defence) are the only equipment so far.
+  You need **both** worn to fight.
+- The **Goblins** plot, in the middle, has 4 goblins (level 2, 5 hitpoints) that wander around it. They stop and turn to
+  face you when attacked but **don't fight back yet**.
+- Hits use RuneScape's melee formulas: hit chance from your Attack level and bonus against the goblin's defence, and
+  max hit from Strength. With the sword, a hit every 4 ticks (2.4 s). Red hitsplats show damage, blue ones a miss,
+  and a health bar shows over a goblin you're fighting.
+- Each damage point gives 4 xp in the chosen style's skill plus 1.33 Hitpoints xp. Hitpoints starts at level 10.
+- A dead goblin drops **1–30 coins** on the ground (weighted towards small amounts) and respawns after 15 s.
+  Its stats and drops are in `NpcDefs.Goblin` in `Assets/Scripts/Core/Combat.cs`.
 
 ## Woodcutting
 
@@ -79,10 +107,10 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 ## Dev tools (F1)
 
-- Each skill: set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
+- A skill (pick it with **<** and **>**): set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
-- Add 1,000 coins
+- Add 1,000 coins, or a sword and shield
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything
@@ -91,10 +119,10 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank and shops, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank, shops, equipment, combat formulas, monsters and drop tables, tree definitions and chop chances, tile grid and A* pathfinding |
+| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `GroundItem` and `ItemModels`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
-| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, pathfinding) |
+| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, equipment, combat, pathfinding) |
 | `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |
 
 Both scripts need mono (`apt-get install mono-mcs mono-runtime`).
