@@ -112,6 +112,25 @@ namespace Epacenur.Core
 
         public void RemoveAt(int slot) => Set(slot, default(ItemStack));
 
+        /// Removes up to `count` of an item, from the last slots first. Returns how many were removed.
+        public int Remove(int itemId, int count)
+        {
+            int removed = 0;
+            for (int i = Size - 1; i >= 0 && removed < count; i--)
+            {
+                if (slots[i].IsEmpty || slots[i].ItemId != itemId)
+                    continue;
+                int take = Math.Min(count - removed, slots[i].Count);
+                slots[i].Count -= take;
+                if (slots[i].Count <= 0)
+                    slots[i] = default(ItemStack);
+                removed += take;
+            }
+            if (removed > 0)
+                Changed?.Invoke();
+            return removed;
+        }
+
         public void Swap(int a, int b)
         {
             var t = slots[a];

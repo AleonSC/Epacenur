@@ -9,7 +9,7 @@ using Vector3 = UnityEngine.Vector3;
 namespace Epacenur.Runtime
 {
     /// Everything on screen: inventory and skills panel, chat box, xp drops, level-ups,
-    /// the action under the mouse, the first-person crosshair and the dev tools (F1).
+    /// the action under the mouse, the first-person crosshair, the bank window and the dev tools (F1).
     public sealed class Hud : MonoBehaviour
     {
         const float Slot = 40f, Gap = 4f, Pad = 10f, TabH = 26f;
@@ -25,7 +25,13 @@ namespace Epacenur.Runtime
             public float Born;
         }
 
+        const int BankColumns = 8;
+        static readonly int[] BankAmounts = { 1, 5, 10, int.MaxValue };  // int.MaxValue = All
+
         Tab tab = Tab.Inventory;
+        BankBooth openBooth;          // the bank window is open while this is set
+        int bankAmount = 1;
+        UnityEngine.Vector2 bankScroll;
         bool showDev, showHelp = true;
         int selectedSlot = -1;
         Rect devRect = new Rect(0f, 0f, 300f, 10f);
@@ -41,6 +47,15 @@ namespace Epacenur.Runtime
         float H => Screen.height / scale;
         Rect PanelRect => new Rect(W - PanelW - 10f, H - PanelH - 10f, PanelW, PanelH);
         Rect ChatRect => new Rect(10f, H - 160f, Mathf.Clamp(W - PanelW - 40f, 200f, 520f), 150f);
+        Rect BankRect
+        {
+            get
+            {
+                float w = Pad * 2 + BankColumns * (Slot + Gap) - Gap + 18f, h = 400f;
+                return new Rect(Mathf.Max(10f, (W - PanelW - 20f - w) / 2f), Mathf.Max(60f, (H - h) / 2f - 50f), w, h);
+            }
+        }
+        public bool BankOpen => openBooth != null;
 
         void Update()
         {
@@ -49,7 +64,25 @@ namespace Epacenur.Runtime
                 showDev = !showDev;
             if (Input.GetKeyDown(KeyCode.H))
                 showHelp = !showHelp;
+            if (openBooth != null)
+            {
+                // Like RuneScape, the bank closes when you walk away from the booth.
+                Vector3 d = openBooth.transform.position - G.Player.transform.position;
+                d.y = 0f;
+                if (Input.GetKeyDown(KeyCode.Escape) || d.magnitude > 2.2f)
+                    CloseBank();
+            }
         }
+
+        public void OpenBank(BankBooth booth)
+        {
+            openBooth = booth;
+            tab = Tab.Inventory;
+            selectedSlot = -1;
+            G.Rig.LockCursor(false);  // first person: free the mouse to use the window
+        }
+
+        public void CloseBank() => openBooth = null;
 
         /// Whether the mouse is over a panel (so clicks there don't walk or chop).
         public bool IsMouseOverUi()
@@ -57,7 +90,7 @@ namespace Epacenur.Runtime
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
-            return PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m));
+            return PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (BankOpen && BankRect.Contains(m));
         }
 
         public void AddXpDrop(SkillId skill, BigInteger tenths)
@@ -96,6 +129,8 @@ namespace Epacenur.Runtime
             DrawLevelUp();
             DrawChat();
             DrawPanel();
+            if (BankOpen)
+                DrawBank();
             if (G.Player.Mode == ViewMode.FirstPerson)
                 DrawCrosshair();
             if (showDev)
@@ -169,7 +204,7 @@ namespace Epacenur.Runtime
         void DrawCrosshair()
         {
             var p = G.Player;
-            Color c = p.AimingAtTree ? (p.SwingReady ? new Color(0.4f, 1f, 0.4f) : new Color(1f, 0.85f, 0.3f)) : new Color(1f, 1f, 1f, 0.8f);
+            Color c = p.AimingAtTarget ? (p.SwingReady ? new Color(0.4f, 1f, 0.4f) : new Color(1f, 0.85f, 0.3f)) : new Color(1f, 1f, 1f, 0.8f);
             float cx = W / 2f, cy = H / 2f;
             Fill(new Rect(cx - 8f, cy - 1f, 16f, 2f), c);
             Fill(new Rect(cx - 1f, cy - 8f, 2f, 16f), c);
@@ -256,7 +291,14 @@ namespace Epacenur.Runtime
                         tooltip = stack.Def.Name;
                 }
 
-                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
+                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && BankOpen)
+                {
+                    // With the bank open, clicking an item deposits it (right- or shift-click: all of it).
+                    if (!stack.IsEmpty)
+                        G.Bank.Deposit(inv, stack.ItemId, e.button == 1 || e.shift ? int.MaxValue : bankAmount);
+                    e.Use();
+                }
+                else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
                 {
                     bool drop = e.button == 1 || e.shift;
                     if (drop && !stack.IsEmpty)
@@ -282,6 +324,78 @@ namespace Epacenur.Runtime
             }
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Bank ----
+
+        void DrawBank()
+        {
+            var r = BankRect;
+            var bank = G.Bank;
+            var e = Event.current;
+            Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
+            Fill(new Rect(r.x, r.y, r.width, 30f), new Color(0.16f, 0.13f, 0.09f, 1f));
+            Shadowed(new Rect(r.x + Pad, r.y + 5f, 260f, 22f), "<b>Bank of Epacenur</b>", title);
+            Shadowed(new Rect(r.x + r.width - 140f, r.y + 7f, 100f, 20f), bank.UsedSlots + " / " + Bank.Size, rightSmall);
+            if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
+                CloseBank();
+
+            // Items: one slot per kind of item, with the whole stack in it.
+            var view = new Rect(r.x + Pad, r.y + 38f, r.width - Pad * 2, r.height - 38f - 84f);
+            int rows = Mathf.Max(1, (bank.UsedSlots + BankColumns - 1) / BankColumns);
+            var content = new Rect(0f, 0f, view.width - 18f, rows * (Slot + Gap));
+            bankScroll = GUI.BeginScrollView(view, bankScroll, content);
+            string tooltip = null;
+            int withdrawSlot = -1;
+            long withdrawAmount = 0;
+            for (int i = 0; i < bank.UsedSlots; i++)
+            {
+                var slot = new Rect((i % BankColumns) * (Slot + Gap), (i / BankColumns) * (Slot + Gap), Slot, Slot);
+                var s = bank[i];
+                Fill(slot, new Color(0f, 0f, 0f, 0.25f));
+                DrawItemIcon(slot, s.Def);
+                Shadowed(new Rect(slot.x + 2f, slot.y - 1f, slot.width, 16f), BankCount(s.Count), small);
+                if (slot.Contains(e.mousePosition))
+                    tooltip = s.Def.Name + " x " + Experience.Format(s.Count);
+                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
+                {
+                    withdrawSlot = i;  // withdraw after the loop, so the slot list doesn't change mid-draw
+                    withdrawAmount = e.button == 1 || e.shift ? long.MaxValue : bankAmount;
+                    e.Use();
+                }
+            }
+            if (bank.UsedSlots == 0)
+                GUI.Label(new Rect(0f, 8f, content.width, 40f), "The bank is empty. Click items in your inventory to deposit them.", rich);
+            GUI.EndScrollView();
+            if (withdrawSlot >= 0 && G.Bank.Withdraw(G.Inventory, withdrawSlot, withdrawAmount) == 0 && G.Inventory.IsFull)
+                GameLog.Add("You don't have enough inventory space.");
+
+            // Amount buttons and deposit-all.
+            float y = r.yMax - 76f;
+            GUI.Label(new Rect(r.x + Pad, y, 140f, 22f), "Withdraw / deposit:", small);
+            for (int i = 0; i < BankAmounts.Length; i++)
+            {
+                int a = BankAmounts[i];
+                if (GUI.Toggle(new Rect(r.x + Pad + 120f + i * 46f, y, 42f, 22f), bankAmount == a, a == int.MaxValue ? "All" : a.ToString(), GUI.skin.button))
+                    bankAmount = a;
+            }
+            if (GUI.Button(new Rect(r.x + Pad, y + 28f, 150f, 24f), "Deposit inventory"))
+                bank.DepositAll(G.Inventory);
+            GUI.Label(new Rect(r.x + Pad + 160f, y + 26f, r.width - Pad * 2 - 160f, 50f),
+                "Click: withdraw / deposit that many\nRight- or shift-click: all of it", small);
+
+            if (tooltip != null && new Rect(view.x, view.y, view.width, view.height).Contains(e.mousePosition))
+                Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 260f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        /// RuneScape-style stack counts: yellow below 100K, white in K below 10M, green in M above.
+        static string BankCount(long n)
+        {
+            if (n < 100000)
+                return "<color=#ffff00>" + n + "</color>";
+            if (n < 10000000)
+                return "<color=#ffffff>" + (n / 1000) + "K</color>";
+            return "<color=#00ff80>" + (n / 1000000) + "M</color>";
         }
 
         /// No art yet: items are drawn from coloured rectangles.
@@ -360,6 +474,10 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Empty it")) { G.Inventory.Clear(); selectedSlot = -1; }
             if (GUILayout.Button("Fill with logs")) G.Inventory.Add(ItemDefs.Logs.Id, Inventory.Size);
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Empty bank")) G.Bank.Clear();
+            if (GUILayout.Button("+1,000 logs in bank")) G.Bank.Add(ItemDefs.Logs.Id, 1000);
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
             if (GUILayout.Button("Regrow every tree"))
@@ -383,6 +501,7 @@ namespace Epacenur.Runtime
                 foreach (var def in SkillDefs.All)
                     G.Skills.SetLevel(def.Id, 1);
                 G.Inventory.Clear();
+                G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");
             }

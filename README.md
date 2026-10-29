@@ -1,7 +1,7 @@
 # Epacenur
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
-For now it's a **dev area** with plots for testing skills. The only skill so far is **Woodcutting**, with basic trees.
+For now it's a **dev area** with plots for testing skills and a **bank booth**. The only skill so far is **Woodcutting**, with basic trees.
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -24,12 +24,23 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 | Move | Left-click a tile to walk there (pathfinding), or **WASD** | **WASD** |
 | Chop a tree | Left-click it: you walk next to it and chop automatically until it becomes a stump or your inventory is full | Look at it and **left-click once per chop** (within reach) |
 | Camera | Arrow keys or middle-drag to rotate, scroll to zoom | Mouse look. **Esc** frees the mouse; click the view to grab it again |
+| Use the bank | Left-click the bank booth (by spawn): you walk up to it and the bank opens | Look at it and left-click (within reach) |
 | Switch view | **V** | **V** |
 
 - **Inventory**: 28 slots, one log per slot. Click a slot and then another to swap them. Right-click or shift-click to drop an item.
 - **Skills** tab: level (out of 999), xp, xp to the next level and a progress bar. Hover for the exact xp.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, position) saves every 15 s and when you quit.
+
+## Bank
+
+- The bank booth stands just north-east of spawn. Clicking it opens the bank window.
+- Each kind of item takes **one bank slot and stacks there**, even items like logs that take a slot each in the
+  inventory. The bank has 400 slots. Counts show RuneScape style: yellow below 100K, then K, then M in green.
+- While the bank is open, click an inventory item to deposit it, or click a bank slot to withdraw. The **1 / 5 / 10 / All**
+  buttons set how many. Right-click or shift-click always moves all of it. **Deposit inventory** empties your backpack in one go.
+  You only get as many items as you have free inventory slots.
+- The bank closes with **X**, **Esc**, or when you walk away from the booth. It's saved along with everything else.
 
 ## Woodcutting
 
@@ -57,6 +68,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 - Each skill: set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
+- Empty the bank, or put 1,000 logs in it
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything
@@ -65,10 +77,10 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items and inventory, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory and bank, tree definitions and chop chances, tile grid and A* pathfinding |
+| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `BankBooth`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
-| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, pathfinding) |
+| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, pathfinding) |
 | `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |
 
 Both scripts need mono (`apt-get install mono-mcs mono-runtime`).

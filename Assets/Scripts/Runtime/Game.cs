@@ -29,6 +29,7 @@ namespace Epacenur.Runtime
 
         public readonly SkillSet Skills = new SkillSet();
         public readonly Inventory Inventory = new Inventory();
+        public readonly Bank Bank = new Bank();
         public readonly System.Random Rng = new System.Random();
         public World World { get; private set; }
         public PlayerController Player { get; private set; }

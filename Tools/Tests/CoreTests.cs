@@ -55,6 +55,21 @@ static class CoreTests
         inv.RemoveAt(5);
         Check(inv.FreeSlots == 1 && inv.Add(ItemDefs.Logs.Id) == 1 && !inv[5].IsEmpty, "a log goes in the freed slot");
 
+        Console.WriteLine("Bank");
+        var bank = new Bank();
+        inv.Clear();
+        inv.Add(ItemDefs.Logs.Id, 10);
+        Check(bank.Deposit(inv, ItemDefs.Logs.Id, 3) == 3 && inv.Count(ItemDefs.Logs.Id) == 7, "deposit 3 of 10 logs");
+        Check(bank.UsedSlots == 1 && bank[0].Count == 3, "logs stack in one bank slot");
+        Check(bank.DepositAll(inv) == 7 && inv.FreeSlots == Inventory.Size && bank.UsedSlots == 1 && bank.Count(ItemDefs.Logs.Id) == 10, "deposit inventory: all 10 logs in one slot");
+        bank.Add(ItemDefs.Logs.Id, 90);
+        Check(bank.Withdraw(inv, 0, long.MaxValue) == 28 && bank.Count(ItemDefs.Logs.Id) == 72, "withdraw all: only 28 fit");
+        Check(bank.Withdraw(inv, 0, 5) == 0, "nothing withdrawn into a full inventory");
+        inv.Clear();
+        bank.Clear();
+        bank.Add(ItemDefs.Logs.Id, 5);
+        Check(bank.Withdraw(inv, 0, long.MaxValue) == 5 && bank.UsedSlots == 0 && inv.Count(ItemDefs.Logs.Id) == 5, "an emptied bank slot is removed");
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");

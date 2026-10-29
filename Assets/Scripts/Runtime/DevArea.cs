@@ -24,6 +24,7 @@ namespace Epacenur.Runtime
     {
         public const int Width = 48, Height = 48;
         public static readonly Tile Spawn = new Tile(24, 10);
+        public static readonly Tile BankBooth = new Tile(28, 13);
 
         public static List<SkillArea> CreateAreas()
         {

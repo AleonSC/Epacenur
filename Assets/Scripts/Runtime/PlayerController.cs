@@ -22,8 +22,8 @@ namespace Epacenur.Runtime
         /// What the mouse is over, RuneScape style ("Chop down Tree", "Walk here"), for the HUD.
         public string HoverAction { get; private set; } = "";
         public string HoverTarget { get; private set; } = "";
-        /// First person: whether the crosshair is on a tree close enough to chop.
-        public bool AimingAtTree { get; private set; }
+        /// First person: whether the crosshair is on something close enough to use (a tree, a bank booth).
+        public bool AimingAtTarget { get; private set; }
         public bool SwingReady => swingCooldown <= 0f;
         public bool IsChopping => chopping;
         /// 1 at the start of a first-person swing, falling to 0.
@@ -40,6 +40,7 @@ namespace Epacenur.Runtime
         readonly List<Tile> path = new List<Tile>();
         int pathIndex;
         TreeObject target;      // the tree being walked to or chopped (tile mode)
+        BankBooth targetBooth;  // the bank booth being walked to (tile mode)
         bool chopping;
         float chopTimer, swingCooldown, fallSpeed, chopAnim;
 
@@ -174,7 +175,7 @@ namespace Epacenur.Runtime
 
         Vector3 UpdateTileMode(float dt)
         {
-            UpdateHover(out TreeObject hoverTree, out Tile? hoverTile);
+            UpdateHover(out TreeObject hoverTree, out BankBooth hoverBooth, out Tile? hoverTile);
             Vector3 wasd = ReadWasd();
             if (wasd != Vector3.zero)
             {
@@ -188,12 +189,16 @@ namespace Epacenur.Runtime
             {
                 if (hoverTree != null)
                     WalkToTree(hoverTree);
+                else if (hoverBooth != null)
+                    WalkToBooth(hoverBooth);
                 else if (hoverTile.HasValue)
                     WalkTo(hoverTile.Value);
             }
 
             if (pathIndex < path.Count)
                 return FollowPath(dt);
+            if (targetBooth != null)
+                ArriveAtBooth();
             if (target != null && !chopping)
                 ArriveAtTree();
             if (chopping)
@@ -201,19 +206,27 @@ namespace Epacenur.Runtime
             return Vector3.zero;
         }
 
-        void UpdateHover(out TreeObject tree, out Tile? tile)
+        void UpdateHover(out TreeObject tree, out BankBooth booth, out Tile? tile)
         {
             tree = null;
+            booth = null;
             tile = null;
             HoverAction = HoverTarget = "";
-            AimingAtTree = false;
+            AimingAtTarget = false;
             if (G.Hud.IsMouseOverUi() || !Physics.Raycast(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), out RaycastHit hit, 500f))
             {
                 hoverMarker.SetActive(false);
                 return;
             }
             tree = hit.collider.GetComponentInParent<TreeObject>();
-            if (tree != null)
+            booth = hit.collider.GetComponentInParent<BankBooth>();
+            if (booth != null)
+            {
+                tile = booth.Tile;
+                HoverAction = "Bank";
+                HoverTarget = BankBooth.Name;
+            }
+            else if (tree != null)
             {
                 tile = tree.Tile;
                 HoverAction = tree.IsStump ? "Walk here" : "Chop down";
@@ -247,6 +260,32 @@ namespace Epacenur.Runtime
             }
             target = tree;
             SetPath(p);
+        }
+
+        void WalkToBooth(BankBooth booth)
+        {
+            CancelAction();
+            var p = Pathfinder.PathToInteract(G.World.Grid, StartTile(), booth.Tile);
+            if (p == null)
+            {
+                GameLog.Add("I can't reach that!");
+                return;
+            }
+            targetBooth = booth;
+            SetPath(p);
+        }
+
+        void ArriveAtBooth()
+        {
+            var booth = targetBooth;
+            targetBooth = null;
+            if (!CurrentTile.IsCardinalNeighbour(booth.Tile))
+            {
+                WalkToBooth(booth);  // pushed off course; try again
+                return;
+            }
+            transform.rotation = Quaternion.LookRotation(World.TileCenter(booth.Tile) - World.TileCenter(CurrentTile));
+            G.Hud.OpenBank(booth);
         }
 
         // Paths start from the tile you're on; after WASD you may be off its centre.
@@ -334,6 +373,7 @@ namespace Epacenur.Runtime
             path.Clear();
             pathIndex = 0;
             target = null;
+            targetBooth = null;
             chopping = false;
         }
 
@@ -351,12 +391,19 @@ namespace Epacenur.Runtime
         {
             transform.rotation = Quaternion.Euler(0f, G.Rig.Yaw, 0f);
             HoverAction = HoverTarget = "";
-            TreeObject aimed = AimedTree();
-            AimingAtTree = aimed != null;
+            Component aimedAt = AimedObject();
+            var aimed = aimedAt as TreeObject;
+            var aimedBooth = aimedAt as BankBooth;
+            AimingAtTarget = aimedAt != null;
             if (aimed != null)
             {
                 HoverAction = "Chop down";
                 HoverTarget = aimed.Def.Name;
+            }
+            else if (aimedBooth != null)
+            {
+                HoverAction = "Bank";
+                HoverTarget = BankBooth.Name;
             }
 
             if (Input.GetMouseButtonDown(0))
@@ -365,6 +412,10 @@ namespace Epacenur.Runtime
                 {
                     if (!G.Hud.IsMouseOverUi())
                         G.Rig.LockCursor(true);  // this click only grabs the mouse
+                }
+                else if (aimedBooth != null)
+                {
+                    G.Hud.OpenBank(aimedBooth);
                 }
                 else if (swingCooldown <= 0f)
                 {
@@ -377,18 +428,24 @@ namespace Epacenur.Runtime
             return ReadWasd() * WasdSpeed * dt;
         }
 
-        /// The tree under the crosshair, if it's standing and within reach.
-        TreeObject AimedTree()
+        /// What's under the crosshair and within reach: a standing tree or a bank booth.
+        Component AimedObject()
         {
             var cam = G.Rig.Cam.transform;
             if (!Physics.Raycast(cam.position, cam.forward, out RaycastHit hit, FirstPersonReach + 1.5f))
                 return null;
-            var tree = hit.collider.GetComponentInParent<TreeObject>();
-            if (tree == null || tree.IsStump)
+            Component thing = hit.collider.GetComponentInParent<BankBooth>();
+            if (thing == null)
+            {
+                var tree = hit.collider.GetComponentInParent<TreeObject>();
+                if (tree != null && !tree.IsStump)
+                    thing = tree;
+            }
+            if (thing == null)
                 return null;
-            Vector3 d = tree.transform.position - transform.position;
+            Vector3 d = thing.transform.position - transform.position;
             d.y = 0f;
-            return d.magnitude <= FirstPersonReach ? tree : null;
+            return d.magnitude <= FirstPersonReach ? thing : null;
         }
 
         // ---- Woodcutting (both modes) ----

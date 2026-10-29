@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Keeps skills, the inventory and where you stood between sessions (in PlayerPrefs).
+    /// Keeps skills, the inventory, the bank and where you stood between sessions (in PlayerPrefs).
     public static class SaveGame
     {
         public const string Key = "Epacenur.Save.v1";
@@ -17,6 +17,8 @@ namespace Epacenur.Runtime
             public string[] xpTenths;     // experience in tenths, as text (it can be far bigger than a long)
             public int[] itemIds;
             public int[] counts;
+            public int[] bankIds;
+            public long[] bankCounts;
             public float x, z;
         }
 
@@ -36,6 +38,13 @@ namespace Epacenur.Runtime
             {
                 d.skills[i] = defs[i].Id.ToString();
                 d.xpTenths[i] = game.Skills.GetXpTenths(defs[i].Id).ToString();
+            }
+            d.bankIds = new int[game.Bank.UsedSlots];
+            d.bankCounts = new long[game.Bank.UsedSlots];
+            for (int i = 0; i < game.Bank.UsedSlots; i++)
+            {
+                d.bankIds[i] = game.Bank[i].ItemId;
+                d.bankCounts[i] = game.Bank[i].Count;
             }
             for (int i = 0; i < Inventory.Size; i++)
             {
@@ -71,6 +80,10 @@ namespace Epacenur.Runtime
             for (int i = 0; d.itemIds != null && i < Inventory.Size && i < d.itemIds.Length; i++)
                 if (ItemDefs.Get(d.itemIds[i]) != null)
                     game.Inventory.Set(i, new ItemStack { ItemId = d.itemIds[i], Count = d.counts[i] });
+
+            for (int i = 0; d.bankIds != null && d.bankCounts != null && i < d.bankIds.Length && i < d.bankCounts.Length; i++)
+                if (ItemDefs.Get(d.bankIds[i]) != null)
+                    game.Bank.Add(d.bankIds[i], d.bankCounts[i]);
 
             var tile = game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)));
             game.Player.Teleport(tile);
