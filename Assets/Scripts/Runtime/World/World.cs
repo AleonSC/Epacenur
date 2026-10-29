@@ -30,7 +30,6 @@ namespace Epacenur.Runtime
     /// they walk (floating origin): World.TileCenter and World.TileAt convert.
     public sealed class World : MonoBehaviour
     {
-        public const int Seed = 2024;        // change for a different overworld (saved positions may then land oddly)
         public const int LoadRadius = 5;     // chunks loaded in each direction round the player
         public const int ChunksPerFrame = 2; // streaming budget
         const int OriginShiftTiles = 256;    // move the origin when the player gets this far from it
@@ -81,16 +80,32 @@ namespace Epacenur.Runtime
         Transform backdrop;
         Material groundMat;
 
-        public static World Create(MapId map, Tile at)
+        /// Items lying on the ground anywhere in this world (both maps), by chunk ("dev" for the dev plot).
+        /// They stay until picked up, loaded or not, and are saved with the world.
+        public readonly List<GroundPile> Piles = new List<GroundPile>();
+        readonly Dictionary<long, List<GroundPile>> pilesByChunk = new Dictionary<long, List<GroundPile>>();
+        const long DevPiles = long.MinValue;
+
+        /// Makes the world for a seed, with the items left lying in it, and goes to `map`.
+        public static World Create(int seed, MapId map, List<GroundPile> piles)
         {
             var world = new GameObject("World").AddComponent<World>();
-            world.Overworld = new Overworld(Seed);
+            world.Overworld = new Overworld(seed);
+            if (piles != null)
+                foreach (var p in piles)
+                    world.AddPile(p);
             world.chunkGrid = new ChunkedGrid(Overworld.ChunkSize);
             // Darker grass far out under everything (it follows the player), so the map never floats in the sky.
             world.backdrop = Visuals.Prim(PrimitiveType.Cube, null, new Vector3(0f, -0.3f, 0f), new Vector3(480f, 0.5f, 480f), new Color(0.24f, 0.4f, 0.19f)).transform;
             world.backdrop.name = "Backdrop";
-            world.Enter(map, at, LoadRadius);
+            world.Enter(map, world.Overworld.Spawn, LoadRadius);
             return world;
+        }
+
+        void OnDestroy()
+        {
+            if (backdrop != null)
+                Destroy(backdrop.gameObject);
         }
 
         /// Goes to a map (building it) and loads round `at`: `radius` chunks now, the rest as you play.
@@ -209,6 +224,7 @@ namespace Epacenur.Runtime
             chunkGrid.Load(cx, cz, Overworld.IsBlocked);
             building = owner;
             OverworldBuilder.BuildChunk(this, cx, cz, GroundMaterial());
+            ShowPiles(key);
             building = null;
 
             long rkey = RegionKey(cx, cz);
@@ -344,6 +360,7 @@ namespace Epacenur.Runtime
                 AddLabel(new Vector3(center.x, 0.3f, plot.y + plot.height - 0.5f), area.Name, Color.white);
                 area.Build(this);
             }
+            ShowPiles(DevPiles);
         }
 
         /// A walled area's ground: a slab whose top is at y = 0, edges on tile boundaries, with a faint line round each tile.
@@ -449,7 +466,30 @@ namespace Epacenur.Runtime
             return npc;
         }
 
-        /// Puts an item on the ground. A stackable item joins a pile of the same item on that tile.
+        long PileKey(int map, Tile t) => map == (int)MapId.DevPlot ? DevPiles : ChunkedGrid.Key(chunkGrid.ChunkOf(t.X), chunkGrid.ChunkOf(t.Z));
+
+        void AddPile(GroundPile p)
+        {
+            Piles.Add(p);
+            long key = PileKey(p.map, p.Tile);
+            if (!pilesByChunk.TryGetValue(key, out var list))
+                pilesByChunk[key] = list = new List<GroundPile>();
+            list.Add(p);
+        }
+
+        /// Shows the items lying in a chunk (or on the dev plot) that's just been built.
+        void ShowPiles(long key)
+        {
+            if (!pilesByChunk.TryGetValue(key, out var list))
+                return;
+            var owner = building ?? dev;
+            foreach (var p in list)
+                if (ContentDb.Current.Item(p.item) != null)
+                    GroundItems.Add(Own(GroundItem.Create(p, owner.Root, rng), owner));
+        }
+
+        /// Puts an item on the ground, where it stays until picked up. A stackable item joins a pile of the
+        /// same item on that tile.
         public GroundItem SpawnGroundItem(string itemId, int count, Tile tile)
         {
             var def = ContentDb.Current.Item(itemId);
@@ -460,17 +500,23 @@ namespace Epacenur.Runtime
                 foreach (var g in GroundItems)
                     if (g.ItemId == itemId && g.Tile == tile)
                     {
-                        g.AddCount(count);
+                        g.Pile.count += count;
                         return g;
                     }
-            var item = Own(GroundItem.Create(itemId, count, tile, owner.Root, rng), owner);
+            var pile = new GroundPile { item = itemId, count = count, x = tile.X, z = tile.Z, map = (int)Map };
+            AddPile(pile);
+            var item = Own(GroundItem.Create(pile, owner.Root, rng), owner);
             GroundItems.Add(item);
             return item;
         }
 
+        /// Picked up (or lit): gone for good.
         public void RemoveGroundItem(GroundItem item)
         {
             GroundItems.Remove(item);
+            Piles.Remove(item.Pile);
+            if (pilesByChunk.TryGetValue(PileKey(item.Pile.map, item.Tile), out var list))
+                list.Remove(item.Pile);
             Destroy(item.gameObject);
         }
 

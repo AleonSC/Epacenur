@@ -43,11 +43,13 @@ namespace Epacenur.Runtime
         }
 
         public bool ShowHelp => showHelp;
-        public bool MenuOpen => menu.IsOpen;
+        public bool MenuOpen => menu.IsOpen || pendingMenu != null;
         Vector2 MouseGui => new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
 
         void Update()
         {
+            if (G == null)
+                return;
             scale = Mathf.Clamp(Screen.height / 760f, 0.75f, 3f);
             if (Input.GetKeyDown(KeyCode.F1))
                 devTools.Toggle();
@@ -78,10 +80,18 @@ namespace Epacenur.Runtime
         public void CloseWindow() => Window = null;
 
         /// Opens the right-click menu at the mouse (or mid-screen in first person, where relock is true).
+        /// (It opens on the next OnGUI: laying it out needs Unity's GUI, which only works there, and the
+        /// world's right-click comes from the player's Update.)
         public void OpenMenu(List<MenuOption> options, bool relock)
         {
-            menu.Open(options, relock ? new Vector2(W / 2f, H / 2f) : MouseGui, new Vector2(W, H), relock);
+            pendingMenu = options;
+            pendingAt = relock ? new Vector2(W / 2f, H / 2f) : MouseGui;
+            pendingRelock = relock;
         }
+
+        List<MenuOption> pendingMenu;
+        Vector2 pendingAt;
+        bool pendingRelock;
 
         /// Whether the mouse is over a panel (so clicks there don't walk or chop).
         public bool IsMouseOverUi()
@@ -90,7 +100,25 @@ namespace Epacenur.Runtime
                 return false;
             var m = MouseGui;
             return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m)
-                || StatusRect.Contains(m) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
+                || StatusRect.Contains(m) || LogOutRect.Contains(m) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
+        }
+
+        Rect LogOutRect => new Rect(W - 90f, 8f, 80f, 24f);
+        bool confirmLogOut;
+
+        /// Top right: save and go back to the main menu (two clicks).
+        void DrawLogOut()
+        {
+            var r = LogOutRect;
+            if (GUI.Button(r, confirmLogOut ? "Sure?" : "Log out"))
+            {
+                if (confirmLogOut)
+                    G.LogOut();
+                else
+                    confirmLogOut = true;
+            }
+            if (confirmLogOut && !r.Contains(Event.current.mousePosition) && Event.current.type == EventType.Repaint)
+                confirmLogOut = false;
         }
 
         public void AddXpDrop(string skill, BigInteger tenths) => overlays.AddXpDrop(skill, tenths);
@@ -98,8 +126,15 @@ namespace Epacenur.Runtime
 
         void OnGUI()
         {
+            if (G == null)
+                return;  // logged out this frame
             Gui.MakeStyles();
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
+            if (pendingMenu != null)
+            {
+                menu.Open(pendingMenu, pendingAt, new Vector2(W, H), pendingRelock);
+                pendingMenu = null;
+            }
             menu.HandleInput();  // before anything else, so a click on the menu goes nowhere else
             overlays.DrawWorld(this);
             overlays.DrawScreen(this);
@@ -110,6 +145,7 @@ namespace Epacenur.Runtime
             if (G.Player.Mode == ViewMode.FirstPerson)
                 overlays.DrawCrosshair(this);
             devTools.Draw(this);
+            DrawLogOut();
             menu.Draw();
         }
     }

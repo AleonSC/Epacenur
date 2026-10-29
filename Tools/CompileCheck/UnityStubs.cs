@@ -41,7 +41,7 @@ namespace UnityEngine
     public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
     public static class Physics { public static RaycastHit[] RaycastAll(Ray r, float d) => null; public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
         public static bool Raycast(Vector3 o, Vector3 dir, out RaycastHit h, float d) { h = default(RaycastHit); return false; } }
-    public static class Mathf { public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
+    public static class Mathf { public static float MoveTowards(float a, float b, float d) => a; public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
@@ -52,7 +52,7 @@ namespace UnityEngine
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow }
+    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }
@@ -88,7 +88,7 @@ namespace UnityEngine
     public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding; public Vector2 CalcSize(GUIContent c) => default(Vector2); public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
     public class GUISkin { public GUIStyle label, button; }
     public delegate void WindowFunction(int id);
-    public static class GUI { public static Matrix4x4 matrix; public static Color color; public static GUISkin skin; public static void DrawTexture(Rect r, Texture t) { }
+    public static class GUI { public static Matrix4x4 matrix; public static bool enabled; public static string TextField(Rect r, string t, int max) => t; public static Color color; public static GUISkin skin; public static void DrawTexture(Rect r, Texture t) { }
         public static void Label(Rect r, string s, GUIStyle st) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static void DragWindow() { }
         public static bool Button(Rect r, string s) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }

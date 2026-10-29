@@ -7,12 +7,15 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Keeps skills, the inventory and money pouch, the bank, worn equipment, the tool belt and where you
-    /// stood between sessions (in PlayerPrefs, as JSON). Items and skills are saved by their text ids, so
-    /// adding content never breaks a save; ids the game no longer knows are dropped.
+    /// Keeps a character's skills, inventory and money pouch, bank, worn equipment, tool belt and where they
+    /// stood in each world between sessions (in PlayerPrefs, as JSON, one key per character). Items and
+    /// skills are saved by their text ids, so adding content never breaks a save; ids the game no longer
+    /// knows are dropped.
     public static class SaveGame
     {
-        public const string Key = "Epacenur.Save.v1";
+        /// Where the one save lived before there were characters (Profiles turns it into one).
+        public const string LegacyKey = "Epacenur.Save.v1";
+        public static string KeyFor(CharacterInfo c) => "Epacenur.Character." + c.id;
         public const int Format = 3;        // 3: text ids. Older saves used numbers (see LegacyItemIds).
         public const int WorldVersion = 3;  // 3: the endless overworld. Older saves start in the town square.
 
@@ -33,8 +36,11 @@ namespace Epacenur.Runtime
             public int hp;
             public int prayerPoints;
             public float x, z;            // older formats: where you stood
-            public int tileX, tileZ, map;  // where you stand (MapId)
+            public int tileX, tileZ, map;  // format 3 before worlds: where you stood
             public int worldVersion;
+            // Where you stand in each world (by world id): map (MapId) and tile.
+            public string[] placeWorlds;
+            public int[] placeMaps, placeX, placeZ;
 
             // Older formats (read only).
             public int[] itemIds, bankIds, equipIds, toolIds;
@@ -65,6 +71,7 @@ namespace Epacenur.Runtime
 
         public static void Save(Game game)
         {
+            var old = Read(KeyFor(game.Character));
             var skills = ContentDb.Current.Skills;
             var d = new Data
             {
@@ -103,25 +110,75 @@ namespace Epacenur.Runtime
             d.equipped = new string[Equipment.SlotCount];
             for (int i = 0; i < Equipment.SlotCount; i++)
                 d.equipped[i] = game.Equipment[(EquipSlot)i].ItemId ?? "";
-            PlayerPrefs.SetString(Key, JsonUtility.ToJson(d));
-            PlayerPrefs.Save();
+
+            // Where you are in this world; where you were in the others stays.
+            var worlds = new List<string>();
+            var maps = new List<int>();
+            var xs = new List<int>();
+            var zs = new List<int>();
+            for (int i = 0; old != null && old.placeWorlds != null && i < old.placeWorlds.Length; i++)
+                if (old.placeWorlds[i] != game.WorldInfo.id)
+                {
+                    worlds.Add(old.placeWorlds[i]);
+                    maps.Add(old.placeMaps[i]);
+                    xs.Add(old.placeX[i]);
+                    zs.Add(old.placeZ[i]);
+                }
+            worlds.Add(game.WorldInfo.id);
+            maps.Add((int)game.World.Map);
+            xs.Add(game.Player.CurrentTile.X);
+            zs.Add(game.Player.CurrentTile.Z);
+            d.placeWorlds = worlds.ToArray();
+            d.placeMaps = maps.ToArray();
+            d.placeX = xs.ToArray();
+            d.placeZ = zs.ToArray();
+            PlayerPrefs.SetString(KeyFor(game.Character), JsonUtility.ToJson(d));
+            var piles = new PileList();
+            piles.items.AddRange(game.World.Piles);
+            PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(piles));
+
+            // What the main menu shows.
+            game.Character.totalLevel = game.Skills.TotalLevel;
+            game.Character.combatLevel = CombatRules.CombatLevel(game.Skills);
+            game.Character.lastPlayed = game.WorldInfo.lastPlayed = DateTime.UtcNow.Ticks;
+            Profiles.SetLast(game.Character, game.WorldInfo);
+            Profiles.Write();
+        }
+
+        [Serializable] class PileList { public List<GroundPile> items = new List<GroundPile>(); }
+
+        static string PilesKey(WorldInfo w) => "Epacenur.WorldItems." + w.id;
+
+        /// The items left lying on the ground in a world.
+        public static List<GroundPile> LoadPiles(WorldInfo w)
+        {
+            if (!PlayerPrefs.HasKey(PilesKey(w)))
+                return null;
+            try { return JsonUtility.FromJson<PileList>(PlayerPrefs.GetString(PilesKey(w)))?.items; }
+            catch (Exception) { return null; }
+        }
+
+        public static void DeletePiles(WorldInfo w) => PlayerPrefs.DeleteKey(PilesKey(w));
+
+        static Data Read(string key)
+        {
+            if (!PlayerPrefs.HasKey(key))
+                return null;
+            try
+            {
+                return JsonUtility.FromJson<Data>(PlayerPrefs.GetString(key));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Epacenur: ignoring an unreadable save (" + e.Message + ").");
+                return null;
+            }
         }
 
         /// Returns false when there was no save.
         public static bool Load(Game game)
         {
-            if (!PlayerPrefs.HasKey(Key))
-                return false;
-            Data d;
-            try
-            {
-                d = JsonUtility.FromJson<Data>(PlayerPrefs.GetString(Key));
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning("Epacenur: ignoring an unreadable save (" + e.Message + ").");
-                return false;
-            }
+            var d = Read(KeyFor(game.Character));
             if (d == null)
                 return false;
             if (d.format < 3)
@@ -154,10 +211,13 @@ namespace Epacenur.Runtime
             game.Prayer.SetPoints(d.prayerPoints);
             game.Inventory.SetPouch(d.pouch);
 
-            if (d.worldVersion >= WorldVersion)
+            int place = d.placeWorlds == null ? -1 : Array.IndexOf(d.placeWorlds, game.WorldInfo.id);
+            if (place >= 0)
+                game.World.Travel(d.placeMaps[place] == (int)MapId.DevPlot ? MapId.DevPlot : MapId.Overworld, new Tile(d.placeX[place], d.placeZ[place]));
+            else if (d.placeWorlds == null && d.worldVersion >= WorldVersion && game.WorldInfo.seed == Profiles.DefaultSeed)
                 game.World.Travel(d.map == (int)MapId.DevPlot ? MapId.DevPlot : MapId.Overworld, new Tile(d.tileX, d.tileZ));
             else
-                game.World.Travel(MapId.Overworld, game.World.MainSpawn);
+                game.World.Travel(MapId.Overworld, game.World.MainSpawn);  // new to this world: its first town
             return true;
         }
 
@@ -201,6 +261,7 @@ namespace Epacenur.Runtime
             d.format = Format;
         }
 
-        public static void Delete() => PlayerPrefs.DeleteKey(Key);
+        /// Wipes a character's progress (they stay in the list, starting afresh).
+        public static void Delete(CharacterInfo c) => PlayerPrefs.DeleteKey(KeyFor(c));
     }
 }

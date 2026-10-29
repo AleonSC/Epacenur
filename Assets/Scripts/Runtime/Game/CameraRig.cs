@@ -52,6 +52,13 @@ namespace Epacenur.Runtime
             ApplyLens();
         }
 
+        void OnDestroy()
+        {
+            foreach (var held in fpHeld.Values)
+                if (held != null)
+                    Destroy(held.gameObject);
+        }
+
         /// The world's origin moved (World): move with it.
         public void ShiftBy(Vector3 delta)
         {

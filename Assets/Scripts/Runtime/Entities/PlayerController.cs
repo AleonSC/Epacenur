@@ -88,6 +88,12 @@ namespace Epacenur.Runtime
             cc.enabled = true;
         }
 
+        void OnDestroy()
+        {
+            Destroy(hoverMarker);
+            Destroy(destMarker);
+        }
+
         /// The world's origin moved (World): move with it, so you stay on the same tile.
         public void ShiftBy(Vector3 delta)
         {

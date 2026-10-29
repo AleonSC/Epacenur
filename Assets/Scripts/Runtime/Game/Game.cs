@@ -14,6 +14,8 @@ namespace Epacenur.Runtime
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Messages.Clear();
 
+        public static void Clear() => Messages.Clear();
+
         public static void Add(string message)
         {
             Messages.Add(message);
@@ -22,11 +24,18 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Sets the whole game up when Play is pressed (there are no scenes or prefabs to wire together),
-    /// holds the player's skills and inventory, and runs the game clock: a tick every 0.6 s, as in RuneScape.
+    /// A play session: one character in one world, started from the main menu (MainMenu). It sets the game
+    /// up (there are no scenes or prefabs to wire together), holds the character's skills and inventory, and
+    /// runs the game clock: a tick every 0.6 s, as in RuneScape. Logging out takes it all down again.
     public sealed class Game : MonoBehaviour
     {
         public static Game Instance { get; private set; }
+
+        /// Who's playing, and where.
+        public CharacterInfo Character { get; private set; }
+        public WorldInfo WorldInfo { get; private set; }
+        static CharacterInfo startCharacter;
+        static WorldInfo startWorld;
 
         /// Fired every game tick (0.6 s), after the player's activity has moved on.
         public event System.Action Ticked;
@@ -58,25 +67,35 @@ namespace Epacenur.Runtime
             Instance = null;
         }
 
+        /// When Play is pressed in Unity: the content is loaded and the main menu opens.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (booted)
                 return;
             booted = true;
-            var go = new GameObject("Game");
-            DontDestroyOnLoad(go);
-            go.AddComponent<Game>();
+            Application.targetFrameRate = 144;
+            Modules.Load();  // every item, skill, monster... (Assets/Scripts/Content)
+            SetUpScene();
+            MainMenu.Show();
+        }
+
+        /// Starts playing a character in a world.
+        public static void Begin(CharacterInfo character, WorldInfo world)
+        {
+            startCharacter = character;
+            startWorld = world;
+            new GameObject("Game").AddComponent<Game>();
         }
 
         void Awake()
         {
             Instance = this;
-            Application.targetFrameRate = 144;
-            Modules.Load();  // every item, skill, monster... (Assets/Scripts/Content)
+            Character = startCharacter;
+            WorldInfo = startWorld;
             Camera cam = SetUpScene();
 
-            World = World.Create(MapId.Overworld, new Overworld(World.Seed).Spawn);
+            World = World.Create(WorldInfo.seed, MapId.Overworld, SaveGame.LoadPiles(WorldInfo));
             Player = PlayerController.Create(World.Spawn);
             Rig = CameraRig.Create(cam, Player);
             Hud = gameObject.AddComponent<Hud>();
@@ -86,22 +105,39 @@ namespace Epacenur.Runtime
             Health = new Health(Skills.GetLevel(SkillIds.Hitpoints));
             Prayer = new PrayerBook(Skills.GetLevel(SkillIds.Prayer));
 
+            GameLog.Clear();
             if (SaveGame.Load(this))
             {
-                GameLog.Add("Welcome back to Epacenur.");
+                GameLog.Add("Welcome back to " + WorldInfo.name + ", " + Character.name + ".");
             }
             else
             {
                 Inventory.Add(ItemIds.Coins, 100);  // pocket money for the shop
                 GiveStartingTools();
-                GameLog.Add("Welcome to Epacenur.");
+                GameLog.Add("Welcome to " + WorldInfo.name + ", " + Character.name + ".");
             }
             GameLog.Add("The bank, general store and chapel are round the town square. V switches to first person.");
             GameLog.Add("F1 opens the dev tools, with a teleport to the dev plot for testing skills.");
             nextSave = Time.time + 15f;
         }
 
-        static Camera SetUpScene()
+        /// Saves and takes the session down, back to the main menu.
+        public void LogOut()
+        {
+            SaveGame.Save(this);
+            loggedOut = true;
+            Destroy(World.gameObject);
+            Destroy(Player.gameObject);
+            Destroy(Rig);
+            Destroy(gameObject);
+            Instance = null;
+            MainMenu.Show();
+        }
+
+        bool loggedOut;
+
+        /// The camera, the sun and the sky, shared by the menu and the game.
+        public static Camera SetUpScene()
         {
             var cam = Camera.main;
             if (cam == null)
@@ -223,6 +259,10 @@ namespace Epacenur.Runtime
             Ticked?.Invoke();
         }
 
-        void OnApplicationQuit() => SaveGame.Save(this);
+        void OnApplicationQuit()
+        {
+            if (!loggedOut)
+                SaveGame.Save(this);
+        }
     }
 }

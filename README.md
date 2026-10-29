@@ -18,7 +18,21 @@ so there are no scenes or prefabs to wire up.
    `Assets/Scenes/DevArea.unity` for you. The game also starts from any scene, including Unity's default one.
 4. Commit the `.meta` files Unity generates on first import.
 
-The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delete Saved Progress*.
+The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delete Saved Progress* (every character and world).
+
+## Main menu
+
+The game opens on the main menu:
+
+- **Characters** (left): pick one, or type a name (up to 12 letters, digits and spaces) and press **Create**.
+  Each shows its total level, combat level and when it was last played. A character's skills, items, bank, tool belt and
+  equipment go with them into any world.
+- **Worlds** (right): pick one, or make one with a name and a **seed** (any whole number; **Dice** rolls one). The same seed
+  always makes the same overworld. Each world remembers where each character stood in it, and the items left on its ground;
+  a character new to a world starts in its first town.
+- **Delete** asks for a second click. Deleting a world keeps the characters. There's always at least one world.
+- **Play** (or Enter) starts. In the game, **Log out** (top right, two clicks) saves and goes back to the menu.
+- A save from before characters existed becomes a character called *Adventurer*, in the world *Epacenur* (seed 2024).
 
 ## Controls
 
@@ -149,7 +163,8 @@ so they don't take up slots.
 - Dropped items land on your tile and show as small 3D models: logs, a coin pile, a tinderbox, a sword, a shield.
   Coins dropped on the same tile join one pile.
 - Click one to walk there and pick it up. In first person, look at it and click. Hovering shows "Take Logs" or "Take Coins (12)".
-- They don't block walking, and they disappear after 3 minutes.
+- They don't block walking, and they **never disappear**: they stay until someone picks them up, even while that part of
+  the world isn't loaded, and they're saved with the world (so they're still there next session).
 
 ## Equipment and combat
 

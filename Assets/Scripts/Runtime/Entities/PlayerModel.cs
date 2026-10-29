@@ -13,6 +13,7 @@ namespace Epacenur.Runtime
         readonly List<GameObject> wornParts = new List<GameObject>();
         Vector3 lastPosition;
         float walkPhase, speed, chopAnim, attackAnim, kneelUntil;
+        float runBlend;  // 0 walking .. 1 running (eases between them)
 
         /// Kneel for a moment (praying at an altar, burying bones).
         public void Kneel(float seconds) => kneelUntil = Time.time + seconds;
@@ -167,7 +168,8 @@ namespace Epacenur.Runtime
                     : UnityEngine.Rendering.ShadowCastingMode.On;
         }
 
-        /// Walk cycle (legs, left arm and cape follow your speed), idle breathing, and kneeling.
+        /// Walk and run cycles (legs, arms and cape follow your speed), idle breathing, and kneeling.
+        /// Running (Shift) is its own gait: a forward lean, high knees, arms pumping and a bouncier step.
         void AnimateBody(float dt)
         {
             Vector3 moved = transform.position - lastPosition;
@@ -176,19 +178,29 @@ namespace Epacenur.Runtime
             float measured = dt > 0f ? moved.magnitude / dt : 0f;
             speed = Mathf.Lerp(speed, Mathf.Min(measured, 6f), 1f - Mathf.Exp(-12f * dt));
             float stride = Mathf.Clamp01(speed / 2f);
-            float run = Mathf.Clamp01((speed - WalkWasdSpeed) / (RunPathSpeed - WalkWasdSpeed));  // 0 walking .. 1 running
-            walkPhase += dt * speed * 3.4f;
-            float swing = Mathf.Sin(walkPhase) * (34f + run * 14f) * stride;
+            runBlend = Mathf.MoveTowards(runBlend, IsRunning && stride > 0.3f ? 1f : 0f, dt * 5f);
+            float run = runBlend;
+            // A step every half cycle: quicker steps when running, not just longer ones.
+            walkPhase += dt * Mathf.Max(speed, 0.01f) * Mathf.Lerp(3.4f, 2.9f, run);
+            float s = Mathf.Sin(walkPhase);
+            float swing = s * Mathf.Lerp(34f, 52f, run) * stride;
 
             float kneel = (Activity != null && Activity.Kneels) || Time.time < kneelUntil ? 1f : 0f;
-            legLeft.localRotation = Quaternion.Slerp(legLeft.localRotation, Quaternion.Euler(swing - kneel * 70f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
-            legRight.localRotation = Quaternion.Slerp(legRight.localRotation, Quaternion.Euler(-swing + kneel * 10f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
-            float leftArm = G.Equipment.IsWearing(EquipSlot.Shield) && (fighting || attackAnim > 0f) ? -50f : -swing * 0.8f;
-            armLeft.localRotation = Quaternion.Slerp(armLeft.localRotation, Quaternion.Euler(leftArm, 0f, -4f), 1f - Mathf.Exp(-15f * dt));
+            // Running lifts the knee on the forward swing (the leg swings further forward than back).
+            float lift = run * stride * 18f;
+            // (Negative angles swing a limb forward: the left leg is forward while s < 0, the right while s > 0.)
+            float leftLeg = swing - Mathf.Max(0f, -s) * lift - kneel * 70f;
+            float rightLeg = -swing - Mathf.Max(0f, s) * lift + kneel * 10f;
+            legLeft.localRotation = Quaternion.Slerp(legLeft.localRotation, Quaternion.Euler(leftLeg, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
+            legRight.localRotation = Quaternion.Slerp(legRight.localRotation, Quaternion.Euler(rightLeg, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
+            // The left arm swings against the left leg; running, it pumps, bent forward.
+            float leftArm = G.Equipment.IsWearing(EquipSlot.Shield) && (fighting || attackAnim > 0f) ? -50f
+                : -swing * Mathf.Lerp(0.8f, 1.1f, run) - run * stride * 25f;
+            armLeft.localRotation = Quaternion.Slerp(armLeft.localRotation, Quaternion.Euler(leftArm, 0f, -4f - run * 6f), 1f - Mathf.Exp(-15f * dt));
 
-            float bob = stride > 0.05f ? Mathf.Abs(Mathf.Sin(walkPhase)) * 0.04f * stride : Mathf.Sin(Time.time * 2f) * 0.008f;
+            float bob = stride > 0.05f ? Mathf.Abs(s) * Mathf.Lerp(0.04f, 0.09f, run) * stride : Mathf.Sin(Time.time * 2f) * 0.008f;
             model.localPosition = new Vector3(0f, bob - kneel * 0.22f, 0f);
-            model.localRotation = Quaternion.Euler(kneel * 12f + run * 7f, 0f, 0f);  // lean into a run
+            model.localRotation = Quaternion.Euler(kneel * 12f + run * stride * 14f, 0f, 0f);  // lean into a run
 
             float flutter = Mathf.Sin(Time.time * 7f) * 4f * stride + Mathf.Sin(Time.time * 1.7f) * 1.5f;
             cape.localRotation = Quaternion.Slerp(cape.localRotation, Quaternion.Euler(6f + stride * 32f + flutter, 0f, 0f), 1f - Mathf.Exp(-8f * dt));
@@ -229,8 +241,14 @@ namespace Epacenur.Runtime
                 angle = -70f + Mathf.Sin(Time.time * 1.5f) * 6f;            // net held out over the water
             else if (pose == ArmPose.Strike)
                 angle = -55f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 20f;  // striking the tinderbox
+            else if (fighting)
+                angle = -60f;
             else
-                angle = fighting ? -60f : -15f + Mathf.Sin(walkPhase) * 30f * Mathf.Clamp01(speed / 3f);
+            {
+                // Swings against the right leg; running, it pumps harder from a bent, forward position.
+                float stride = Mathf.Clamp01(speed / 2f);
+                angle = Mathf.Lerp(-15f, -40f, runBlend * stride) + Mathf.Sin(walkPhase) * Mathf.Lerp(30f * Mathf.Clamp01(speed / 3f), 50f * stride, runBlend);
+            }
             armPivot.localRotation = Quaternion.Slerp(armPivot.localRotation, Quaternion.Euler(angle, 0f, 0f), 1f - Mathf.Exp(-25f * dt));
         }
 

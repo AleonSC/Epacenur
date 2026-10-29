@@ -24,7 +24,7 @@ namespace Epacenur.Runtime
             this.hud = hud;
             if (!placed)
             {
-                rect = new Rect(hud.W - 310f, 10f, 300f, 10f);
+                rect = new Rect(hud.W - 310f, 40f, 300f, 10f);
                 placed = true;
             }
             rect = GUILayout.Window(1, rect, DrawWindow, "Dev tools (F1)");
@@ -118,7 +118,7 @@ namespace Epacenur.Runtime
 
         void ResetEverything()
         {
-            SaveGame.Delete();
+            SaveGame.Delete(G.Character);
             foreach (var def in ContentDb.Current.Skills)
                 G.Skills.SetLevel(def.Id, def.StartLevel);
             foreach (EquipSlot slot in System.Enum.GetValues(typeof(EquipSlot)))

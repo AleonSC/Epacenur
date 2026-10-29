@@ -50,7 +50,7 @@ namespace Epacenur.EditorTools
         [MenuItem("Epacenur/Delete Saved Progress")]
         static void DeleteSave()
         {
-            PlayerPrefs.DeleteKey(Runtime.SaveGame.Key);
+            Runtime.Profiles.DeleteAll();
             Debug.Log("Epacenur: saved skills and inventory deleted.");
         }
 
