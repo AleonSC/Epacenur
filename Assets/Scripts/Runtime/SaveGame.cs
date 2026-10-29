@@ -26,6 +26,7 @@ namespace Epacenur.Runtime
             public int pouch;
             public int[] toolIds;    // tools on the tool belt
             public bool hatchetGiven;
+            public bool miningToolsGiven;  // saves from before mining and smithing get a pickaxe and hammer
             public bool hasHp;
             public int hp;
             public bool hasPrayer;
@@ -65,6 +66,7 @@ namespace Epacenur.Runtime
             d.style = (int)game.Style;
             d.hasPouch = true;
             d.hatchetGiven = true;
+            d.miningToolsGiven = true;
             d.hasHp = true;
             d.hp = game.Health.Current;
             d.hasPrayer = true;
@@ -123,6 +125,11 @@ namespace Epacenur.Runtime
             game.Prayer.SetPoints(d.hasPrayer ? d.prayerPoints : game.Prayer.Max);
             if (!d.hatchetGiven)
                 game.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
+            if (!d.miningToolsGiven)
+            {
+                game.ToolBelt.Add(ItemDefs.BronzePickaxe.Id);
+                game.ToolBelt.Add(ItemDefs.Hammer.Id);
+            }
             if (d.hasPouch)
                 game.Inventory.SetPouch(d.pouch);
             else

@@ -72,7 +72,7 @@ static class CoreTests
 
         Console.WriteLine("Shop");
         var shop = Shops.DevAreaStore();
-        Check(shop.Items.Count == 5 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 7 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -82,9 +82,9 @@ static class CoreTests
         Check(shop.Sell(inv, ItemDefs.BronzeSword.Id, 1, out why) == 1 && inv.Count(ItemDefs.Coins.Id) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, ItemDefs.Coins.Id, 1, out why) == 0, "coins can't be sold");
         inv.Add(ItemDefs.Logs.Id, 3);
-        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 6 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 8 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 5 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 7 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(ItemDefs.Logs.Id, 27);
@@ -265,6 +265,25 @@ static class CoreTests
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");
         Check(WoodcuttingRules.SuccessChance(TreeDefs.Basic, 999) == 1.0, "certain at high levels");
+
+        Console.WriteLine("Mining and smithing");
+        Check(MiningRules.Copper.OreItemId == ItemDefs.CopperOre.Id && MiningRules.Tin.Xp == 17.5, "copper and tin rocks give their ore for 17.5 xp");
+        double m1 = MiningRules.SuccessChance(MiningRules.Copper, 1);
+        Check(m1 > 0.35 && m1 < 0.45, "about 2 in 5 swings get ore at level 1 (" + m1.ToString("0.00") + ")");
+        var sinv = new Inventory();
+        sinv.Add(ItemDefs.CopperOre.Id, 6);
+        sinv.Add(ItemDefs.TinOre.Id, 5);
+        Check(SmithingRules.CanMake(SmithingRules.BronzeBar, sinv) == 5, "6 copper + 5 tin make 5 bronze bars");
+        Check(SmithingRules.Problem(SmithingRules.BronzeBar, sinv, 1) == null, "level 1 can smelt bronze");
+        for (int i = 0; i < 5; i++) SmithingRules.Make(SmithingRules.BronzeBar, sinv);
+        Check(sinv.Count(ItemDefs.BronzeBar.Id) == 5 && sinv.Count(ItemDefs.TinOre.Id) == 0 && sinv.Count(ItemDefs.CopperOre.Id) == 1, "smelted: 5 bars, 1 copper left");
+        Check(!SmithingRules.Make(SmithingRules.BronzeBar, sinv), "no tin, no bar");
+        Check(SmithingRules.Problem(SmithingRules.BronzePlatebody, sinv, 17) != null && SmithingRules.Problem(SmithingRules.BronzePlatebody, sinv, 18) == null, "platebody needs level 18");
+        Check(SmithingRules.Make(SmithingRules.BronzePlatebody, sinv) && sinv.Count(ItemDefs.BronzeBar.Id) == 0 && sinv.Count(ItemDefs.BronzePlatebody.Id) == 1, "a platebody takes 5 bars");
+        Check(SmithingRules.Problem(SmithingRules.BronzeFullHelm, sinv, 99) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
+        Check(SmithingRules.At(Station.Anvil).Count == 3 && SmithingRules.At(Station.Furnace).Count == 1, "1 furnace recipe, 3 anvil recipes");
+        Check(ItemDefs.BronzeFullHelm.Slot == EquipSlot.Head && ItemDefs.BronzePlatebody.Slot == EquipSlot.Body && ItemDefs.BronzePlatelegs.Slot == EquipSlot.Legs, "armour goes on head, body and legs");
+        Check(ToolBelt.IsTool(ItemDefs.BronzePickaxe.Id) && ToolBelt.IsTool(ItemDefs.Hammer.Id), "pickaxe and hammer go on the tool belt");
 
         Console.WriteLine("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })

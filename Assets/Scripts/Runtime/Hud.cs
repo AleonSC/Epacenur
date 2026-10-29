@@ -64,6 +64,7 @@ namespace Epacenur.Runtime
         Rect HealthRect => new Rect(BarRect.x, BarRect.y - 24f, BarRect.width, 22f);
         public bool BankOpen => openAt is BankBooth;
         public bool ShopOpen => openAt is ShopKeeper;
+        public bool SmithingOpen => openAt is Anvil;
 
         void Update()
         {
@@ -84,6 +85,7 @@ namespace Epacenur.Runtime
 
         public void OpenBank(BankBooth booth) => OpenWindow(booth);
         public void OpenShop(ShopKeeper npc) => OpenWindow(npc);
+        public void OpenSmithing(Anvil anvil) => OpenWindow(anvil);
 
         void OpenWindow(Interactable at)
         {
@@ -159,6 +161,8 @@ namespace Epacenur.Runtime
                 DrawBank();
             else if (ShopOpen)
                 DrawShop();
+            else if (SmithingOpen)
+                DrawSmithing();
             if (G.Player.Mode == ViewMode.FirstPerson)
                 DrawCrosshair();
             if (showDev)
@@ -225,6 +229,10 @@ namespace Epacenur.Runtime
                 action = "Fishing...";
             else if (action.Length == 0 && p.IsCooking)
                 action = "Cooking...";
+            else if (action.Length == 0 && p.IsMining)
+                action = "Mining...";
+            else if (action.Length == 0 && p.IsSmithing)
+                action = p.IsHammering ? "Smithing..." : "Smelting...";
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
@@ -1064,6 +1072,66 @@ namespace Epacenur.Runtime
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 260f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
         }
 
+        // ---- Smithing (at an anvil) ----
+
+        void DrawSmithing()
+        {
+            var r = WindowRect;
+            var e = Event.current;
+            var anvil = (Anvil)openAt;
+            int level = G.Skills.GetLevel(SkillId.Smithing);
+            int bars = G.Inventory.Count(ItemDefs.BronzeBar.Id);
+            Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
+            Fill(new Rect(r.x, r.y, r.width, 30f), new Color(0.16f, 0.13f, 0.09f, 1f));
+            Shadowed(new Rect(r.x + Pad, r.y + 5f, 300f, 22f), "<b>What would you like to make?</b>", title);
+            if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
+                CloseWindow();
+            Shadowed(new Rect(r.x + Pad, r.y + 36f, r.width - Pad * 2, 18f),
+                "Bronze bars: <color=#ffff00>" + bars + "</color>    Smithing level: <color=#ffff00>" + level + "</color>"
+                + (G.HasTool(ItemDefs.Hammer.Id) ? "" : "    <color=#ff6060>You need a hammer</color>"), small);
+
+            // One row per item: icon, name, bars and level needed, and Make buttons.
+            float y = r.y + 60f;
+            foreach (var recipe in SmithingRules.At(Station.Anvil))
+            {
+                var row = new Rect(r.x + Pad, y, r.width - Pad * 2, Slot + 8f);
+                Bevel(row);
+                DrawItemIcon(new Rect(row.x + 4f, row.y + 4f, Slot, Slot), recipe.Product);
+                bool levelOk = level >= recipe.Level;
+                int canMake = SmithingRules.CanMake(recipe, G.Inventory);
+                Shadowed(new Rect(row.x + Slot + 12f, row.y + 4f, 200f, 20f), "<b>" + recipe.Name + "</b>", label);
+                GUI.Label(new Rect(row.x + Slot + 12f, row.y + 22f, 220f, 18f),
+                    (canMake > 0 ? "<color=#a0ffa0>" : "<color=#ff6060>") + SmithingRules.Needs(recipe) + "</color>   "
+                    + (levelOk ? "<color=#a0ffa0>" : "<color=#ff6060>") + "Level " + recipe.Level + "</color>", small);
+                float bx = row.xMax - 3 * 46f;
+                foreach (int n in new[] { 1, 5, int.MaxValue })
+                {
+                    int count = n;
+                    if (GUI.Button(new Rect(bx, row.y + 12f, 42f, 22f), n == int.MaxValue ? "All" : n.ToString()))
+                    {
+                        CloseWindow();
+                        G.Player.StartProduction(recipe, count, anvil);
+                    }
+                    bx += 46f;
+                }
+                if (row.Contains(e.mousePosition) && e.type == EventType.MouseDown && e.button == 1)
+                {
+                    var rc = recipe;
+                    OpenMenu(new List<MenuOption>
+                    {
+                        new MenuOption("Make 1", MenuOption.Item(rc.Name), () => { CloseWindow(); G.Player.StartProduction(rc, 1, anvil); }),
+                        new MenuOption("Make 5", MenuOption.Item(rc.Name), () => { CloseWindow(); G.Player.StartProduction(rc, 5, anvil); }),
+                        new MenuOption("Make All", MenuOption.Item(rc.Name), () => { CloseWindow(); G.Player.StartProduction(rc, int.MaxValue, anvil); }),
+                        new MenuOption("Examine", MenuOption.Item(rc.Name), () => GameLog.Add(rc.Product.Examine)),
+                    }, false);
+                    e.Use();
+                }
+                y += Slot + 14f;
+            }
+            GUI.Label(new Rect(r.x + Pad, r.yMax - 46f, r.width - Pad * 2, 40f),
+                "Smelt bronze bars at the furnace (1 copper ore + 1 tin ore each). Each bar smithed gives 12.5 Smithing xp.", rich);
+        }
+
         // ---- Shop ----
 
         void DrawShop()
@@ -1205,6 +1273,57 @@ namespace Epacenur.Runtime
                 FillRotated(new Rect(ix + 18.5f, iy + 6f, 11f, 4f), c, -35f, pivot);               // head
                 FillRotated(new Rect(ix + 18.5f, iy + 10f, 11f, 4f), c, -35f, pivot);
                 FillRotated(new Rect(ix + 27f, iy + 5f, 3f, 10f), Shade(c, 1.25f), -35f, pivot);   // edge
+            }
+            else if (def == ItemDefs.CopperOre || def == ItemDefs.TinOre)
+            {
+                var rock = new Color(0.5f, 0.48f, 0.45f);
+                Fill(new Rect(ix + 9f, iy + 14f, 22f, 16f), rock);
+                Fill(new Rect(ix + 12f, iy + 11f, 15f, 4f), rock);
+                Fill(new Rect(ix + 12f, iy + 30f, 17f, 3f), Shade(rock, 0.8f));
+                foreach (var spot in new[] { new Vector2(13f, 16f), new Vector2(21f, 13f), new Vector2(24f, 22f), new Vector2(15f, 25f) })
+                    Fill(new Rect(ix + spot.x, iy + spot.y, 4f, 3f), c);
+            }
+            else if (def == ItemDefs.BronzeBar)
+            {
+                Fill(new Rect(ix + 8f, iy + 22f, 24f, 8f), Shade(c, 0.8f));
+                Fill(new Rect(ix + 11f, iy + 15f, 18f, 7f), c);
+                Fill(new Rect(ix + 12f, iy + 16f, 16f, 2f), Shade(c, 1.3f));
+            }
+            else if (def == ItemDefs.BronzePickaxe)
+            {
+                var pivot = new Vector2(slot.x + slot.width / 2f, slot.y + slot.height / 2f);
+                FillRotated(new Rect(ix + 18.5f, iy + 8f, 3f, 26f), new Color(0.5f, 0.32f, 0.16f), -35f, pivot);  // handle
+                FillRotated(new Rect(ix + 8f, iy + 8f, 24f, 3f), c, -35f, pivot);                                 // pick head
+                FillRotated(new Rect(ix + 8f, iy + 11f, 3f, 3f), c, -35f, pivot);
+                FillRotated(new Rect(ix + 29f, iy + 11f, 3f, 3f), c, -35f, pivot);
+            }
+            else if (def == ItemDefs.Hammer)
+            {
+                var pivot = new Vector2(slot.x + slot.width / 2f, slot.y + slot.height / 2f);
+                FillRotated(new Rect(ix + 18.5f, iy + 10f, 3f, 24f), new Color(0.5f, 0.32f, 0.16f), -35f, pivot);
+                FillRotated(new Rect(ix + 12f, iy + 6f, 16f, 7f), c, -35f, pivot);
+            }
+            else if (def == ItemDefs.BronzeFullHelm)
+            {
+                Fill(new Rect(ix + 11f, iy + 9f, 18f, 4f), c);
+                Fill(new Rect(ix + 9f, iy + 13f, 22f, 18f), c);
+                Fill(new Rect(ix + 12f, iy + 18f, 16f, 3f), new Color(0.1f, 0.08f, 0.06f));  // eye slit
+                Fill(new Rect(ix + 19f, iy + 21f, 2f, 9f), Shade(c, 0.75f));
+            }
+            else if (def == ItemDefs.BronzePlatebody)
+            {
+                Fill(new Rect(ix + 7f, iy + 9f, 26f, 7f), c);                // shoulders
+                Fill(new Rect(ix + 11f, iy + 15f, 18f, 18f), c);             // chest
+                Fill(new Rect(ix + 19.5f, iy + 15f, 1f, 18f), Shade(c, 0.75f));
+                Fill(new Rect(ix + 7f, iy + 16f, 3f, 10f), Shade(c, 0.85f)); // arms
+                Fill(new Rect(ix + 30f, iy + 16f, 3f, 10f), Shade(c, 0.85f));
+            }
+            else if (def == ItemDefs.BronzePlatelegs)
+            {
+                Fill(new Rect(ix + 11f, iy + 7f, 18f, 6f), c);
+                Fill(new Rect(ix + 11f, iy + 13f, 7f, 21f), c);
+                Fill(new Rect(ix + 22f, iy + 13f, 7f, 21f), c);
+                Fill(new Rect(ix + 11f, iy + 12f, 18f, 1f), Shade(c, 0.7f));
             }
             else if (def == ItemDefs.Bones)
             {
@@ -1463,6 +1582,17 @@ namespace Epacenur.Runtime
                 case SkillId.Prayer:  // a star
                     DrawPrayerStar(b, true);
                     break;
+                case SkillId.Mining:  // a pickaxe
+                    FillRotated(new Rect(cx - 1.25f, cy - 8f, 2.5f, 18f), wood, -35f, c);
+                    FillRotated(new Rect(cx - 9f, cy - 9f, 18f, 2.5f), steel, -35f, c);
+                    break;
+                case SkillId.Smithing:  // an anvil
+                    var iron = new Color(0.45f, 0.46f, 0.5f);
+                    Fill(new Rect(cx - 9f, cy - 5f, 15f, 4f), iron);
+                    Fill(new Rect(cx + 6f, cy - 4f, 4f, 2f), iron);
+                    Fill(new Rect(cx - 4f, cy - 1f, 6f, 5f), iron);
+                    Fill(new Rect(cx - 7f, cy + 4f, 12f, 4f), wood);
+                    break;
                 case SkillId.Cooking:  // a chef's hat
                     var white = new Color(0.95f, 0.95f, 0.92f);
                     Fill(new Rect(cx - 8f, cy - 8f, 7f, 7f), white);
@@ -1570,6 +1700,11 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("5 shrimps")) G.Inventory.Add(ItemDefs.Shrimps.Id, 5);
             if (GUILayout.Button("Recharge prayer")) G.Prayer.Recharge();
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("5 copper + 5 tin")) { G.Inventory.Add(ItemDefs.CopperOre.Id, 5); G.Inventory.Add(ItemDefs.TinOre.Id, 5); }
+            if (GUILayout.Button("5 bronze bars")) G.Inventory.Add(ItemDefs.BronzeBar.Id, 5);
+            if (GUILayout.Button("Pickaxe + hammer")) { G.Inventory.Add(ItemDefs.BronzePickaxe.Id); G.Inventory.Add(ItemDefs.Hammer.Id); }
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
             if (GUILayout.Button("Regrow every tree"))
@@ -1603,7 +1738,7 @@ namespace Epacenur.Runtime
                 G.Inventory.SetPouch(0);
                 G.Inventory.Add(ItemDefs.Coins.Id, 100);
                 G.ToolBelt.Clear();
-                G.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
+                G.GiveStartingTools();
                 G.Health.SetMax(G.Skills.GetLevel(SkillId.Hitpoints));
                 G.Health.Set(G.Health.Max);
                 G.Prayer.DeactivateAll();

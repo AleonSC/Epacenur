@@ -95,10 +95,54 @@ namespace Epacenur.Core
             Id = 15, Name = "Bones", Examine = "Bones are for burying!", Value = 1, R = 0.93f, G = 0.9f, B = 0.8f,
         };
 
+        public static readonly ItemDef CopperOre = new ItemDef
+        {
+            Id = 16, Name = "Copper ore", Examine = "This needs refining.", Value = 3, R = 0.8f, G = 0.45f, B = 0.2f,
+        };
+
+        public static readonly ItemDef TinOre = new ItemDef
+        {
+            Id = 17, Name = "Tin ore", Examine = "This needs refining.", Value = 3, R = 0.75f, G = 0.75f, B = 0.72f,
+        };
+
+        public static readonly ItemDef BronzeBar = new ItemDef
+        {
+            Id = 18, Name = "Bronze bar", Examine = "It's a bar of bronze.", Value = 8, R = 0.72f, G = 0.5f, B = 0.28f,
+        };
+
+        public static readonly ItemDef BronzePickaxe = new ItemDef
+        {
+            Id = 19, Name = "Bronze pickaxe", Examine = "Used for mining.", Value = 1, R = 0.72f, G = 0.5f, B = 0.28f,
+        };
+
+        public static readonly ItemDef Hammer = new ItemDef
+        {
+            Id = 20, Name = "Hammer", Examine = "Good for hitting things.", Value = 1, R = 0.55f, G = 0.56f, B = 0.6f,
+        };
+
+        public static readonly ItemDef BronzeFullHelm = new ItemDef
+        {
+            Id = 21, Name = "Bronze full helm", Examine = "A full face helmet.", Value = 44, R = 0.72f, G = 0.5f, B = 0.28f,
+            Slot = EquipSlot.Head, DefenceBonus = 4,
+        };
+
+        public static readonly ItemDef BronzePlatebody = new ItemDef
+        {
+            Id = 22, Name = "Bronze platebody", Examine = "Provides excellent protection.", Value = 160, R = 0.72f, G = 0.5f, B = 0.28f,
+            Slot = EquipSlot.Body, DefenceBonus = 15,
+        };
+
+        public static readonly ItemDef BronzePlatelegs = new ItemDef
+        {
+            Id = 23, Name = "Bronze platelegs", Examine = "Big, bronze and heavy looking.", Value = 80, R = 0.72f, G = 0.5f, B = 0.28f,
+            Slot = EquipSlot.Legs, DefenceBonus = 8,
+        };
+
         public static readonly ItemDef[] All =
         {
             Logs, Coins, Tinderbox, BronzeSword, WoodenShield, Ashes, SmallFishingNet, RawShrimps, RawAnchovies, BronzeHatchet,
             Shrimps, Anchovies, BurntShrimp, BurntFish, Bones,
+            CopperOre, TinOre, BronzeBar, BronzePickaxe, Hammer, BronzeFullHelm, BronzePlatebody, BronzePlatelegs,
         };
 
 

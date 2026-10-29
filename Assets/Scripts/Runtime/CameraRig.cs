@@ -17,7 +17,7 @@ namespace Epacenur.Runtime
         float orbitYaw = 0f, orbitPitch = 52f, distance = 13f;
         float lookYaw, lookPitch;
         Vector3 focus;
-        Transform fpAxe, fpSword;
+        Transform fpAxe, fpSword, fpPickaxe;
 
         public static CameraRig Create(Camera cam, PlayerController player)
         {
@@ -54,6 +54,19 @@ namespace Epacenur.Runtime
             rig.fpSword = swordHolder;
             swordHolder.gameObject.SetActive(false);
 
+            var pickHolder = new GameObject("First person pickaxe").transform;
+            pickHolder.SetParent(cam.transform, false);
+            pickHolder.localPosition = new Vector3(0.32f, -0.32f, 0.55f);
+            var pick = new GameObject("Pickaxe").transform;
+            pick.SetParent(pickHolder, false);
+            pick.localPosition = new Vector3(0f, 0f, -0.2f);
+            pick.localRotation = Quaternion.Euler(-60f, -10f, 0f);
+            ItemModels.BuildPickaxe(pick, Core.ItemDefs.BronzePickaxe);
+            foreach (var r in pickHolder.GetComponentsInChildren<Renderer>())
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            rig.fpPickaxe = pickHolder;
+            pickHolder.gameObject.SetActive(false);
+
             rig.ApplyLens();
             return rig;
         }
@@ -76,6 +89,7 @@ namespace Epacenur.Runtime
             {
                 fpAxe.gameObject.SetActive(false);
                 fpSword.gameObject.SetActive(false);
+                fpPickaxe.gameObject.SetActive(false);
             }
             ApplyLens();
         }
@@ -142,11 +156,13 @@ namespace Epacenur.Runtime
             bool sword = tool == HeldTool.Sword;
             fpAxe.gameObject.SetActive(tool == HeldTool.Axe);
             fpSword.gameObject.SetActive(sword);
+            fpPickaxe.gameObject.SetActive(tool == HeldTool.Pickaxe);
             if (tool == HeldTool.None)
                 return;
             float s = player.SwingT;
             float strike = s > 0.6f ? Mathf.InverseLerp(1f, 0.6f, s) : Mathf.InverseLerp(0f, 0.6f, s);
-            (sword ? fpSword : fpAxe).localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (sword ? -35f : -10f));
+            var held = sword ? fpSword : tool == HeldTool.Pickaxe ? fpPickaxe : fpAxe;
+            held.localRotation = Quaternion.Euler(strike * 75f, 0f, strike * (sword ? -35f : -10f));
         }
     }
 }

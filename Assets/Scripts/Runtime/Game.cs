@@ -89,7 +89,7 @@ namespace Epacenur.Runtime
             else
             {
                 Inventory.Add(ItemDefs.Coins.Id, 100);  // pocket money for the shop
-                ToolBelt.Add(ItemDefs.BronzeHatchet.Id); // so you can chop straight away
+                GiveStartingTools();
                 GameLog.Add("Welcome to Epacenur.");
             }
             GameLog.Add("The bank, general store and chapel are round the town square. V switches to first person.");
@@ -143,6 +143,14 @@ namespace Epacenur.Runtime
         }
 
         float regenTimer, prayerTick;
+
+        /// A new character's tool belt: hatchet, pickaxe and hammer, so you can chop, mine and smith straight away.
+        public void GiveStartingTools()
+        {
+            ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
+            ToolBelt.Add(ItemDefs.BronzePickaxe.Id);
+            ToolBelt.Add(ItemDefs.Hammer.Id);
+        }
 
         /// Turns a prayer on or off from the Prayer tab.
         public void TogglePrayer(PrayerId id)

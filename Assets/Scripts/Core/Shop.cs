@@ -124,6 +124,8 @@ namespace Epacenur.Core
             (ItemDefs.BronzeSword, 5),
             (ItemDefs.WoodenShield, 5),
             (ItemDefs.SmallFishingNet, 5),
-            (ItemDefs.BronzeHatchet, 5));
+            (ItemDefs.BronzeHatchet, 5),
+            (ItemDefs.BronzePickaxe, 5),
+            (ItemDefs.Hammer, 5));
     }
 }

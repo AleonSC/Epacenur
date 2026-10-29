@@ -3,7 +3,7 @@
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
 You start in a **procedurally generated world**: a town with a bank, a general store and a chapel, and around it forests,
 ponds and a goblin camp. There's also a separate **dev plot** for testing skills, reached from the dev tools (F1).
-Skills so far: **Woodcutting**, **Firemaking**, **Fishing**, **Cooking**, **Prayer**, and melee combat
+Skills so far: **Woodcutting**, **Mining**, **Smithing**, **Firemaking**, **Fishing**, **Cooking**, **Prayer**, and melee combat
 (Attack, Strength, Defence and Hitpoints) against goblins that fight back.
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
@@ -68,9 +68,33 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - **Goblin camp**: a clearing with tents and 4 goblins, 28–46 tiles from town.
 - A wooden palisade runs round the edge. After generation, anything shut in by trees and water is opened up,
   and the tests check that every door, counter, shore and the camp can be walked to, on several seeds.
-- **Dev tools (F1)**: **Teleport to dev plot** takes you to the old dev area (with its Woodcutting, Goblins, Fishing and
-  Firemaking plots, bank booth, shop and altar). **Teleport to main world** brings you back. The two regions aren't connected
+- **Dev tools (F1)**: **Teleport to dev plot** takes you to the old dev area (with its Mining, Goblins, Fishing and
+  Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. The two regions aren't connected
   any other way. Saves from before the main world start in the town square.
+
+## Mining and Smithing (dev plot)
+
+- The dev plot's first plot is now **Mining**: rows of **copper** and **tin rocks**. **Mine** one (you need a **bronze pickaxe**, in your
+  backpack or on the tool belt). In tile mode you keep swinging until you get the ore; in first person each click is one swing.
+  Each success gives one ore and **17.5 Mining xp**, and the rock goes grey and empty for 2.4 s before its ore comes back, as in OSRS.
+  About 2 swings in 5 succeed at level 1, rising with level.
+- A **furnace** stands next to the altar, by the dev plot's spawn. **Smelt** it to turn **1 copper ore + 1 tin ore** into a **bronze bar**
+  (6.2 Smithing xp), one every 4 ticks, as many as your ores make. Walking away stops it.
+- An **anvil** stands next to the furnace. **Smith** it to open the Smithing window, then press **1**, **5** or **All**
+  (or right-click a row). You need a **hammer**.
+
+| Item | Bars | Smithing level | Xp | Defence bonus |
+|---|---|---|---|---|
+| Bronze full helm | 2 | 7 | 25 | +4 |
+| Bronze platelegs | 3 | 16 | 37.5 | +8 |
+| Bronze platebody | 5 | 18 | 62.5 | +15 |
+
+- Wear them from the backpack like the sword and shield: the helm goes on your head (with a face guard and crest), the platebody
+  over your tunic, and the platelegs on your legs. Their defence bonuses make goblins miss more.
+- The pickaxe and hammer are on every new character's tool belt (older saves get them once), and the shop sells both for 1 gp.
+- The dev tools add **5 copper + 5 tin**, **5 bronze bars**, or a **pickaxe + hammer**.
+- The trees that were on the dev plot are gone; the main world's forests have plenty. Rules: `Assets/Scripts/Core/Mining.cs` and
+  `Assets/Scripts/Core/Smithing.cs`.
 
 ## Money pouch
 
@@ -293,7 +317,7 @@ Both scripts need mono (`apt-get install mono-mcs mono-runtime`).
 ### Adding a skill
 
 1. Add it to `SkillId` and `SkillDefs.All` in `Assets/Scripts/Core/Skills.cs`. It then shows up in the Skills tab and the dev tools.
-2. Subclass `SkillArea` (see `WoodcuttingArea` in `Assets/Scripts/Runtime/DevArea.cs`) and put it in
+2. Subclass `SkillArea` (see `MiningArea` in `Assets/Scripts/Runtime/DevArea.cs`) and put it in
    `DevArea.CreateAreas()` in place of one of the empty plots.
 3. Give out xp with `Game.Instance.Skills.AddXp(SkillId.YourSkill, amount)`. Xp drops and level-up messages are automatic.
 

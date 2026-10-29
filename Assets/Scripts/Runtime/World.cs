@@ -37,6 +37,7 @@ namespace Epacenur.Runtime
         public readonly List<GroundItem> GroundItems = new List<GroundItem>();
         public readonly List<Fire> Fires = new List<Fire>();
         public readonly List<FishingSpot> FishingSpots = new List<FishingSpot>();
+        public readonly List<RockObject> Rocks = new List<RockObject>();
         readonly System.Random rng = new System.Random();
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
@@ -72,10 +73,12 @@ namespace Epacenur.Runtime
         {
             BuildGround(DevRegion, new Color(0.33f, 0.52f, 0.24f), new Color(0.27f, 0.44f, 0.2f));
             BuildWalls(DevRegion);
-            AddLabel(TileCenter(DevArea.Spawn) + new Vector3(0f, 0.2f, 2.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
+            AddLabel(TileCenter(DevArea.Spawn) + new Vector3(0f, 0.2f, -1.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
             AddBankBooth(DevArea.BankBooth);
             AddShopKeeper(DevArea.ShopKeeper, Shops.DevAreaStore());
             AddAltar(DevArea.Altar);
+            AddFurnace(DevArea.Furnace);
+            AddAnvil(DevArea.Anvil);
 
             Areas.AddRange(DevArea.CreateAreas());
             foreach (var area in Areas)
@@ -145,6 +148,30 @@ namespace Epacenur.Runtime
             BankBooths.Add(booth);
             AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Bank", new Color(1f, 0.85f, 0.3f));
             return booth;
+        }
+
+        public RockObject AddRock(RockDef def, Tile tile, System.Random random)
+        {
+            var rock = RockObject.Create(def, tile, transform, random);
+            Grid.SetBlocked(tile, true);
+            Rocks.Add(rock);
+            return rock;
+        }
+
+        public Furnace AddFurnace(Tile tile)
+        {
+            var furnace = Furnace.Create(tile, transform);
+            Grid.SetBlocked(tile, true);
+            AddLabel(TileCenter(tile) + Vector3.up * 2.3f, "Furnace", new Color(1f, 0.85f, 0.3f));
+            return furnace;
+        }
+
+        public Anvil AddAnvil(Tile tile)
+        {
+            var anvil = Anvil.Create(tile, transform);
+            Grid.SetBlocked(tile, true);
+            AddLabel(TileCenter(tile) + Vector3.up * 1.3f, "Anvil", new Color(1f, 0.85f, 0.3f));
+            return anvil;
         }
 
         public Altar AddAltar(Tile tile)

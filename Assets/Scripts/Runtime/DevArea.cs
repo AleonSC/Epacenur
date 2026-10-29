@@ -27,12 +27,14 @@ namespace Epacenur.Runtime
         public static readonly Tile BankBooth = new Tile(28, 13);
         public static readonly Tile ShopKeeper = new Tile(30, 13);
         public static readonly Tile Altar = new Tile(26, 13);
+        public static readonly Tile Furnace = new Tile(24, 13);
+        public static readonly Tile Anvil = new Tile(22, 13);
 
         public static List<SkillArea> CreateAreas()
         {
             return new List<SkillArea>
             {
-                new WoodcuttingArea { Plot = new RectInt(3, 26, 13, 16) },
+                new MiningArea { Plot = new RectInt(3, 26, 13, 16) },
                 new GoblinArea { Plot = new RectInt(18, 26, 12, 16) },
                 new FishingArea { Plot = new RectInt(32, 26, 13, 16) },
                 new FiremakingArea { Plot = new RectInt(3, 14, 13, 9) },
@@ -40,7 +42,27 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Basic trees for woodcutting.
+    /// Copper and tin rocks for mining (smelt them at the furnace by the altar).
+    public sealed class MiningArea : SkillArea
+    {
+        public override string Name => "Mining";
+        public override Color GroundColor => new Color(0.48f, 0.44f, 0.38f);
+
+        public override void Build(World world)
+        {
+            // Rows of rocks, copper and tin alternating, with a free tile between them.
+            var rng = new System.Random(4321);
+            int i = 0;
+            for (int x = Plot.x + 1; x < Plot.xMax - 1; x += 3)
+                for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 3)
+                {
+                    var tile = new Tile(x + rng.Next(0, 2), z + rng.Next(0, 2));
+                    world.AddRock(i++ % 2 == 0 ? MiningRules.Copper : MiningRules.Tin, tile, rng);
+                }
+        }
+    }
+
+    /// Basic trees for woodcutting (no longer on the dev plot: the main world's forests have plenty).
     public sealed class WoodcuttingArea : SkillArea
     {
         public override string Name => "Woodcutting";

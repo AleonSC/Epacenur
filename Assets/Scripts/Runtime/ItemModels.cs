@@ -56,6 +56,44 @@ namespace Epacenur.Runtime
                 hatchet.localRotation = Quaternion.Euler(0f, 0f, 90f);
                 PlayerController.BuildAxe(hatchet);
             }
+            else if (def == ItemDefs.CopperOre || def == ItemDefs.TinOre)
+            {
+                var rock = new Color(0.5f, 0.48f, 0.45f);
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, 0.07f, 0f), new Vector3(0.22f, 0.15f, 0.2f), rock);
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0.05f, 0.11f, 0.04f), new Vector3(0.08f, 0.05f, 0.08f), c);
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(-0.06f, 0.1f, -0.03f), new Vector3(0.07f, 0.05f, 0.07f), c);
+            }
+            else if (def == ItemDefs.BronzeBar)
+            {
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.32f, 0.1f, 0.14f), c);
+            }
+            else if (def == ItemDefs.BronzePickaxe || def == ItemDefs.Hammer)
+            {
+                var tool = new GameObject("Tool").transform;
+                tool.SetParent(parent, false);
+                tool.localPosition = new Vector3(0f, 0.03f, -0.25f);
+                tool.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                if (def == ItemDefs.Hammer)
+                    BuildHammer(tool);
+                else
+                    BuildPickaxe(tool, def);
+            }
+            else if (def == ItemDefs.BronzeFullHelm)
+            {
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.3f, 0.26f, 0.3f), c);
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.08f, 0.13f), new Vector3(0.2f, 0.16f, 0.04f), c);
+            }
+            else if (def == ItemDefs.BronzePlatebody)
+            {
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.05f, 0f), new Vector3(0.4f, 0.1f, 0.46f), c);
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.05f, 0.24f), new Vector3(0.56f, 0.08f, 0.12f), c * 0.9f);
+            }
+            else if (def == ItemDefs.BronzePlatelegs)
+            {
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.05f, 0.18f), new Vector3(0.36f, 0.1f, 0.12f), c);
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(-0.1f, 0.05f, -0.06f), new Vector3(0.13f, 0.09f, 0.42f), c);
+                Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0.1f, 0.05f, -0.06f), new Vector3(0.13f, 0.09f, 0.42f), c);
+            }
             else if (def == ItemDefs.Bones)
             {
                 var bone = new GameObject("Bone").transform;
@@ -108,6 +146,23 @@ namespace Epacenur.Runtime
                 var tail = Visuals.Prim(PrimitiveType.Cube, fish, new Vector3(0f, 0f, -0.11f), new Vector3(0.01f, 0.06f, 0.05f), c * 0.8f);
                 tail.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
             }
+        }
+
+        /// A pickaxe pointing along +z from the grip at the origin, its head across the end.
+        public static void BuildPickaxe(Transform parent, ItemDef def)
+        {
+            var metal = new Color(def.R, def.G, def.B);
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0f, 0.25f), new Vector3(0.05f, 0.05f, 0.6f), new Color(0.45f, 0.3f, 0.16f));
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0f, 0.52f), new Vector3(0.04f, 0.42f, 0.06f), metal);
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.21f, 0.49f), new Vector3(0.035f, 0.05f, 0.08f), metal);
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, -0.21f, 0.49f), new Vector3(0.035f, 0.05f, 0.08f), metal);
+        }
+
+        /// A hammer pointing along +z from the grip at the origin.
+        public static void BuildHammer(Transform parent)
+        {
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0f, 0.18f), new Vector3(0.04f, 0.04f, 0.42f), new Color(0.45f, 0.3f, 0.16f));
+            Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0f, 0.4f), new Vector3(0.08f, 0.2f, 0.08f), new Color(0.5f, 0.52f, 0.56f));
         }
 
         /// A small net on a handle, pointing along +z from the grip at the origin.

@@ -11,7 +11,7 @@ namespace Epacenur.Runtime
     }
 
     /// What the first-person view shows in your hand.
-    public enum HeldTool { None, Axe, Sword }
+    public enum HeldTool { None, Axe, Sword, Pickaxe }
 
     /// The player: walking (tile paths or WASD), the view toggle, woodcutting, picking things up and fighting.
     public sealed partial class PlayerController : MonoBehaviour
@@ -51,7 +51,9 @@ namespace Epacenur.Runtime
         Game G => Game.Instance;
 
         CharacterController cc;
-        Transform model, armPivot, armLeft, legLeft, legRight, cape, heldAxe, heldSword, heldShield, heldNet;
+        Transform model, armPivot, armLeft, legLeft, legRight, cape, heldAxe, heldSword, heldShield, heldNet, heldPickaxe, heldHammer;
+        GameObject wornHelm, wornPlatebody, wornPlatelegs;
+        readonly GameObject[] legPlates = new GameObject[2];  // on the leg pivots, so they swing with the legs
         Vector3 lastPosition;
         float walkPhase, speed;
         Renderer[] modelRenderers;
@@ -177,7 +179,47 @@ namespace Epacenur.Runtime
             ItemModels.BuildNet(heldNet);
             heldShield = Holder("Shield", armLeft, new Vector3(-0.1f, -0.4f, 0.05f));
             ItemModels.BuildShield(heldShield, ItemDefs.WoodenShield);
+            heldPickaxe = Holder("Pickaxe", armPivot, new Vector3(0f, -0.6f, 0.05f));
+            ItemModels.BuildPickaxe(heldPickaxe, ItemDefs.BronzePickaxe);
+            heldHammer = Holder("Hammer", armPivot, new Vector3(0f, -0.6f, 0.05f));
+            ItemModels.BuildHammer(heldHammer);
+            BuildArmour();
             modelRenderers = model.GetComponentsInChildren<Renderer>(true);
+        }
+
+        /// Bronze armour pieces, shown when the matching item is worn.
+        void BuildArmour()
+        {
+            var bronze = new Color(ItemDefs.BronzeBar.R, ItemDefs.BronzeBar.G, ItemDefs.BronzeBar.B);
+            var dark = new Color(0.1f, 0.08f, 0.06f);
+
+            // Full helm: a dome over the head and hair, with a face guard and eye slit.
+            wornHelm = new GameObject("Bronze full helm");
+            wornHelm.transform.SetParent(model, false);
+            Visuals.Prim(PrimitiveType.Sphere, wornHelm.transform, new Vector3(0f, 1.73f, -0.01f), new Vector3(0.39f, 0.4f, 0.39f), bronze);
+            Visuals.Prim(PrimitiveType.Cube, wornHelm.transform, new Vector3(0f, 1.66f, 0.17f), new Vector3(0.28f, 0.24f, 0.04f), bronze);
+            Visuals.Prim(PrimitiveType.Cube, wornHelm.transform, new Vector3(0f, 1.71f, 0.19f), new Vector3(0.2f, 0.035f, 0.01f), dark);
+            Visuals.Prim(PrimitiveType.Cube, wornHelm.transform, new Vector3(0f, 1.9f, 0f), new Vector3(0.05f, 0.06f, 0.34f), bronze * 0.85f);  // crest
+
+            // Platebody: a bronze shell over the tunic, with a ridge down the front.
+            wornPlatebody = new GameObject("Bronze platebody");
+            wornPlatebody.transform.SetParent(model, false);
+            Visuals.Prim(PrimitiveType.Capsule, wornPlatebody.transform, new Vector3(0f, 1.21f, 0f), new Vector3(0.54f, 0.39f, 0.36f), bronze);
+            Visuals.Prim(PrimitiveType.Cube, wornPlatebody.transform, new Vector3(0f, 1.24f, 0.175f), new Vector3(0.04f, 0.34f, 0.03f), bronze * 0.8f);
+            Visuals.Prim(PrimitiveType.Cylinder, wornPlatebody.transform, new Vector3(0f, 0.95f, 0f), new Vector3(0.52f, 0.06f, 0.36f), bronze * 0.85f);
+
+            // Platelegs: plates on each thigh and shin (they swing with the legs) and a plated waist.
+            wornPlatelegs = new GameObject("Bronze platelegs");
+            wornPlatelegs.transform.SetParent(model, false);
+            Visuals.Prim(PrimitiveType.Cube, wornPlatelegs.transform, new Vector3(0f, 0.88f, 0f), new Vector3(0.43f, 0.18f, 0.27f), bronze);
+            for (int i = 0; i < 2; i++)
+            {
+                var plates = new GameObject("Plates").transform;
+                plates.SetParent(i == 0 ? legLeft : legRight, false);
+                legPlates[i] = plates.gameObject;
+                Visuals.Prim(PrimitiveType.Capsule, plates, new Vector3(0f, -0.22f, 0f), new Vector3(0.2f, 0.25f, 0.2f), bronze);
+                Visuals.Prim(PrimitiveType.Capsule, plates, new Vector3(0f, -0.54f, 0f), new Vector3(0.175f, 0.22f, 0.175f), bronze);
+            }
         }
 
         Transform Limb(string name, Vector3 pivot)
@@ -200,10 +242,19 @@ namespace Epacenur.Runtime
         void UpdateHeldItems()
         {
             bool sword = G.Equipment.IsWearing(EquipSlot.Weapon);
+            bool toolOut = chopping || fishing || mining || IsHammering;
             heldNet.gameObject.SetActive(fishing);
-            heldSword.gameObject.SetActive(sword && !chopping && !fishing);
+            heldPickaxe.gameObject.SetActive(mining);
+            heldHammer.gameObject.SetActive(IsHammering);
+            heldSword.gameObject.SetActive(sword && !toolOut);
             heldAxe.gameObject.SetActive(chopping);  // only out while chopping
             heldShield.gameObject.SetActive(G.Equipment.IsWearing(EquipSlot.Shield));
+            wornHelm.SetActive(G.Equipment.IsWearing(EquipSlot.Head));
+            wornPlatebody.SetActive(G.Equipment.IsWearing(EquipSlot.Body));
+            bool legs = G.Equipment.IsWearing(EquipSlot.Legs);
+            wornPlatelegs.SetActive(legs);
+            foreach (var plates in legPlates)
+                plates.SetActive(legs);
         }
 
         /// Walk cycle (legs, left arm and cape follow your speed), idle breathing, and kneeling to light fires.
@@ -697,6 +748,7 @@ namespace Epacenur.Runtime
             hoverNpc = aimed as Npc;
             // The axe only comes out for a tree; otherwise your sword if you wield one, else empty hands.
             FirstPersonTool = aimed is TreeObject ? HeldTool.Axe
+                : aimed is RockObject ? HeldTool.Pickaxe
                 : G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Sword : HeldTool.None;
 
             if (Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen)
@@ -1103,12 +1155,19 @@ namespace Epacenur.Runtime
         void AnimateArm(float dt)
         {
             attackAnim = Mathf.Max(0f, attackAnim - dt);
-            if (chopping)
+            bool swinging = chopping || mining || IsHammering;
+            if (swinging)
                 chopAnim += dt;
             else
                 chopAnim = 0f;
             float angle;
-            if (chopping)
+            if (IsHammering)
+            {
+                // Quick hammer blows on the anvil.
+                float t = (chopAnim % 0.6f) / 0.6f;
+                angle = t < 0.6f ? Mathf.Lerp(-40f, -110f, t / 0.6f) : Mathf.Lerp(-110f, -40f, (t - 0.6f) / 0.4f);
+            }
+            else if (swinging)
             {
                 // Two swings per automatic chop: raise slowly, strike fast.
                 float cycle = WoodcuttingRules.AutoChopTicks * WoodcuttingRules.TickSeconds / 2f;
@@ -1121,7 +1180,7 @@ namespace Epacenur.Runtime
                 float t = 1f - attackAnim / 0.4f;
                 angle = t < 0.35f ? Mathf.Lerp(-15f, -140f, t / 0.35f) : Mathf.Lerp(-140f, -60f, (t - 0.35f) / 0.65f);
             }
-            else if (cooking)
+            else if (cooking || producing)
             {
                 angle = -75f + Mathf.Sin(Time.time * 3f) * 8f;  // holding the food over the fire
             }

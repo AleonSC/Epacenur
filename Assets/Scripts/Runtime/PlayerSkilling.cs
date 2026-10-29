@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Firemaking, fishing and cooking (the rest of the player is in PlayerController.cs).
+    /// Firemaking, fishing, cooking, mining and smithing (the rest of the player is in PlayerController.cs).
     public sealed partial class PlayerController
     {
         GroundItem lightTarget;       // logs on the ground being lit, or walked to (tile mode)
@@ -21,6 +21,20 @@ namespace Epacenur.Runtime
         float cookTimer;
 
         public bool IsCooking => cooking;
+
+        RockObject mineTarget;
+        bool mining;
+        float mineTimer;
+        public bool IsMining => mining;
+
+        // Making things at a furnace or anvil: a recipe, how many are left to make, and where.
+        Recipe prodRecipe;
+        Interactable prodStation;
+        int prodLeft;
+        bool producing;
+        float prodTimer;
+        public bool IsSmithing => producing;
+        public bool IsHammering => producing && prodStation is Anvil;
         public bool IsLighting => lighting;
         public bool IsFishing => fishing;
         public bool HasTinderbox => G.HasTool(ItemDefs.Tinderbox.Id);
@@ -34,6 +48,11 @@ namespace Epacenur.Runtime
             cookFire = null;
             cooking = false;
             pendingCook = 0;
+            mineTarget = null;
+            mining = false;
+            prodRecipe = null;
+            prodStation = null;
+            producing = false;
         }
 
         void UpdateSkilling(float dt)
@@ -52,6 +71,143 @@ namespace Epacenur.Runtime
                 UpdateFishing(dt);
             if (cooking)
                 UpdateCooking(dt);
+            if (mining)
+                UpdateMining(dt);
+            if (producing)
+                UpdateProduction(dt);
+        }
+
+        // ---- Mining ----
+
+        bool HasPickaxe => System.Array.Exists(MiningRules.Pickaxes, p => G.HasTool(p.Id));
+
+        /// Mining a rock: in tile mode you keep swinging until you get the ore; in first person each
+        /// click is one swing.
+        public void MineAt(RockObject rock)
+        {
+            if (!HasPickaxe)
+            {
+                GameLog.Add("You need a pickaxe to mine this rock.");
+                return;
+            }
+            if (G.Skills.GetLevel(SkillId.Mining) < rock.Def.Level)
+            {
+                GameLog.Add("You need a Mining level of " + rock.Def.Level + " to mine this rock.");
+                return;
+            }
+            if (rock.IsEmpty)
+            {
+                GameLog.Add("There is currently no ore available in this rock.");
+                return;
+            }
+            if (!G.Inventory.HasRoomFor(rock.Def.OreItemId))
+            {
+                GameLog.Add("Your inventory is too full to hold any more ore.");
+                return;
+            }
+            if (Mode == ViewMode.FirstPerson)
+            {
+                if (swingCooldown > 0f)
+                    return;
+                swingCooldown = MiningRules.FirstPersonSwingTicks * WoodcuttingRules.TickSeconds;
+                SwingT = 1f;
+                MineSwing(rock);
+                return;
+            }
+            mineTarget = rock;
+            mining = true;
+            mineTimer = (MiningRules.AttemptTicks - 1) * WoodcuttingRules.TickSeconds;  // first swing a tick in
+            GameLog.Add("You swing your pick at the rock.");
+        }
+
+        void UpdateMining(float dt)
+        {
+            var rock = mineTarget;
+            if (rock == null || rock.IsEmpty || !CurrentTile.IsCardinalNeighbour(rock.Tile))
+            {
+                mining = false;
+                mineTarget = null;
+                return;
+            }
+            Face(rock.transform.position - transform.position, dt);
+            mineTimer += dt;
+            float interval = MiningRules.AttemptTicks * WoodcuttingRules.TickSeconds;
+            if (mineTimer < interval)
+                return;
+            mineTimer -= interval;
+            if (MineSwing(rock))
+            {
+                mining = false;
+                mineTarget = null;
+            }
+        }
+
+        /// One swing. Returns true when it got the ore (the rock is then empty).
+        bool MineSwing(RockObject rock)
+        {
+            rock.Shake();
+            if (G.Rng.NextDouble() >= MiningRules.SuccessChance(rock.Def, G.Skills.GetLevel(SkillId.Mining)))
+                return false;
+            var ore = ItemDefs.Get(rock.Def.OreItemId);
+            G.Inventory.Add(ore.Id);
+            G.Skills.AddXp(SkillId.Mining, rock.Def.Xp);
+            GameLog.Add("You manage to mine some " + ore.Name.Split(' ')[0].ToLowerInvariant() + ".");
+            rock.Deplete();
+            return true;
+        }
+
+        // ---- Smelting and smithing ----
+
+        /// Starts making `count` of a recipe at a furnace or anvil (int.MaxValue: as many as you can),
+        /// one every 4 ticks. Works in both views; walking away stops it.
+        public void StartProduction(Recipe recipe, int count, Interactable station)
+        {
+            if (recipe.Station == Station.Anvil && !G.HasTool(ItemDefs.Hammer.Id))
+            {
+                GameLog.Add("You need a hammer to work the metal with.");
+                return;
+            }
+            string problem = SmithingRules.Problem(recipe, G.Inventory, G.Skills.GetLevel(SkillId.Smithing));
+            if (problem != null)
+            {
+                GameLog.Add(problem);
+                return;
+            }
+            CancelSkilling();
+            prodRecipe = recipe;
+            prodStation = station;
+            prodLeft = count;
+            producing = true;
+            prodTimer = (SmithingRules.Ticks - 1) * WoodcuttingRules.TickSeconds;  // the first one a tick in
+        }
+
+        void UpdateProduction(float dt)
+        {
+            if (prodStation == null || FlatDistance(prodStation) > 2.6f)
+            {
+                producing = false;
+                return;
+            }
+            Face(prodStation.transform.position - transform.position, dt);
+            prodTimer += dt;
+            float interval = SmithingRules.Ticks * WoodcuttingRules.TickSeconds;
+            if (prodTimer < interval)
+                return;
+            prodTimer -= interval;
+
+            var r = prodRecipe;
+            if (!SmithingRules.Make(r, G.Inventory))
+            {
+                producing = false;
+                return;
+            }
+            G.Skills.AddXp(SkillId.Smithing, r.Xp);
+            GameLog.Add(r.Station == Station.Furnace
+                ? "You smelt the copper and tin together in the furnace. You retrieve a bar of bronze."
+                : "You hammer the bronze and make " + (r.Name.EndsWith("s") ? "some " : "a ") + r.Name.ToLowerInvariant() + ".");
+            prodLeft--;
+            if (prodLeft <= 0 || SmithingRules.CanMake(r, G.Inventory) == 0)
+                producing = false;
         }
 
         // ---- Firemaking ----
