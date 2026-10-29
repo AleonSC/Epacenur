@@ -15,7 +15,8 @@ namespace Epacenur.Runtime
     {
         const float Slot = 40f, Gap = 4f, Pad = 10f, TabH = 26f;
         const float PanelW = Pad * 2 + Slot * 4 + Gap * 3;
-        const float PanelH = Pad * 2 + TabH + 6f + Slot * 7 + Gap * 6;
+        const float PouchH = 30f;  // the money pouch under the inventory
+        const float PanelH = Pad * 2 + TabH + 6f + Slot * 7 + Gap * 6 + Gap + PouchH;
 
         enum Tab { Inventory, Equipment, Skills }
 
@@ -355,6 +356,8 @@ namespace Epacenur.Runtime
                         // Click one slot, then another, to swap them. Equipment is worn on click instead.
                         if (selectedSlot == -1 && !stack.IsEmpty && stack.Def.Slot != EquipSlot.None)
                             G.Equipment.Equip(inv, i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && stack.ItemId == ItemDefs.Coins.Id)
+                            inv.AddToPouch(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && FiremakingRules.For(stack.ItemId) != null && G.Player.HasTinderbox)
                             G.Player.LightFromInventory(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty)
@@ -369,8 +372,72 @@ namespace Epacenur.Runtime
                     e.Use();
                 }
             }
+            DrawPouch(new Rect(body.x, body.y + 7 * (Slot + Gap), body.width, PouchH));
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Money pouch ----
+
+        /// The coin count, RuneScape colours: yellow below 100K, white below 10M, green above.
+        static string PouchText(int coins)
+        {
+            string colour = coins < 100000 ? "#ffff00" : coins < 10000000 ? "#ffffff" : "#00ff80";
+            return "<color=" + colour + ">" + Experience.Format(coins) + "</color>";
+        }
+
+        void DrawPouch(Rect r)
+        {
+            var e = Event.current;
+            int coins = G.Inventory.PouchCoins;
+            Bevel(r);
+            // A little coin stack.
+            var gold = new Color(0.95f, 0.8f, 0.25f);
+            var dark = new Color(0.7f, 0.55f, 0.1f);
+            for (int k = 0; k < 3; k++)
+            {
+                Fill(new Rect(r.x + 7f, r.y + 18f - k * 5f, 16f, 5f), dark);
+                Fill(new Rect(r.x + 7f, r.y + 18f - k * 5f, 16f, 3f), gold);
+            }
+            GUI.Label(new Rect(r.x + 28f, r.y + 6f, 80f, 18f), "Coins", small);
+            Shadowed(new Rect(r.x, r.y + 6f, r.width - 8f, 18f), "<b>" + PouchText(coins) + "</b>", rightSmall);
+
+            if (r.Contains(e.mousePosition) && e.type == EventType.MouseDown)
+            {
+                if (e.button == 1)
+                    OpenMenu(PouchOptions(), false);
+                else if (BankOpen)
+                    G.Bank.DepositPouch(G.Inventory);
+                else
+                    ExaminePouch();
+                e.Use();
+            }
+        }
+
+        void ExaminePouch() => GameLog.Add("Your money pouch contains " + Experience.Format(G.Inventory.PouchCoins) + " coins.");
+
+        List<MenuOption> PouchOptions()
+        {
+            string name = MenuOption.Item("Money pouch");
+            var o = new List<MenuOption>();
+            if (BankOpen)
+                o.Add(new MenuOption("Deposit", name, () => G.Bank.DepositPouch(G.Inventory)));
+            foreach (int a in new[] { 1, 10, 100, 1000, int.MaxValue })
+            {
+                int n = a;
+                o.Add(new MenuOption("Withdraw-" + (n == int.MaxValue ? "All" : Experience.Format(n)), name, () => WithdrawFromPouch(n)));
+            }
+            o.Add(new MenuOption("Examine", name, ExaminePouch));
+            return o;
+        }
+
+        /// Coins out of the pouch into the backpack, e.g. to drop them.
+        void WithdrawFromPouch(int amount)
+        {
+            if (G.Inventory.PouchCoins == 0)
+                GameLog.Add("Your money pouch is empty.");
+            else if (G.Inventory.WithdrawFromPouch(amount) == 0)
+                GameLog.Add("You don't have enough inventory space.");
         }
 
         // ---- Right-click options for items in the panel and windows ----
@@ -404,6 +471,12 @@ namespace Epacenur.Runtime
                     {
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                if (def == ItemDefs.Coins)
+                    o.Add(new MenuOption("Add to pouch", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            G.Inventory.AddToPouch(slot);
                     }));
                 if (FiremakingRules.For(def.Id) != null)
                     o.Add(new MenuOption("Light", name, () =>
@@ -731,8 +804,10 @@ namespace Epacenur.Runtime
                 if (GUI.Toggle(new Rect(r.x + Pad + 120f + i * 46f, y, 42f, 22f), bankAmount == a, a == int.MaxValue ? "All" : a.ToString(), GUI.skin.button))
                     bankAmount = a;
             }
-            if (GUI.Button(new Rect(r.x + Pad, y + 28f, 150f, 24f), "Deposit inventory"))
+            if (GUI.Button(new Rect(r.x + Pad, y + 26f, 150f, 22f), "Deposit inventory"))
                 bank.DepositAll(G.Inventory);
+            if (GUI.Button(new Rect(r.x + Pad, y + 51f, 150f, 22f), "Deposit money pouch"))
+                bank.DepositPouch(G.Inventory);
             GUI.Label(new Rect(r.x + Pad + 160f, y + 26f, r.width - Pad * 2 - 160f, 50f),
                 "Click: withdraw / deposit that many\nShift-click: all of it. Right-click: options", small);
 
@@ -1201,6 +1276,7 @@ namespace Epacenur.Runtime
                     if (slot != EquipSlot.None)
                         G.Equipment.Set(slot, default(ItemStack));
                 G.Inventory.Clear();
+                G.Inventory.SetPouch(0);
                 G.Inventory.Add(ItemDefs.Coins.Id, 100);
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);

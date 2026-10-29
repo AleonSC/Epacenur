@@ -31,14 +31,25 @@ namespace Epacenur.Core
         /// Whether the item already has a slot or there's a free one.
         public bool HasRoomFor(int itemId) => IndexOf(itemId) >= 0 || slots.Count < Size;
 
-        /// Moves up to `amount` of an item from the inventory into the bank. Returns how many moved.
+        /// Moves up to `amount` of an item from the inventory's slots into the bank (coins in the money
+        /// pouch stay there: see DepositPouch). Returns how many moved.
         public int Deposit(Inventory inv, int itemId, int amount)
         {
-            int n = Math.Min(amount, inv.Count(itemId));
+            int n = Math.Min(amount, inv.CountInSlots(itemId));
             if (n <= 0 || !HasRoomFor(itemId))
                 return 0;
-            n = inv.Remove(itemId, n);
+            n = inv.RemoveFromSlots(itemId, n);
             Add(itemId, n);
+            return n;
+        }
+
+        /// "Deposit money pouch": every coin in the pouch goes into the bank. Returns how many.
+        public int DepositPouch(Inventory inv)
+        {
+            if (inv.PouchCoins <= 0 || !HasRoomFor(ItemDefs.Coins.Id))
+                return 0;
+            int n = inv.TakeFromPouch(inv.PouchCoins);
+            Add(ItemDefs.Coins.Id, n);
             return n;
         }
 

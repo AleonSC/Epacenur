@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Keeps skills, the inventory, the bank, worn equipment and where you stood between sessions (in PlayerPrefs).
+    /// Keeps skills, the inventory and money pouch, the bank, worn equipment and where you stood between sessions (in PlayerPrefs).
     public static class SaveGame
     {
         public const string Key = "Epacenur.Save.v1";
@@ -21,6 +21,8 @@ namespace Epacenur.Runtime
             public long[] bankCounts;
             public int[] equipIds;   // by EquipSlot
             public int style;
+            public bool hasPouch;    // saves from before the money pouch kept coins in a slot
+            public int pouch;
             public float x, z;
         }
 
@@ -52,6 +54,8 @@ namespace Epacenur.Runtime
             for (int i = 0; i < Equipment.SlotCount; i++)
                 d.equipIds[i] = game.Equipment[(EquipSlot)i].ItemId;
             d.style = (int)game.Style;
+            d.hasPouch = true;
+            d.pouch = game.Inventory.PouchCoins;
             for (int i = 0; i < Inventory.Size; i++)
             {
                 d.itemIds[i] = game.Inventory[i].ItemId;
@@ -95,6 +99,11 @@ namespace Epacenur.Runtime
                 if (ItemDefs.Get(d.equipIds[i]) != null)
                     game.Equipment.Set((EquipSlot)i, new ItemStack { ItemId = d.equipIds[i], Count = 1 });
             game.Style = (CombatStyle)Mathf.Clamp(d.style, 0, 2);
+            if (d.hasPouch)
+                game.Inventory.SetPouch(d.pouch);
+            else
+                for (int i = 0; i < Inventory.Size; i++)
+                    game.Inventory.AddToPouch(i);  // older save: move its coins into the new pouch
 
             var tile = game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)));
             game.Player.Teleport(tile);

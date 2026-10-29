@@ -46,6 +46,19 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
+## Money pouch
+
+Coins live in a **money pouch** shown under the inventory, as in RuneScape 3, so they never take a backpack slot.
+
+- Coins you get go straight into the pouch: shop sales, coins picked up off the ground, coins withdrawn from the bank, dev tools.
+  It holds up to **2,147,483,647**; anything past that lands in the backpack as a stack.
+- Shops spend from the pouch first, then from any coins in your backpack.
+- Right-click the pouch to **Withdraw-1 / 10 / 100 / 1,000 / All** coins into your backpack as a stack, for example to drop them.
+  Click a coin stack in the backpack (or right-click, **Add to pouch**) to put it back.
+- At the bank, click the pouch or press **Deposit money pouch** to bank every coin in it. **Deposit inventory** leaves the pouch alone.
+- The amount uses RuneScape's colours: yellow below 100K, white below 10M, green above. Left-click it to examine.
+- Saves from before the pouch move their coins into it when loaded.
+
 ## Bank
 
 - The bank booth stands just north-east of spawn. Clicking it opens the bank window.

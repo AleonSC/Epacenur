@@ -86,9 +86,31 @@ static class CoreTests
         for (int i = 0; i < 5; i++) shop.Restock();
         Check(shop.Items.Count == 4 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
+        inv.SetPouch(0);
         inv.Add(ItemDefs.Logs.Id, 27);
         inv.Add(ItemDefs.Coins.Id, 26);
-        Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "spending your last coins frees their slot for the item");
+        Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "buying with pouch coins into the last free slot");
+
+        Console.WriteLine("Money pouch");
+        inv.Clear();
+        inv.SetPouch(0);
+        inv.Add(ItemDefs.Logs.Id, 28);
+        Check(inv.Add(ItemDefs.Coins.Id, 500) == 500 && inv.PouchCoins == 500 && inv.CountInSlots(ItemDefs.Coins.Id) == 0, "coins go into the pouch, even with a full backpack");
+        Check(inv.HasRoomFor(ItemDefs.Coins.Id), "there's always room for coins");
+        inv.RemoveAt(0);
+        Check(inv.WithdrawFromPouch(120) == 120 && inv.PouchCoins == 380 && inv[0].ItemId == ItemDefs.Coins.Id && inv[0].Count == 120, "withdraw 120 into the backpack as a stack");
+        Check(inv.Count(ItemDefs.Coins.Id) == 500, "Count covers pouch and backpack");
+        Check(inv.Remove(ItemDefs.Coins.Id, 400) == 400 && inv.PouchCoins == 0 && inv[0].Count == 100, "spending takes the pouch first, then the backpack");
+        Check(inv.AddToPouch(0) == 100 && inv.PouchCoins == 100 && inv[0].IsEmpty, "a stack goes back into the pouch");
+        inv.SetPouch(Inventory.MaxPouchCoins - 10);
+        Check(inv.Add(ItemDefs.Coins.Id, 25) == 25 && inv.PouchCoins == Inventory.MaxPouchCoins && inv.CountInSlots(ItemDefs.Coins.Id) == 15, "past 2,147,483,647 the rest spills into the backpack");
+        var pbank = new Bank();
+        inv.SetPouch(1000);
+        Check(pbank.DepositAll(inv) > 0 && inv.PouchCoins == 1000 && pbank.Count(ItemDefs.Coins.Id) == 15, "Deposit inventory leaves the pouch alone");
+        Check(pbank.DepositPouch(inv) == 1000 && inv.PouchCoins == 0 && pbank.Count(ItemDefs.Coins.Id) == 1015, "Deposit money pouch");
+        Check(pbank.Withdraw(inv, pbank.IndexOf(ItemDefs.Coins.Id), 300) == 300 && inv.PouchCoins == 300, "coins withdrawn from the bank land in the pouch");
+        inv.Clear();
+        inv.SetPouch(0);
 
         Console.WriteLine("Equipment and combat");
         var fresh = new SkillSet();
