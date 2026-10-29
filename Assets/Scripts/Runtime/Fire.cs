@@ -4,10 +4,13 @@ using UnityEngine;
 namespace Epacenur.Runtime
 {
     /// A fire lit with a tinderbox. It blocks its tile while it burns, then dies down to ashes.
-    public sealed class Fire : MonoBehaviour
+    /// "Cook" on it cooks the raw food you're carrying.
+    public sealed class Fire : Interactable
     {
-        public const string Examine = "A hot fire.";
-        public Tile Tile { get; private set; }
+        public override string Action => "Cook";
+        public override string DisplayName => "Fire";
+        public override string Examine => "A hot fire.";
+        public override void Interact() => Game.Instance.Player.CookOn(this);
 
         Transform[] flames;
         Light glow;

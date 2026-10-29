@@ -205,6 +205,14 @@ static class CoreTests
         Check(FishingRules.MinLevel(FishingRules.NetSpot) == 1, "net fishing starts at level 1");
         Check(new SkillSet().GetLevel(SkillId.Fishing) == 1 && SkillDefs.Get(SkillId.Firemaking).Name == "Firemaking", "Firemaking and Fishing skills exist");
 
+        Console.WriteLine("Cooking");
+        var cook = CookingRules.For(ItemDefs.RawShrimps.Id);
+        Check(cook != null && cook.CookedItemId == ItemDefs.Shrimps.Id && cook.Xp == 30 && CookingRules.For(ItemDefs.Logs.Id) == null, "raw shrimps cook into shrimps for 30 xp; logs don't cook");
+        Check(CookingRules.For(ItemDefs.RawAnchovies.Id).BurntItemId == ItemDefs.BurntFish.Id, "anchovies burn into burnt fish");
+        double cookChance = CookingRules.SuccessChance(cook, 1);
+        Check(cookChance > 0.25 && cookChance < 0.4, "about 1 in 3 cooked at level 1 (" + cookChance.ToString("0.00") + ")");
+        Check(CookingRules.SuccessChance(cook, 33) < 1.0 && CookingRules.SuccessChance(cook, 34) == 1.0, "stops burning at level 34");
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");

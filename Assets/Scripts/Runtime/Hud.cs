@@ -220,6 +220,8 @@ namespace Epacenur.Runtime
                 action = "Firemaking...";
             else if (action.Length == 0 && p.IsFishing)
                 action = "Fishing...";
+            else if (action.Length == 0 && p.IsCooking)
+                action = "Cooking...";
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
@@ -360,6 +362,8 @@ namespace Epacenur.Runtime
                             G.Equipment.Equip(inv, i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && stack.ItemId == ItemDefs.Coins.Id)
                             inv.AddToPouch(i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && CookingRules.For(stack.ItemId) != null)
+                            G.Player.CookFromInventory(stack.ItemId);
                         else if (selectedSlot == -1 && !stack.IsEmpty && ToolBelt.IsTool(stack.ItemId) && !G.ToolBelt.Has(stack.ItemId))
                             AddToToolBelt(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && FiremakingRules.For(stack.ItemId) != null && G.Player.HasTinderbox)
@@ -525,6 +529,8 @@ namespace Epacenur.Runtime
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
                     }));
+                if (CookingRules.For(def.Id) != null)
+                    o.Add(new MenuOption("Cook", name, () => G.Player.CookFromInventory(def.Id)));
                 if (ToolBelt.IsTool(def.Id))
                     o.Add(new MenuOption("Add to tool belt", name, () =>
                     {
@@ -1035,9 +1041,10 @@ namespace Epacenur.Runtime
                 }
                 Fill(new Rect(ix + 23f, iy + 21f, 4f, 13f), wood);
             }
-            else if (def == ItemDefs.RawShrimps || def == ItemDefs.RawAnchovies)
+            else if (def == ItemDefs.RawShrimps || def == ItemDefs.RawAnchovies || def == ItemDefs.Shrimps
+                || def == ItemDefs.Anchovies || def == ItemDefs.BurntShrimp || def == ItemDefs.BurntFish)
             {
-                int n = def == ItemDefs.RawShrimps ? 2 : 3;
+                int n = def == ItemDefs.RawShrimps || def == ItemDefs.Shrimps || def == ItemDefs.BurntShrimp ? 2 : 3;
                 for (int k = 0; k < n; k++)
                 {
                     float fy = iy + 10f + k * 8f;
@@ -1233,6 +1240,14 @@ namespace Epacenur.Runtime
                     Fill(new Rect(cx - 3f, cy + 1f, 6f, 6f), new Color(1f, 0.75f, 0.15f));
                     Fill(new Rect(cx - 1f, cy - 3f, 3f, 5f), new Color(1f, 0.75f, 0.15f));
                     Fill(new Rect(cx - 7f, cy + 8f, 14f, 2f), wood);
+                    break;
+                case SkillId.Cooking:  // a chef's hat
+                    var white = new Color(0.95f, 0.95f, 0.92f);
+                    Fill(new Rect(cx - 8f, cy - 8f, 7f, 7f), white);
+                    Fill(new Rect(cx - 3f, cy - 10f, 7f, 7f), white);
+                    Fill(new Rect(cx + 2f, cy - 8f, 6f, 7f), white);
+                    Fill(new Rect(cx - 6f, cy - 3f, 12f, 8f), white);
+                    Fill(new Rect(cx - 6f, cy + 5f, 12f, 3f), new Color(0.75f, 0.75f, 0.72f));
                     break;
                 case SkillId.Fishing:  // a fish
                     var fishC = new Color(0.4f, 0.65f, 0.95f);

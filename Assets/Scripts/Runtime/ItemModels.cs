@@ -69,9 +69,13 @@ namespace Epacenur.Runtime
                 net.localRotation = Quaternion.Euler(90f, 0f, 0f);
                 BuildNet(net);
             }
-            else if (def == ItemDefs.RawShrimps || def == ItemDefs.RawAnchovies)
+            else if (def == ItemDefs.RawShrimps || def == ItemDefs.Shrimps || def == ItemDefs.BurntShrimp)
             {
-                BuildFish(parent, def, def == ItemDefs.RawShrimps ? 2 : 3);
+                BuildFish(parent, def, 2);
+            }
+            else if (def == ItemDefs.RawAnchovies || def == ItemDefs.Anchovies || def == ItemDefs.BurntFish)
+            {
+                BuildFish(parent, def, 3);
             }
             else
             {

@@ -2,7 +2,7 @@
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
 For now it's a **dev area** with plots for testing skills, a **bank booth** and a **shop**: **Woodcutting** with basic trees,
-**Firemaking**, **Fishing** at a pond, and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
+**Firemaking**, **Fishing** at a pond, **Cooking** on fires, and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -159,8 +159,18 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - You need a **small fishing net** (5 gp from the shop). Click a spot (**Net**) to walk up to it and fish automatically, one attempt every 5 ticks,
   until your inventory is full. In first person each click is one cast.
 - Each attempt tries the best fish you have the level for first: **raw anchovies** (level 15, 40 xp), then **raw shrimps** (level 1, 10 xp).
-  There's no cooking yet.
+  Cook them on a fire (see Cooking).
 - Rules are in `Assets/Scripts/Core/Fishing.cs`. Spots are `Assets/Scripts/Runtime/FishingSpot.cs`.
+
+## Cooking
+
+- Cook raw fish on a fire. Click a fire (**Cook Fire**), or click raw fish in your inventory (or right-click, **Cook**), which walks you to the nearest fire.
+  In tile mode you cook everything raw you're carrying, one item every 4 ticks, starting with the kind you clicked.
+  In first person, stand at the fire and each click cooks one.
+- Each item either cooks (**Shrimps** or **Anchovies**, 30 xp) or burns (**Burnt shrimp** or **Burnt fish**, no xp), in its own inventory slot.
+  At level 1 about a third cook. Both stop burning at **level 34**, as in RuneScape.
+- Cooking stops if the fire goes out or you move away.
+- Rules are in `Assets/Scripts/Core/Cooking.cs`. There's nothing to eat them for yet: there's no health to restore, since monsters don't fight back.
 
 ## The player model
 

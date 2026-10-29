@@ -378,7 +378,6 @@ namespace Epacenur.Runtime
                 if (thing == null) thing = hit.collider.GetComponentInParent<Npc>();
                 if (thing == null) thing = hit.collider.GetComponentInParent<GroundItem>();
                 if (thing == null) thing = hit.collider.GetComponentInParent<TreeObject>();
-                if (thing == null) thing = hit.collider.GetComponentInParent<Fire>();
                 if (thing == null)
                 {
                     // The ground (or a wall): the tile you'd walk to. Nothing behind it counts.
@@ -437,10 +436,6 @@ namespace Epacenur.Runtime
                     options.Add(new MenuOption("Light", name, () => LightGroundItem(item)));
                 examines.Add(new MenuOption("Examine", MenuOption.Item(item.Def.Name), () => GameLog.Add(item.Def.Examine)));
             }
-            else if (thing is Fire fire)
-            {
-                examines.Add(new MenuOption("Examine", MenuOption.Thing("Fire"), () => GameLog.Add(Fire.Examine)));
-            }
             else if (thing is TreeObject tree)
             {
                 if (tree.IsStump)
@@ -459,7 +454,6 @@ namespace Epacenur.Runtime
             if (thing is Interactable obj) return obj.Tile;
             if (thing is Npc npc) return npc.Tile;
             if (thing is GroundItem item) return item.Tile;
-            if (thing is Fire fire) return fire.Tile;
             return ((TreeObject)thing).Tile;
         }
 
@@ -1034,6 +1028,10 @@ namespace Epacenur.Runtime
                 // A quick slash: up, then down and forward.
                 float t = 1f - attackAnim / 0.4f;
                 angle = t < 0.35f ? Mathf.Lerp(-15f, -140f, t / 0.35f) : Mathf.Lerp(-140f, -60f, (t - 0.35f) / 0.65f);
+            }
+            else if (cooking)
+            {
+                angle = -75f + Mathf.Sin(Time.time * 3f) * 8f;  // holding the food over the fire
             }
             else if (fishing)
             {

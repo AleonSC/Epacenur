@@ -14,6 +14,7 @@ namespace Epacenur.Core
         Woodcutting,
         Firemaking,
         Fishing,
+        Cooking,
     }
 
     public sealed class SkillDef
@@ -35,6 +36,7 @@ namespace Epacenur.Core
             new SkillDef { Id = SkillId.Woodcutting, Name = "Woodcutting", R = 0.35f, G = 0.75f, B = 0.3f },
             new SkillDef { Id = SkillId.Firemaking, Name = "Firemaking", R = 1f, G = 0.55f, B = 0.1f },
             new SkillDef { Id = SkillId.Fishing, Name = "Fishing", R = 0.3f, G = 0.6f, B = 0.95f },
+            new SkillDef { Id = SkillId.Cooking, Name = "Cooking", R = 0.7f, G = 0.4f, B = 0.85f },
         };
 
         public static SkillDef Get(SkillId id)

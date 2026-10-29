@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Firemaking and fishing (the rest of the player is in PlayerController.cs).
+    /// Firemaking, fishing and cooking (the rest of the player is in PlayerController.cs).
     public sealed partial class PlayerController
     {
         GroundItem lightTarget;       // logs on the ground being lit, or walked to (tile mode)
@@ -15,6 +15,12 @@ namespace Epacenur.Runtime
         bool fishing;
         float fishTimer;
 
+        Fire cookFire;
+        int pendingCook;   // the raw item to cook first, chosen from the inventory
+        bool cooking;
+        float cookTimer;
+
+        public bool IsCooking => cooking;
         public bool IsLighting => lighting;
         public bool IsFishing => fishing;
         public bool HasTinderbox => G.HasTool(ItemDefs.Tinderbox.Id);
@@ -25,6 +31,9 @@ namespace Epacenur.Runtime
             lighting = walkingToLight = false;
             fishTarget = null;
             fishing = false;
+            cookFire = null;
+            cooking = false;
+            pendingCook = 0;
         }
 
         void UpdateSkilling(float dt)
@@ -41,6 +50,8 @@ namespace Epacenur.Runtime
                 UpdateLighting(dt);
             if (fishing)
                 UpdateFishing(dt);
+            if (cooking)
+                UpdateCooking(dt);
         }
 
         // ---- Firemaking ----
@@ -144,6 +155,135 @@ namespace Epacenur.Runtime
                         break;
                     }
                 }
+        }
+
+        // ---- Cooking ----
+
+        /// "Cook" on raw food in the inventory: use the nearest fire (walking to it in tile mode).
+        public void CookFromInventory(int rawItemId)
+        {
+            Fire nearest = null;
+            float best = float.MaxValue;
+            foreach (var f in G.World.Fires)
+            {
+                float d = FlatDistance(f);
+                if (d < best)
+                {
+                    best = d;
+                    nearest = f;
+                }
+            }
+            float range = Mode == ViewMode.FirstPerson ? FirstPersonReach : 15f;
+            if (nearest == null || best > range)
+            {
+                GameLog.Add(Mode == ViewMode.FirstPerson && nearest != null
+                    ? "You need to stand closer to the fire."
+                    : "You need a fire to cook on. Light one with logs and a tinderbox.");
+                return;
+            }
+            if (Mode == ViewMode.Tile && !CurrentTile.IsCardinalNeighbour(nearest.Tile))
+            {
+                WalkToObject(nearest);   // cooks when you get there (Fire.Interact)
+                pendingCook = rawItemId;
+                return;
+            }
+            pendingCook = rawItemId;
+            CookOn(nearest);
+        }
+
+        /// Cooking on a fire: in tile mode everything raw you carry, one every 4 ticks; in first
+        /// person one item per click.
+        public void CookOn(Fire fire)
+        {
+            if (FindRawFood() < 0)
+            {
+                GameLog.Add("You have nothing to cook.");
+                pendingCook = 0;
+                return;
+            }
+            if (Mode == ViewMode.FirstPerson)
+            {
+                if (swingCooldown > 0f)
+                    return;
+                swingCooldown = CookingRules.FirstPersonCookTicks * WoodcuttingRules.TickSeconds;
+                SwingT = 1f;
+                CookOne();
+                return;
+            }
+            int keep = pendingCook;
+            CancelSkilling();
+            pendingCook = keep;
+            cookFire = fire;
+            cooking = true;
+            cookTimer = (CookingRules.AttemptTicks - 1) * WoodcuttingRules.TickSeconds;  // first one a tick in
+        }
+
+        void UpdateCooking(float dt)
+        {
+            var fire = cookFire;
+            if (fire == null || !CurrentTile.IsCardinalNeighbour(fire.Tile))
+            {
+                if (fire == null)
+                    GameLog.Add("The fire has gone out.");
+                cooking = false;
+                cookFire = null;
+                return;
+            }
+            Face(fire.transform.position - transform.position, dt);
+            cookTimer += dt;
+            float interval = CookingRules.AttemptTicks * WoodcuttingRules.TickSeconds;
+            if (cookTimer < interval)
+                return;
+            cookTimer -= interval;
+            if (!CookOne())
+            {
+                cooking = false;
+                cookFire = null;
+            }
+        }
+
+        /// The inventory slot of the next raw item to cook (the chosen kind first), or -1.
+        int FindRawFood()
+        {
+            int any = -1;
+            for (int i = 0; i < Inventory.Size; i++)
+            {
+                var s = G.Inventory[i];
+                if (s.IsEmpty || CookingRules.For(s.ItemId) == null)
+                    continue;
+                if (s.ItemId == pendingCook)
+                    return i;
+                if (any < 0)
+                    any = i;
+            }
+            return any;
+        }
+
+        /// Cooks (or burns) one raw item in its own slot. Returns whether there's more to cook.
+        bool CookOne()
+        {
+            int slot = FindRawFood();
+            if (slot < 0)
+                return false;
+            var food = CookingRules.For(G.Inventory[slot].ItemId);
+            if (G.Skills.GetLevel(SkillId.Cooking) < food.Level)
+            {
+                GameLog.Add("You need a Cooking level of " + food.Level + " to cook this.");
+                return false;
+            }
+            string name = ItemDefs.Get(food.CookedItemId).Name.ToLowerInvariant();
+            if (G.Rng.NextDouble() < CookingRules.SuccessChance(food, G.Skills.GetLevel(SkillId.Cooking)))
+            {
+                G.Inventory.Set(slot, new ItemStack { ItemId = food.CookedItemId, Count = 1 });
+                G.Skills.AddXp(SkillId.Cooking, food.Xp);
+                GameLog.Add("You successfully cook some " + name + ".");
+            }
+            else
+            {
+                G.Inventory.Set(slot, new ItemStack { ItemId = food.BurntItemId, Count = 1 });
+                GameLog.Add("You accidentally burn the " + name + ".");
+            }
+            return FindRawFood() >= 0;
         }
 
         // ---- Fishing ----
