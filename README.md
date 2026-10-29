@@ -116,8 +116,6 @@ so they don't take up slots.
   and a health bar shows over a goblin you're fighting.
 - Each damage point gives 4 xp in the chosen style's skill plus 1.33 Hitpoints xp. Hitpoints starts at level 10.
 - A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
-  The loot goes **straight into your inventory** (coins into the money pouch), and the chat says what you got. Only what doesn't
-  fit falls on the ground where the goblin died.
   Its stats and drops are in `NpcDefs.Goblin` in `Assets/Scripts/Core/Combat.cs`.
 
 ## Melee abilities (action bar)
