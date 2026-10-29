@@ -548,6 +548,30 @@ namespace Epacenur.Runtime
             PickUp(item);
         }
 
+        /// Loot from a kill: straight into your inventory (coins into the money pouch). Anything that
+        /// doesn't fit falls on the ground where the monster died.
+        public void ReceiveLoot(List<ItemStack> loot, Tile dropTile)
+        {
+            var got = new List<string>();
+            bool spilled = false;
+            foreach (var stack in loot)
+            {
+                var def = ItemDefs.Get(stack.ItemId);
+                int added = G.Inventory.Add(stack.ItemId, stack.Count);
+                if (added > 0)
+                    got.Add(def.Stackable || added > 1 ? Core.Experience.Format(added) + " " + def.Name.ToLowerInvariant() : def.Name.ToLowerInvariant());
+                if (added < stack.Count)
+                {
+                    G.World.SpawnGroundItem(stack.ItemId, stack.Count - added, dropTile);
+                    spilled = true;
+                }
+            }
+            if (got.Count > 0)
+                GameLog.Add("You get: " + string.Join(", ", got) + ".");
+            if (spilled)
+                GameLog.Add("Your inventory is full, so the rest falls to the ground.");
+        }
+
         void PickUp(GroundItem item)
         {
             if (item == null)
@@ -561,7 +585,6 @@ namespace Epacenur.Runtime
             G.World.RemoveGroundItem(item);
         }
 
-        // Paths start from the tile you're on; after WASD you may be off its centre.
         /// Where a new path starts: the tile you're stepping into if you're walking (so clicking somewhere
         /// new mid-step carries on forward instead of turning back to the tile you just left), otherwise
         /// the tile you're on.

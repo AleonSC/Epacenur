@@ -130,11 +130,13 @@ namespace Epacenur.Runtime
             diedAt = Time.time;
             hitbox.enabled = false;
             path.Clear();
-            var tile = Game.Instance.World.NearestWalkable(Tile);
+            // The loot goes straight to the player; only what doesn't fit lands where it died.
+            var loot = new List<ItemStack>();
             foreach (var item in Def.AlwaysDrops)
-                Game.Instance.World.SpawnGroundItem(item.Id, 1, tile);
+                loot.Add(new ItemStack { ItemId = item.Id, Count = 1 });
             if (Def.Drops != null && Def.Drops.Roll(rng, out int itemId, out int count))
-                Game.Instance.World.SpawnGroundItem(itemId, count, Game.Instance.World.NearestWalkable(Tile));
+                loot.Add(new ItemStack { ItemId = itemId, Count = count });
+            Game.Instance.Player.ReceiveLoot(loot, Game.Instance.World.NearestWalkable(Tile));
         }
 
         void Respawn()
