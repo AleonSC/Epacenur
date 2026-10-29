@@ -252,6 +252,7 @@ namespace Epacenur.Runtime
             cc.enabled = false;  // a CharacterController overrides position changes while enabled
             transform.position = World.TileCenter(tile);
             lastPosition = transform.position;
+            stepTarget = null;
             cc.enabled = true;
         }
 
@@ -292,6 +293,7 @@ namespace Epacenur.Runtime
             if (mode == Mode)
                 return;
             CancelAction();
+            stepTarget = null;
             Mode = mode;
             G.Rig.SetMode(mode);
             hoverMarker.SetActive(false);
@@ -340,6 +342,7 @@ namespace Epacenur.Runtime
             {
                 // WASD takes over: drop the path and stop chopping.
                 CancelAction();
+                stepTarget = null;
                 Face(wasd, dt);
                 return wasd * WasdSpeed * dt;
             }
@@ -559,11 +562,18 @@ namespace Epacenur.Runtime
         }
 
         // Paths start from the tile you're on; after WASD you may be off its centre.
+        /// Where a new path starts: the tile you're stepping into if you're walking (so clicking somewhere
+        /// new mid-step carries on forward instead of turning back to the tile you just left), otherwise
+        /// the tile you're on.
         Tile StartTile()
         {
+            if (stepTarget.HasValue && G.World.Grid.IsWalkable(stepTarget.Value))
+                return stepTarget.Value;
             Tile t = CurrentTile;
             return G.World.Grid.IsWalkable(t) ? t : G.World.NearestWalkable(t);
         }
+
+        Tile? stepTarget;  // the tile you're walking into (tile mode paths), until you reach its centre
 
         void SetPath(List<Tile> p)
         {
@@ -573,7 +583,7 @@ namespace Epacenur.Runtime
             flat.y = 0f;
             Tile start = StartTile();
             if ((flat - World.TileCenter(start)).sqrMagnitude > 0.01f)
-                path.Add(start);  // step back onto the grid first
+                path.Add(start);  // finish the step you're on (or step back onto the grid after WASD)
             path.AddRange(p);
             if (path.Count > 0)
                 destMarker.transform.position = World.TileCenter(path[path.Count - 1]) + Vector3.up * 0.02f;
@@ -581,11 +591,13 @@ namespace Epacenur.Runtime
 
         Vector3 FollowPath(float dt)
         {
+            stepTarget = path[pathIndex];
             Vector3 to = World.TileCenter(path[pathIndex]) - transform.position;
             to.y = 0f;
             float step = PathSpeed * dt;
             if (to.magnitude <= step)
             {
+                stepTarget = null;
                 pathIndex++;
                 if (pathIndex >= path.Count)
                 {

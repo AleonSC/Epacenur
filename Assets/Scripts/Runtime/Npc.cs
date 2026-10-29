@@ -198,13 +198,14 @@ namespace Epacenur.Runtime
                 return;
             if (pathIndex >= path.Count || !path[path.Count - 1].IsCardinalNeighbour(playerTile))
             {
+                // Re-plan from the tile it's stepping into, so it doesn't turn back mid-step.
+                Tile from = pathIndex < path.Count ? path[pathIndex] : Tile;
                 path.Clear();
                 pathIndex = 0;
-                var p = Pathfinder.PathToInteract(Game.Instance.World.Grid, Tile, playerTile);
+                path.Add(from);
+                var p = Pathfinder.PathToInteract(Game.Instance.World.Grid, from, playerTile);
                 if (p != null)
                     path.AddRange(p);
-                if (path.Count == 0)
-                    path.Add(Tile);  // back onto its tile's centre
             }
             Step(WalkSpeed * 1.6f);
         }
