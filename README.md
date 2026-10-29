@@ -170,7 +170,19 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - Each item either cooks (**Shrimps** or **Anchovies**, 30 xp) or burns (**Burnt shrimp** or **Burnt fish**, no xp), in its own inventory slot.
   At level 1 about a third cook. Both stop burning at **level 34**, as in RuneScape.
 - Cooking stops if the fire goes out or you move away.
-- Rules are in `Assets/Scripts/Core/Cooking.cs`. There's nothing to eat them for yet: there's no health to restore, since monsters don't fight back.
+- Rules are in `Assets/Scripts/Core/Cooking.cs`.
+
+## Health and eating
+
+- A **health bar** sits above the action bar (red, with the numbers on it, turning orange then bright red as it runs low). In tile mode
+  a small bar also shows over your head while you're hurt, with hitsplats when you're hit.
+- Max health is your **Hitpoints level** (10 to start), as in Old School RuneScape. Gaining a Hitpoints level adds to your current health too.
+  Lost health comes back **1 point a minute**.
+- **Eat** cooked food by clicking it in your inventory (or right-click, **Eat**): **shrimps heal 3**, **anchovies heal 1**. Burnt food can't be eaten.
+  A bite takes 3 ticks and holds back your next attack by as much.
+- Nothing hurts you yet (goblins don't fight back), so the dev tools have **Hurt me 3**, **Heal fully** and **5 shrimps** for testing.
+  At 0 health you die ("Oh dear, you are dead!") and wake up at spawn with full health, keeping your items.
+- Health is saved. Rules are in `Assets/Scripts/Core/Health.cs`.
 
 ## The player model
 

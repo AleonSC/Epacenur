@@ -213,6 +213,24 @@ static class CoreTests
         Check(cookChance > 0.25 && cookChance < 0.4, "about 1 in 3 cooked at level 1 (" + cookChance.ToString("0.00") + ")");
         Check(CookingRules.SuccessChance(cook, 33) < 1.0 && CookingRules.SuccessChance(cook, 34) == 1.0, "stops burning at level 34");
 
+        Console.WriteLine("Health and eating");
+        var hp = new Health(10);
+        Check(hp.Current == 10 && hp.IsFull, "start at full health");
+        Check(hp.Damage(7) == 7 && hp.Current == 3 && hp.Damage(50) == 3 && hp.IsDead, "damage stops at 0");
+        hp.Set(4);
+        inv.Clear();
+        inv.Add(ItemDefs.Shrimps.Id);
+        inv.Add(ItemDefs.BurntShrimp.Id);
+        Check(Foods.Eat(inv, 0, hp, out int healed) != null && healed == 3 && hp.Current == 7 && inv[0].IsEmpty, "shrimps heal 3 and are eaten");
+        Check(Foods.Eat(inv, 1, hp, out healed) == null && !inv[1].IsEmpty, "burnt shrimp can't be eaten");
+        inv.Add(ItemDefs.Shrimps.Id);
+        Foods.Eat(inv, 0, hp, out healed);
+        Check(healed == 3 && hp.Current == 10, "healing stops at the maximum");
+        hp.Set(6);
+        hp.SetMax(12);
+        Check(hp.Max == 12 && hp.Current == 8, "a Hitpoints level gained adds to current health");
+        inv.Clear();
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");

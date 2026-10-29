@@ -61,6 +61,7 @@ namespace Epacenur.Runtime
             }
         }
         Rect BarRect => new Rect(10f, ChatRect.y - 58f, 12f + Abilities.All.Length * (Slot + Gap) - Gap, 52f);
+        Rect HealthRect => new Rect(BarRect.x, BarRect.y - 24f, BarRect.width, 22f);
         public bool BankOpen => openAt is BankBooth;
         public bool ShopOpen => openAt is ShopKeeper;
 
@@ -110,7 +111,7 @@ namespace Epacenur.Runtime
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
-            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
+            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m) || HealthRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
         }
 
         public void AddXpDrop(SkillId skill, BigInteger tenths)
@@ -151,6 +152,7 @@ namespace Epacenur.Runtime
             DrawLevelUp();
             DrawChat();
             DrawActionBar();
+            DrawHealthBar();
             DrawPanel();
             if (BankOpen)
                 DrawBank();
@@ -362,6 +364,8 @@ namespace Epacenur.Runtime
                             G.Equipment.Equip(inv, i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && stack.ItemId == ItemDefs.Coins.Id)
                             inv.AddToPouch(i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && Foods.For(stack.ItemId) != null)
+                            G.Player.Eat(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty && CookingRules.For(stack.ItemId) != null)
                             G.Player.CookFromInventory(stack.ItemId);
                         else if (selectedSlot == -1 && !stack.IsEmpty && ToolBelt.IsTool(stack.ItemId) && !G.ToolBelt.Has(stack.ItemId))
@@ -528,6 +532,12 @@ namespace Epacenur.Runtime
                     {
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                if (Foods.For(def.Id) != null)
+                    o.Add(new MenuOption("Eat", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            G.Player.Eat(slot);
                     }));
                 if (CookingRules.For(def.Id) != null)
                     o.Add(new MenuOption("Cook", name, () => G.Player.CookFromInventory(def.Id)));
@@ -782,9 +792,53 @@ namespace Epacenur.Runtime
 
         // ---- Hitsplats and health bars ----
 
+        /// Your health: a red bar that empties as you're hurt, with the numbers on it.
+        void DrawHealthBar()
+        {
+            var r = HealthRect;
+            var hp = G.Health;
+            Bevel(r);
+            // A small heart.
+            var red = new Color(0.85f, 0.12f, 0.15f);
+            float hx = r.x + 6f, hy = r.y + 5f;
+            Fill(new Rect(hx, hy, 5f, 5f), red);
+            Fill(new Rect(hx + 6f, hy, 5f, 5f), red);
+            Fill(new Rect(hx, hy + 3f, 11f, 5f), red);
+            Fill(new Rect(hx + 2f, hy + 8f, 7f, 2f), red);
+            Fill(new Rect(hx + 4f, hy + 10f, 3f, 2f), red);
+            var bar = new Rect(r.x + 22f, r.y + 4f, r.width - 26f, r.height - 8f);
+            Fill(bar, new Color(0.25f, 0.04f, 0.04f));
+            Color fill = hp.Fraction > 0.5f ? new Color(0.75f, 0.1f, 0.12f) : hp.Fraction > 0.25f ? new Color(0.85f, 0.4f, 0.08f) : new Color(1f, 0.15f, 0.1f);
+            Fill(new Rect(bar.x, bar.y, bar.width * hp.Fraction, bar.height), fill);
+            Fill(new Rect(bar.x, bar.y, bar.width * hp.Fraction, 2f), new Color(1f, 1f, 1f, 0.15f));
+            Shadowed(bar, "<b>" + hp.Current + " / " + hp.Max + "</b>", centered);
+            if (r.Contains(Event.current.mousePosition))
+                Shadowed(new Rect(r.x, r.y - 20f, 300f, 18f), "<color=#ffcc66>Hitpoints: eat cooked food to heal. Lost health returns 1 a minute.</color>", small);
+        }
+
         void DrawCombatOverlays()
         {
             var cam = G.Rig.Cam;
+            // Your own health over your head while hurt (tile mode), with hitsplats when hit.
+            var p = G.Player;
+            if (p.Mode == ViewMode.Tile && (!G.Health.IsFull || p.Hitsplats.Count > 0))
+            {
+                Vector3 head = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 2.15f);
+                if (head.z > 0f)
+                {
+                    float x = head.x / scale, y = (Screen.height - head.y) / scale;
+                    var bar = new Rect(x - 20f, y - 6f, 40f, 5f);
+                    Fill(bar, new Color(0.8f, 0.1f, 0.1f));
+                    Fill(new Rect(bar.x, bar.y, bar.width * G.Health.Fraction, bar.height), new Color(0.1f, 0.85f, 0.15f));
+                    for (int i = 0; i < p.Hitsplats.Count; i++)
+                    {
+                        var h = p.Hitsplats[i];
+                        var r = new Rect(x - 12f + i * 8f, y + 14f - i * 6f, 24f, 22f);
+                        Fill(r, h.Damage > 0 ? new Color(0.75f, 0.08f, 0.08f, 0.95f) : new Color(0.15f, 0.35f, 0.8f, 0.95f));
+                        Shadowed(r, "<b>" + h.Damage + "</b>", centered);
+                    }
+                }
+            }
             foreach (var npc in G.World.Npcs)
             {
                 if (Time.time - npc.LastHitTime > 6f || (npc.IsDead && npc.Hitsplats.Count == 0))
@@ -1335,6 +1389,11 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Tools")) { G.Inventory.Add(ItemDefs.BronzeHatchet.Id); G.Inventory.Add(ItemDefs.Tinderbox.Id); G.Inventory.Add(ItemDefs.SmallFishingNet.Id); }
             if (GUILayout.Button("Fill belt")) foreach (var t in ToolBelt.Tools) G.ToolBelt.Add(t.Id);
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Hurt me 3")) G.HurtPlayer(3);
+            if (GUILayout.Button("Heal fully")) G.Health.Set(G.Health.Max);
+            if (GUILayout.Button("5 shrimps")) G.Inventory.Add(ItemDefs.Shrimps.Id, 5);
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);
             if (GUILayout.Button("Regrow every tree"))
@@ -1365,6 +1424,8 @@ namespace Epacenur.Runtime
                 G.Inventory.Add(ItemDefs.Coins.Id, 100);
                 G.ToolBelt.Clear();
                 G.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
+                G.Health.SetMax(G.Skills.GetLevel(SkillId.Hitpoints));
+                G.Health.Set(G.Health.Max);
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");

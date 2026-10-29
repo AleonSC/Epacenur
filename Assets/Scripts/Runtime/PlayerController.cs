@@ -58,7 +58,11 @@ namespace Epacenur.Runtime
         // A bleed (Dismember): hits still to land on a monster.
         sealed class Bleed { public Npc Npc; public int[] Hits; public int Next; public float NextTime; }
         readonly List<Bleed> bleeds = new List<Bleed>();
-        float chopTimer, swingCooldown, fallSpeed, chopAnim, attackTimer, attackAnim;
+        float chopTimer, swingCooldown, fallSpeed, chopAnim, attackTimer, attackAnim, eatCooldown;
+
+        /// Damage you've taken lately, for hitsplats over your head.
+        public readonly List<Npc.Hitsplat> Hitsplats = new List<Npc.Hitsplat>();
+        public float LastHurtTime { get; private set; } = -100f;
 
         public static PlayerController Create(Tile spawn)
         {
@@ -249,6 +253,8 @@ namespace Epacenur.Runtime
         {
             float dt = Time.deltaTime;
             swingCooldown -= dt;
+            eatCooldown -= dt;
+            Hitsplats.RemoveAll(h => Time.time - h.Time > Npc.HitsplatSeconds);
             SwingT = Mathf.Max(0f, SwingT - dt / 0.35f);
 
             if (Input.GetKeyDown(KeyCode.V))
@@ -846,6 +852,30 @@ namespace Epacenur.Runtime
             if (killed)
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
             return killed;
+        }
+
+        // ---- Eating ----
+
+        /// Eats the food in an inventory slot: one bite every 3 ticks, which also holds back your next attack.
+        public void Eat(int slot)
+        {
+            if (eatCooldown > 0f)
+                return;
+            var stack = G.Inventory[slot];
+            var food = Foods.Eat(G.Inventory, slot, G.Health, out int healed);
+            if (food == null)
+                return;
+            float delay = Foods.EatTicks * WoodcuttingRules.TickSeconds;
+            eatCooldown = delay;
+            attackTimer += delay;
+            swingCooldown = Mathf.Max(swingCooldown, delay);
+            GameLog.Add("You eat the " + stack.Def.Name.ToLowerInvariant() + "." + (healed > 0 ? " It heals some health." : ""));
+        }
+
+        public void ShowDamage(int damage)
+        {
+            LastHurtTime = Time.time;
+            Hitsplats.Add(new Npc.Hitsplat { Damage = damage, Time = Time.time });
         }
 
         // ---- Abilities (action bar, keys 1-9) ----

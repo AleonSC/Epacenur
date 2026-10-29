@@ -32,6 +32,8 @@ namespace Epacenur.Runtime
         public readonly Bank Bank = new Bank();
         public readonly Equipment Equipment = new Equipment();
         public readonly ToolBelt ToolBelt = new ToolBelt();
+        /// Your hitpoints (the maximum follows the Hitpoints level).
+        public Health Health { get; private set; }
         /// Whether a tool is to hand: on the tool belt or in the backpack.
         public bool HasTool(int itemId) => ToolBelt.HasTool(ToolBelt, Inventory, itemId);
         public CombatStyle Style = CombatStyle.Accurate;
@@ -75,6 +77,7 @@ namespace Epacenur.Runtime
 
             Skills.XpGained += (id, tenths) => Hud.AddXpDrop(id, tenths);
             Skills.LevelledUp += OnLevelUp;
+            Health = new Health(Skills.GetLevel(SkillId.Hitpoints));
 
             if (SaveGame.Load(this))
             {
@@ -135,8 +138,39 @@ namespace Epacenur.Runtime
             Hud.ShowLevelUp(id, level);
         }
 
+        float regenTimer;
+
+        /// Hurts the player; at 0 you die and wake up at spawn with full health.
+        public void HurtPlayer(int damage)
+        {
+            Health.Damage(damage);
+            Player.ShowDamage(damage);
+            if (Health.IsDead)
+            {
+                GameLog.Add("Oh dear, you are dead!");
+                Health.Set(Health.Max);
+                Player.Teleport(World.Spawn);
+            }
+        }
+
         void Update()
         {
+            // Max health follows the Hitpoints level; lost health comes back a point a minute.
+            Health.SetMax(Skills.GetLevel(SkillId.Hitpoints));
+            if (Health.IsFull)
+            {
+                regenTimer = 0f;
+            }
+            else
+            {
+                regenTimer += Time.deltaTime;
+                if (regenTimer >= Core.Health.RegenSeconds)
+                {
+                    regenTimer -= Core.Health.RegenSeconds;
+                    Health.Heal(1);
+                }
+            }
+
             if (Time.time >= nextSave)
             {
                 nextSave = Time.time + 15f;
