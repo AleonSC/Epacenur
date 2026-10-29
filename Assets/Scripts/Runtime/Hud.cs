@@ -1514,6 +1514,13 @@ namespace Epacenur.Runtime
             }
         }
 
+        void Teleport(Tile tile, string message)
+        {
+            CloseWindow();
+            G.Player.Teleport(tile);
+            GameLog.Add(message);
+        }
+
         // ---- Dev tools ----
 
         void DrawDevWindow(int id)
@@ -1570,8 +1577,12 @@ namespace Epacenur.Runtime
                     if (t.IsStump)
                         t.Regrow();
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Go to spawn"))
-                G.Player.Teleport(G.World.Spawn);
+            if (GUILayout.Button("Teleport to dev plot"))
+                Teleport(G.World.DevSpawn, "You teleport to the dev plot.");
+            if (GUILayout.Button("Teleport to main world"))
+                Teleport(G.World.MainSpawn, "You teleport to the town square.");
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
             foreach (var area in G.World.Areas)
                 if (!(area is EmptyPlot) && GUILayout.Button("Go to " + area.Name))
                     G.Player.Teleport(G.World.NearestWalkable(area.TeleportTile));

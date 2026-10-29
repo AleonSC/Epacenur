@@ -1,8 +1,10 @@
 # Epacenur
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
-For now it's a **dev area** with plots for testing skills, a **bank booth** and a **shop**: **Woodcutting** with basic trees,
-**Firemaking**, **Fishing** at a pond, **Cooking** on fires, and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
+You start in a **procedurally generated world**: a town with a bank, a general store and a chapel, and around it forests,
+ponds and a goblin camp. There's also a separate **dev plot** for testing skills, reached from the dev tools (F1).
+Skills so far: **Woodcutting**, **Firemaking**, **Fishing**, **Cooking**, **Prayer**, and melee combat
+(Attack, Strength, Defence and Hitpoints) against goblins that fight back.
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -49,6 +51,26 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   a progress bar. The footer shows total level, combat level (OSRS formula with melee and Prayer; no Ranged or Magic yet) and total xp.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
+
+## The main world
+
+![The main world from above, seed 2024](Docs/main-world-map.png)
+
+*From above (seed 2024): the town square (red), bank (yellow), general store (orange), chapel (white), houses, roads, ponds, forests and the goblin camp (brown).*
+
+- **128 × 128 tiles**, generated when the game starts (`WorldGen` in `Assets/Scripts/Core/WorldGen.cs`).
+  The seed is fixed (`World.MainSeed`), so it's the same world every time and saved positions stay put. Change the seed for a different world.
+- **The town**: you start in its square, with dirt roads to every door and out to the four edges. Every building has walls and one door
+  facing the square. The **bank** holds a bank booth, the **general store** a shop keeper, and the **chapel** an altar.
+  There are also 3–5 **houses** with a table inside. Building names float over their doors.
+- **Forests**: trees grow thick where a smooth noise is high, and sparse elsewhere. No two trees touch, so you can always walk between them.
+- **Ponds**: 5–7 of them away from town, each with one or two moving **net fishing spots** on its shore.
+- **Goblin camp**: a clearing with tents and 4 goblins, 28–46 tiles from town.
+- A wooden palisade runs round the edge. After generation, anything shut in by trees and water is opened up,
+  and the tests check that every door, counter, shore and the camp can be walked to, on several seeds.
+- **Dev tools (F1)**: **Teleport to dev plot** takes you to the old dev area (with its Woodcutting, Goblins, Fishing and
+  Firemaking plots, bank booth, shop and altar). **Teleport to main world** brings you back. The two regions aren't connected
+  any other way. Saves from before the main world start in the town square.
 
 ## Money pouch
 

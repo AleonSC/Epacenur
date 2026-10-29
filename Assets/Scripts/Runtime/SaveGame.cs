@@ -9,6 +9,7 @@ namespace Epacenur.Runtime
     public static class SaveGame
     {
         public const string Key = "Epacenur.Save.v1";
+        public const int WorldVersion = 2;
 
         [Serializable]
         class Data
@@ -30,6 +31,7 @@ namespace Epacenur.Runtime
             public bool hasPrayer;
             public int prayerPoints;  // saves from before hatchets were needed get one on the belt
             public float x, z;
+            public int worldVersion;  // 2: the procedural main world. Older saves start in the town square.
         }
 
         public static void Save(Game game)
@@ -43,6 +45,7 @@ namespace Epacenur.Runtime
                 counts = new int[Inventory.Size],
                 x = game.Player.transform.position.x,
                 z = game.Player.transform.position.z,
+                worldVersion = WorldVersion,
             };
             for (int i = 0; i < defs.Length; i++)
             {
@@ -126,7 +129,9 @@ namespace Epacenur.Runtime
                 for (int i = 0; i < Inventory.Size; i++)
                     game.Inventory.AddToPouch(i);  // older save: move its coins into the new pouch
 
-            var tile = game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)));
+            var tile = d.worldVersion >= WorldVersion
+                ? game.World.NearestWalkable(new Tile(Mathf.RoundToInt(d.x), Mathf.RoundToInt(d.z)))
+                : game.World.MainSpawn;
             game.Player.Teleport(tile);
             return true;
         }

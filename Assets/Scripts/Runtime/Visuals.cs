@@ -21,7 +21,8 @@ namespace Epacenur.Runtime
         {
             if (cache.TryGetValue(c, out var m) && m != null)
                 return m;
-            m = new Material(BaseMaterial()) { color = c };
+            // Instanced: the many identical trees, walls and so on draw in a few batches.
+            m = new Material(BaseMaterial()) { color = c, enableInstancing = true };
             if (m.HasProperty("_Glossiness"))
                 m.SetFloat("_Glossiness", 0.08f);
             cache[c] = m;

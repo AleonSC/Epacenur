@@ -266,6 +266,38 @@ static class CoreTests
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");
         Check(WoodcuttingRules.SuccessChance(TreeDefs.Basic, 999) == 1.0, "certain at high levels");
 
+        Console.WriteLine("World generation");
+        foreach (int seed in new[] { 2024, 1, 77, 31337 })
+        {
+            var map = WorldGen.Generate(128, 128, seed);
+            var again = WorldGen.Generate(128, 128, seed);
+            bool same = true;
+            for (int x = 0; x < 128 && same; x++) for (int z = 0; z < 128; z++) if (map.Map[x, z] != again.Map[x, z]) { same = false; break; }
+            var reach = WorldGen.Reachable(map);
+            int trees = 0, water = 0, walkable = 0, stranded = 0;
+            for (int x = 0; x < 128; x++)
+                for (int z = 0; z < 128; z++)
+                {
+                    var t = map.Map[x, z];
+                    if (t == Terrain.Tree) trees++;
+                    if (t == Terrain.Water) water++;
+                    if (MainWorldLayout.IsWalkable(t)) { walkable++; if (!reach[x, z] && map.ToGrid().IsWalkable(new Tile(x, z))) stranded++; }
+                }
+            bool kinds = map.Buildings.Exists(b => b.Kind == BuildingKind.Bank) && map.Buildings.Exists(b => b.Kind == BuildingKind.Shop)
+                && map.Buildings.Exists(b => b.Kind == BuildingKind.Chapel) && map.Buildings.Exists(b => b.Kind == BuildingKind.House);
+            bool doors = map.Buildings.TrueForAll(b => reach[b.Door.X, b.Door.Z] && reach[WorldGen.OutsideDoor(b).X, WorldGen.OutsideDoor(b).Z]);
+            bool features = map.Buildings.TrueForAll(b =>
+            {
+                foreach (var n in new[] { new Tile(b.Feature.X + 1, b.Feature.Z), new Tile(b.Feature.X - 1, b.Feature.Z), new Tile(b.Feature.X, b.Feature.Z + 1), new Tile(b.Feature.X, b.Feature.Z - 1) })
+                    if (reach[n.X, n.Z]) return true;
+                return false;
+            });
+            bool camp = map.GoblinCamp.Width > 0 && reach[map.GoblinCamp.Center.X, map.GoblinCamp.Center.Z];
+            Check(same && kinds && doors && features && camp && stranded == 0 && map.PondShores.Count >= 3 && trees > 300,
+                "seed " + seed + ": same every time, bank + shop + chapel + houses (" + map.Buildings.Count + "), doors and counters reachable, camp, "
+                + map.PondShores.Count + " ponds (" + water + " water tiles), " + trees + " trees, nothing walled in");
+        }
+
         Console.WriteLine("Pathfinding");
         var grid = new TileGrid(10, 10);
         for (int z = 0; z < 9; z++)

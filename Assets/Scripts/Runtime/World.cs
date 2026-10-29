@@ -13,8 +13,22 @@ namespace Epacenur.Runtime
     }
 
     /// The tile grid and everything standing on it. Tile (x, z) is centred on world (x, 0, z).
+    ///
+    /// The grid holds two separate, walled regions: the dev area (DevRegion, tiles 0..47) for testing
+    /// skills, and the procedurally generated main world (MainRegion) where you start. Nothing connects
+    /// them: the dev tools teleport between them.
     public sealed class World : MonoBehaviour
     {
+        public const int MainSize = 128;
+        public const int MainSeed = 2024;  // change for a different main world (saved positions may then land oddly)
+        public static readonly RectInt DevRegion = new RectInt(0, 0, DevArea.Width, DevArea.Height);
+        public static readonly RectInt MainRegion = new RectInt(DevArea.Width + 12, 0, MainSize, MainSize);
+
+        public MainWorldLayout MainLayout { get; private set; }
+        /// Where you start in the main world (its town square).
+        public Tile MainSpawn { get; private set; }
+        public Tile DevSpawn => DevArea.Spawn;
+
         public TileGrid Grid { get; private set; }
         public readonly List<TreeObject> Trees = new List<TreeObject>();
         public readonly List<BankBooth> BankBooths = new List<BankBooth>();
@@ -40,11 +54,25 @@ namespace Epacenur.Runtime
 
         void Build()
         {
-            Grid = new TileGrid(DevArea.Width, DevArea.Height);
-            Spawn = DevArea.Spawn;
-            BuildGround();
-            BuildWalls();
-            AddLabel(TileCenter(Spawn) + new Vector3(0f, 0.2f, 2.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
+            Grid = new TileGrid(MainRegion.xMax, MainRegion.yMax);
+            // Everything outside the two regions is solid.
+            for (int x = 0; x < Grid.Width; x++)
+                for (int z = 0; z < Grid.Height; z++)
+                    if (!DevRegion.Contains(new Vector2Int(x, z)) && !MainRegion.Contains(new Vector2Int(x, z)))
+                        Grid.SetBlocked(new Tile(x, z), true);
+            BuildBackdrop();
+            BuildDevArea();
+
+            MainLayout = WorldGen.Generate(MainSize, MainSize, MainSeed);
+            MainSpawn = MainWorldBuilder.Build(this, MainLayout, new Tile(MainRegion.x, MainRegion.y));
+            Spawn = MainSpawn;
+        }
+
+        void BuildDevArea()
+        {
+            BuildGround(DevRegion, new Color(0.33f, 0.52f, 0.24f), new Color(0.27f, 0.44f, 0.2f));
+            BuildWalls(DevRegion);
+            AddLabel(TileCenter(DevArea.Spawn) + new Vector3(0f, 0.2f, 2.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
             AddBankBooth(DevArea.BankBooth);
             AddShopKeeper(DevArea.ShopKeeper, Shops.DevAreaStore());
             AddAltar(DevArea.Altar);
@@ -61,44 +89,48 @@ namespace Epacenur.Runtime
             }
         }
 
-        void BuildGround()
+        /// Darker grass far out under everything, so the regions don't float in the sky.
+        void BuildBackdrop()
+        {
+            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3((Grid.Width - 1) * 0.5f, -0.3f, (Grid.Height - 1) * 0.5f),
+                new Vector3(Grid.Width + 240f, 0.5f, Grid.Height + 240f), new Color(0.24f, 0.4f, 0.19f));
+        }
+
+        /// A region's ground: a slab whose top is at y = 0, edges on tile boundaries, with a faint line round each tile.
+        public void BuildGround(RectInt region, Color fill, Color line)
         {
             var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ground.name = "Ground";
             ground.transform.SetParent(transform, false);
-            // The top face is at y = 0 and the edges sit on tile boundaries (x = -0.5 .. Width - 0.5).
-            ground.transform.localPosition = new Vector3((Grid.Width - 1) * 0.5f, -0.25f, (Grid.Height - 1) * 0.5f);
-            ground.transform.localScale = new Vector3(Grid.Width, 0.5f, Grid.Height);
+            ground.transform.localPosition = new Vector3(region.x + (region.width - 1) * 0.5f, -0.25f, region.y + (region.height - 1) * 0.5f);
+            ground.transform.localScale = new Vector3(region.width, 0.5f, region.height);
             var mat = Visuals.NewMat(Color.white);
-            mat.mainTexture = Visuals.TileTexture(new Color(0.33f, 0.52f, 0.24f), new Color(0.27f, 0.44f, 0.2f));
-            mat.mainTextureScale = new Vector2(Grid.Width, Grid.Height);
+            mat.mainTexture = Visuals.TileTexture(fill, line);
+            mat.mainTextureScale = new Vector2(region.width, region.height);
             ground.GetComponent<Renderer>().sharedMaterial = mat;
-
-            // Darker grass beyond the walls, so the dev area doesn't float in the sky.
-            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3((Grid.Width - 1) * 0.5f, -0.3f, (Grid.Height - 1) * 0.5f),
-                new Vector3(Grid.Width + 200f, 0.5f, Grid.Height + 200f), new Color(0.24f, 0.4f, 0.19f));
         }
 
-        // A low stone wall on the outermost ring of tiles.
-        void BuildWalls()
+        /// A low wall on a region's outermost ring of tiles.
+        public void BuildWalls(RectInt region, Color? colour = null)
         {
-            int w = Grid.Width, h = Grid.Height;
-            for (int x = 0; x < w; x++)
+            int x0 = region.x, z0 = region.y, x1 = region.xMax - 1, z1 = region.yMax - 1;
+            for (int x = x0; x <= x1; x++)
             {
-                Grid.SetBlocked(new Tile(x, 0), true);
-                Grid.SetBlocked(new Tile(x, h - 1), true);
+                Grid.SetBlocked(new Tile(x, z0), true);
+                Grid.SetBlocked(new Tile(x, z1), true);
             }
-            for (int z = 0; z < h; z++)
+            for (int z = z0; z <= z1; z++)
             {
-                Grid.SetBlocked(new Tile(0, z), true);
-                Grid.SetBlocked(new Tile(w - 1, z), true);
+                Grid.SetBlocked(new Tile(x0, z), true);
+                Grid.SetBlocked(new Tile(x1, z), true);
             }
-            var stone = new Color(0.55f, 0.55f, 0.58f);
+            var stone = colour ?? new Color(0.55f, 0.55f, 0.58f);
             const float height = 0.8f;
-            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3((w - 1) * 0.5f, height / 2, 0f), new Vector3(w, height, 1f), stone, true);
-            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3((w - 1) * 0.5f, height / 2, h - 1), new Vector3(w, height, 1f), stone, true);
-            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(0f, height / 2, (h - 1) * 0.5f), new Vector3(1f, height, h - 2), stone, true);
-            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(w - 1, height / 2, (h - 1) * 0.5f), new Vector3(1f, height, h - 2), stone, true);
+            float w = region.width, h = region.height, cx = x0 + (w - 1) * 0.5f, cz = z0 + (h - 1) * 0.5f;
+            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(cx, height / 2, z0), new Vector3(w, height, 1f), stone, true);
+            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(cx, height / 2, z1), new Vector3(w, height, 1f), stone, true);
+            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(x0, height / 2, cz), new Vector3(1f, height, h - 2), stone, true);
+            Visuals.Prim(PrimitiveType.Cube, transform, new Vector3(x1, height / 2, cz), new Vector3(1f, height, h - 2), stone, true);
         }
 
         public void AddLabel(Vector3 position, string text, Color color)

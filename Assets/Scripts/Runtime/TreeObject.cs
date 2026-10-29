@@ -51,19 +51,27 @@ namespace Epacenur.Runtime
             Visuals.Prim(PrimitiveType.Sphere, crown, new Vector3(0.45f, -0.1f, 0.3f), new Vector3(1.2f, 1.1f, 1.2f), leafDark);
             Visuals.Prim(PrimitiveType.Sphere, crown, new Vector3(-0.4f, 0.05f, -0.35f), new Vector3(1.25f, 1.1f, 1.25f), leafDark);
 
-            stump = new GameObject("Stump");
-            stump.transform.SetParent(transform, false);
-            Visuals.Prim(PrimitiveType.Cylinder, stump.transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.42f, 0.18f, 0.42f), bark);
-            Visuals.Prim(PrimitiveType.Cylinder, stump.transform, new Vector3(0f, 0.365f, 0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.78f, 0.64f, 0.42f));
 
             // One collider for clicking (tile mode), aiming (first person) and blocking WASD movement.
             hitbox = gameObject.AddComponent<CapsuleCollider>();
             hitbox.radius = 0.45f;
         }
 
+        // The stump is only built the first time the tree is chopped down (there are a lot of trees).
+        void BuildStump()
+        {
+            var bark = Visuals.Rgb(Def.TrunkR, Def.TrunkG, Def.TrunkB);
+            stump = new GameObject("Stump");
+            stump.transform.SetParent(transform, false);
+            Visuals.Prim(PrimitiveType.Cylinder, stump.transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.42f, 0.18f, 0.42f), bark);
+            Visuals.Prim(PrimitiveType.Cylinder, stump.transform, new Vector3(0f, 0.365f, 0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.78f, 0.64f, 0.42f));
+        }
+
         /// Chopped down: becomes a stump.
         void Fell()
         {
+            if (stump == null)
+                BuildStump();
             IsStump = true;
             LivesLeft = 0;
             alive.SetActive(false);
@@ -78,7 +86,8 @@ namespace Epacenur.Runtime
             IsStump = false;
             LivesLeft = rng.Next(Def.MinLives, Def.MaxLives + 1);
             alive.SetActive(true);
-            stump.SetActive(false);
+            if (stump != null)
+                stump.SetActive(false);
             hitbox.height = 3.6f;
             hitbox.center = new Vector3(0f, 1.8f, 0f);
         }

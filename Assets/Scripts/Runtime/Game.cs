@@ -84,15 +84,16 @@ namespace Epacenur.Runtime
 
             if (SaveGame.Load(this))
             {
-                GameLog.Add("Welcome back to the Epacenur dev area.");
+                GameLog.Add("Welcome back to Epacenur.");
             }
             else
             {
                 Inventory.Add(ItemDefs.Coins.Id, 100);  // pocket money for the shop
                 ToolBelt.Add(ItemDefs.BronzeHatchet.Id); // so you can chop straight away
-                GameLog.Add("Welcome to the Epacenur dev area.");
+                GameLog.Add("Welcome to Epacenur.");
             }
-            GameLog.Add("Click a tree to chop it. V switches to first person, F1 opens the dev tools.");
+            GameLog.Add("The bank, general store and chapel are round the town square. V switches to first person.");
+            GameLog.Add("F1 opens the dev tools, with a teleport to the dev plot for testing skills.");
             nextSave = Time.time + 15f;
         }
 

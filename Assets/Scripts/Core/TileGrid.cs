@@ -146,9 +146,16 @@ namespace Epacenur.Core
                     int p = (i - 1) / 2;
                     if (items[p].Key <= items[i].Key)
                         break;
-                    (items[p], items[i]) = (items[i], items[p]);
+                    Swap(p, i);
                     i = p;
                 }
+            }
+
+            void Swap(int a, int b)
+            {
+                var t = items[a];
+                items[a] = items[b];
+                items[b] = t;
             }
 
             public Tile Pop()
@@ -165,7 +172,7 @@ namespace Epacenur.Core
                     if (r < items.Count && items[r].Key < items[m].Key) m = r;
                     if (m == i)
                         break;
-                    (items[m], items[i]) = (items[i], items[m]);
+                    Swap(m, i);
                     i = m;
                 }
                 return top;

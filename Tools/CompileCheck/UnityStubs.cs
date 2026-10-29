@@ -25,7 +25,7 @@ namespace UnityEngine
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
         public static bool operator ==(Vector3 a, Vector3 b) => true; public static bool operator !=(Vector3 a, Vector3 b) => true;
         public override bool Equals(object o) => true; public override int GetHashCode() => 0;
-        public static Vector3 ClampMagnitude(Vector3 v, float m) => v; public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a; }
+        public static Vector3 operator -(Vector3 a) => a; public static Vector3 ClampMagnitude(Vector3 v, float m) => v; public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a; }
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
@@ -33,7 +33,8 @@ namespace UnityEngine
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); }
     public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Vector2 center => default(Vector2); public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
-    public struct RectInt { public int x, y, width, height; public int xMax => 0; public int yMax => 0; public RectInt(int x, int y, int w, int h) { this.x = x; this.y = y; width = w; height = h; } }
+    public struct Vector2Int { public int x, y; public Vector2Int(int x, int y) { this.x = x; this.y = y; } }
+    public struct RectInt { public bool Contains(Vector2Int p) => true; public int x, y, width, height; public int xMax => 0; public int yMax => 0; public RectInt(int x, int y, int w, int h) { this.x = x; this.y = y; width = w; height = h; } }
     public struct Ray { public Ray(Vector3 o, Vector3 d) { } }
     public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
     public static class Physics { public static RaycastHit[] RaycastAll(Ray r, float d) => null; public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
@@ -69,7 +70,7 @@ namespace UnityEngine
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
     public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void Apply() { } }
-    public class Material : Object { public Material(Material m) { } public Color color; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
+    public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
     public sealed class BoxCollider : Collider { public Vector3 center, size; }
     public sealed class CapsuleCollider : Collider { public float radius, height; public Vector3 center; }

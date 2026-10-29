@@ -32,6 +32,13 @@ namespace Epacenur.Runtime
             return npc;
         }
 
+        /// Which way it stands when nobody's close (towards the shop door).
+        public void SetFacing(Quaternion rotation)
+        {
+            facing = rotation;
+            transform.rotation = rotation;
+        }
+
         void BuildModel()
         {
             var t = transform;
