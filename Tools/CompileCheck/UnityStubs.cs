@@ -34,15 +34,15 @@ namespace UnityEngine
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); }
     public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
     public struct RectInt { public int x, y, width, height; public int xMax => 0; public int yMax => 0; public RectInt(int x, int y, int w, int h) { this.x = x; this.y = y; width = w; height = h; } }
-    public struct Ray { }
-    public struct RaycastHit { public Collider collider; public Vector3 point; }
-    public static class Physics { public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
+    public struct Ray { public Ray(Vector3 o, Vector3 d) { } }
+    public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
+    public static class Physics { public static RaycastHit[] RaycastAll(Ray r, float d) => null; public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
         public static bool Raycast(Vector3 o, Vector3 dir, out RaycastHit h, float d) { h = default(RaycastHit); return false; } }
     public static class Mathf { public const float Deg2Rad = 0f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; }
-    public static class Time { public static float time, deltaTime; }
+    public static class Time { public static float time, deltaTime; public static int frameCount; }
     public static class Screen { public static int width, height; }
     public static class Application { public static int targetFrameRate; }
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
@@ -79,7 +79,9 @@ namespace UnityEngine
     public enum FontStyle { Normal, Bold }
     public enum TextAnchor { UpperRight, MiddleCenter }
     public class GUIStyleState { public Color textColor; }
-    public class GUIStyle { public GUIStyle(GUIStyle o) { } public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
+    public class RectOffset { public RectOffset(int l, int r, int t, int b) { } }
+    public class GUIContent { public GUIContent(string s) { } }
+    public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding; public Vector2 CalcSize(GUIContent c) => default(Vector2); public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
     public class GUISkin { public GUIStyle label, button; }
     public delegate void WindowFunction(int id);
     public static class GUI { public static Matrix4x4 matrix; public static Color color; public static GUISkin skin; public static void DrawTexture(Rect r, Texture t) { }
@@ -88,7 +90,7 @@ namespace UnityEngine
     public class GUILayoutOption { }
     public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
         public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
-    public enum EventType { MouseDown, Repaint }
+    public enum EventType { MouseDown, MouseMove, Repaint }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public void Use() { } }
 }
 namespace UnityEngine.Rendering

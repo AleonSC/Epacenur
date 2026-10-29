@@ -22,9 +22,8 @@ namespace Epacenur.Runtime
         public const float EyeHeight = 1.6f;
 
         public ViewMode Mode { get; private set; } = ViewMode.Tile;
-        /// What the mouse is over, RuneScape style ("Chop down Tree", "Walk here"), for the HUD.
-        public string HoverAction { get; private set; } = "";
-        public string HoverTarget { get; private set; } = "";
+        /// What left-click would do, RuneScape style ("Chop down Tree / 2 more options"), for the HUD.
+        public string HoverText { get; private set; } = "";
         /// First person: whether the crosshair is on something close enough to use (a tree, a bank booth, an NPC).
         public bool AimingAtTarget { get; private set; }
         public bool SwingReady => swingCooldown <= 0f;
@@ -201,7 +200,14 @@ namespace Epacenur.Runtime
 
         Vector3 UpdateTileMode(float dt)
         {
-            UpdateHover(out Component hover, out Tile? hoverTile);
+            bool overUi = G.Hud.IsMouseOverUi() || G.Hud.MenuOpen;
+            Tile? hoverTile = null;
+            var options = overUi ? new List<MenuOption>() : WorldOptions(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), false, out _, out hoverTile);
+            SetHoverText(options);
+            hoverMarker.SetActive(hoverTile.HasValue && !overUi);
+            if (hoverTile.HasValue)
+                hoverMarker.transform.position = World.TileCenter(hoverTile.Value);
+
             Vector3 wasd = ReadWasd();
             if (wasd != Vector3.zero)
             {
@@ -211,19 +217,11 @@ namespace Epacenur.Runtime
                 return wasd * WasdSpeed * dt;
             }
 
-            if (Input.GetMouseButtonDown(0) && !G.Hud.IsMouseOverUi())
-            {
-                if (hover is TreeObject tree)
-                    WalkToTree(tree);
-                else if (hover is Interactable thing)
-                    WalkToObject(thing);
-                else if (hover is Npc npc)
-                    StartAttack(npc);
-                else if (hover is GroundItem item)
-                    WalkToItem(item);
-                else if (hoverTile.HasValue)
-                    WalkTo(hoverTile.Value);
-            }
+            // Left-click does the top option; right-click lists them all.
+            if (!overUi && Input.GetMouseButtonDown(0) && options.Count > 0)
+                options[0].Run();
+            else if (!overUi && Input.GetMouseButtonDown(1))
+                G.Hud.OpenMenu(options, false);
 
             if (attackTarget != null)
                 return UpdateAttack(dt);
@@ -240,58 +238,114 @@ namespace Epacenur.Runtime
             return Vector3.zero;
         }
 
-        /// What's under the mouse: a tree, an Interactable, an Npc, a GroundItem, or null for plain ground.
-        void UpdateHover(out Component hover, out Tile? tile)
+        void SetHoverText(List<MenuOption> options)
         {
-            hover = null;
-            tile = null;
-            HoverAction = HoverTarget = "";
-            AimingAtTarget = false;
-            if (G.Hud.IsMouseOverUi() || !Physics.Raycast(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), out RaycastHit hit, 500f))
-            {
-                hoverMarker.SetActive(false);
-                return;
-            }
-            var tree = hit.collider.GetComponentInParent<TreeObject>();
-            var thing = hit.collider.GetComponentInParent<Interactable>();
-            var npc = hit.collider.GetComponentInParent<Npc>();
-            var item = hit.collider.GetComponentInParent<GroundItem>();
-            if (thing != null)
-            {
-                hover = thing;
-                tile = thing.Tile;
-                HoverAction = thing.Action;
-                HoverTarget = thing.DisplayName;
-            }
-            else if (npc != null && !npc.IsDead)
-            {
-                hover = npc;
-                tile = npc.Tile;
-                HoverAction = "Attack";
-                HoverTarget = npc.HoverName;
-            }
-            else if (item != null)
-            {
-                hover = item;
-                tile = item.Tile;
-                HoverAction = "Take";
-                HoverTarget = item.Label;
-            }
-            else if (tree != null)
-            {
-                tile = tree.Tile;
-                HoverAction = tree.IsStump ? "Walk here" : "Chop down";
-                HoverTarget = tree.IsStump ? "" : tree.Def.Name;
-                if (!tree.IsStump)
-                    hover = tree;  // clicking a stump just walks over to it
-            }
+            if (options.Count == 0)
+                HoverText = "";
             else
+                HoverText = options[0].Text + (options.Count > 1 ? " <color=#ffffff>/ " + (options.Count - 1) + " more option" + (options.Count > 2 ? "s" : "") + "</color>" : "");
+        }
+
+        /// Every option for what a ray passes through, in RuneScape's order: each thing's main action
+        /// (nearest first), "Take" for items on the tile, "Walk here" (tile mode), then "Examine" for each.
+        /// The first option is what left-click does. First person only lists things within reach.
+        List<MenuOption> WorldOptions(Ray ray, bool firstPerson, out Component first, out Tile? tile)
+        {
+            var options = new List<MenuOption>();
+            var examines = new List<MenuOption>();
+            var seen = new List<Component>();
+            first = null;
+            tile = null;
+            var hits = Physics.RaycastAll(ray, firstPerson ? FirstPersonReach + 1.5f : 500f);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            foreach (var hit in hits)
             {
-                tile = World.TileAt(hit.point);
-                HoverAction = "Walk here";
+                Component thing = hit.collider.GetComponentInParent<Interactable>();
+                if (thing == null) thing = hit.collider.GetComponentInParent<Npc>();
+                if (thing == null) thing = hit.collider.GetComponentInParent<GroundItem>();
+                if (thing == null) thing = hit.collider.GetComponentInParent<TreeObject>();
+                if (thing == null)
+                {
+                    // The ground (or a wall): the tile you'd walk to. Nothing behind it counts.
+                    tile = World.TileAt(hit.point);
+                    break;
+                }
+                if (seen.Contains(thing) || (firstPerson && !InReach(thing)))
+                    continue;
+                seen.Add(thing);
+                AddOptions(thing, firstPerson, options, examines);
+                if (first == null && !(thing is Npc n && n.IsDead))
+                    first = thing;
+                if (!tile.HasValue)
+                    tile = TileOf(thing);
             }
-            hoverMarker.SetActive(true);
-            hoverMarker.transform.position = World.TileCenter(tile.Value);
+
+            // Items lying on the tile, even ones the ray missed.
+            if (!firstPerson && tile.HasValue)
+                foreach (var item in G.World.GroundItems)
+                    if (item.Tile == tile.Value && !seen.Contains(item))
+                    {
+                        seen.Add(item);
+                        AddOptions(item, false, options, examines);
+                    }
+
+            if (!firstPerson && tile.HasValue)
+            {
+                Tile walkTo = tile.Value;
+                options.Add(new MenuOption("Walk here", "", () => WalkTo(walkTo)));
+            }
+            options.AddRange(examines);
+            return options;
+        }
+
+        void AddOptions(Component thing, bool firstPerson, List<MenuOption> options, List<MenuOption> examines)
+        {
+            if (thing is Interactable obj)
+            {
+                string name = MenuOption.Thing(obj.DisplayName);
+                options.Add(new MenuOption(obj.Action, name, () => { if (firstPerson) obj.Interact(); else WalkToObject(obj); }));
+                examines.Add(new MenuOption("Examine", name, () => GameLog.Add(obj.Examine)));
+            }
+            else if (thing is Npc npc)
+            {
+                if (npc.IsDead)
+                    return;
+                string name = MenuOption.Npc(npc.HoverName);
+                options.Add(new MenuOption("Attack", name, () => { if (firstPerson) FirstPersonAttack(npc); else StartAttack(npc); }));
+                examines.Add(new MenuOption("Examine", MenuOption.Npc(npc.Def.Name), () => GameLog.Add(npc.Def.Examine)));
+            }
+            else if (thing is GroundItem item)
+            {
+                string name = MenuOption.Item(item.Label);
+                options.Add(new MenuOption("Take", name, () => { if (firstPerson) PickUp(item); else WalkToItem(item); }));
+                examines.Add(new MenuOption("Examine", MenuOption.Item(item.Def.Name), () => GameLog.Add(item.Def.Examine)));
+            }
+            else if (thing is TreeObject tree)
+            {
+                if (tree.IsStump)
+                {
+                    examines.Add(new MenuOption("Examine", MenuOption.Thing("Tree stump"), () => GameLog.Add(tree.Def.StumpExamine)));
+                    return;
+                }
+                string name = MenuOption.Thing(tree.Def.Name);
+                options.Add(new MenuOption("Chop down", name, () => { if (firstPerson) FirstPersonChop(tree); else WalkToTree(tree); }));
+                examines.Add(new MenuOption("Examine", name, () => GameLog.Add(tree.Def.Examine)));
+            }
+        }
+
+        static Tile TileOf(Component thing)
+        {
+            if (thing is Interactable obj) return obj.Tile;
+            if (thing is Npc npc) return npc.Tile;
+            if (thing is GroundItem item) return item.Tile;
+            return ((TreeObject)thing).Tile;
+        }
+
+        bool InReach(Component thing)
+        {
+            Vector3 d = thing.transform.position - transform.position;
+            d.y = 0f;
+            return d.magnitude <= FirstPersonReach;
         }
 
         void WalkTo(Tile tile)
@@ -342,6 +396,8 @@ namespace Epacenur.Runtime
         void WalkToItem(GroundItem item)
         {
             CancelAction();
+            if (item == null)
+                return;  // gone since the menu opened
             targetItem = item;
             SetPath(Pathfinder.PathTo(G.World.Grid, StartTile(), item.Tile));
         }
@@ -362,6 +418,8 @@ namespace Epacenur.Runtime
 
         void PickUp(GroundItem item)
         {
+            if (item == null)
+                return;
             if (!G.Inventory.HasRoomFor(item.ItemId))
             {
                 GameLog.Add("You don't have enough inventory space to hold that item.");
@@ -476,98 +534,62 @@ namespace Epacenur.Runtime
         Vector3 UpdateFirstPerson(float dt)
         {
             transform.rotation = Quaternion.Euler(0f, G.Rig.Yaw, 0f);
-            HoverAction = HoverTarget = "";
-            Component aimedAt = AimedObject();
-            var aimed = aimedAt as TreeObject;
-            var aimedObject = aimedAt as Interactable;
-            var aimedNpc = aimedAt as Npc;
-            var aimedItem = aimedAt as GroundItem;
-            AimingAtTarget = aimedAt != null;
-            if (aimed != null)
-            {
-                HoverAction = "Chop down";
-                HoverTarget = aimed.Def.Name;
-            }
-            else if (aimedObject != null)
-            {
-                HoverAction = aimedObject.Action;
-                HoverTarget = aimedObject.DisplayName;
-            }
-            else if (aimedNpc != null)
-            {
-                HoverAction = "Attack";
-                HoverTarget = aimedNpc.HoverName;
-            }
-            else if (aimedItem != null)
-            {
-                HoverAction = "Take";
-                HoverTarget = aimedItem.Label;
-            }
-            FirstPersonTool = aimed == null && G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Sword : HeldTool.Axe;
+            var cam = G.Rig.Cam.transform;
+            bool free = Cursor.lockState != CursorLockMode.Locked;
+            Component aimed = null;
+            var options = free || G.Hud.MenuOpen ? new List<MenuOption>() : WorldOptions(new Ray(cam.position, cam.forward), true, out aimed, out _);
+            SetHoverText(options);
+            // A stump only has Examine: clicking it should still swing, so it doesn't count as a target.
+            bool hasAction = options.Count > 0 && options[0].Action != "Examine";
+            AimingAtTarget = hasAction;
+            FirstPersonTool = (aimed is TreeObject) || !G.Equipment.IsWearing(EquipSlot.Weapon) ? HeldTool.Axe : HeldTool.Sword;
 
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen)
             {
-                if (Cursor.lockState != CursorLockMode.Locked)
+                if (free)
                 {
                     if (!G.Hud.IsMouseOverUi())
                         G.Rig.LockCursor(true);  // this click only grabs the mouse
                 }
-                else if (aimedObject != null)
+                else if (hasAction)
                 {
-                    aimedObject.Interact();
-                }
-                else if (aimedItem != null)
-                {
-                    PickUp(aimedItem);
-                }
-                else if (aimedNpc != null)
-                {
-                    // One attack per click, no faster than the weapon's speed.
-                    if (swingCooldown <= 0f && CanFight())
-                    {
-                        swingCooldown = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
-                        SwingT = 1f;
-                        aimedNpc.Engage(transform.position);
-                        Attack(aimedNpc);
-                    }
+                    options[0].Run();
                 }
                 else if (swingCooldown <= 0f)
                 {
                     swingCooldown = WoodcuttingRules.FirstPersonSwingTicks * WoodcuttingRules.TickSeconds;
-                    SwingT = 1f;
-                    if (aimed != null && CanChop(aimed))
-                        Chop(aimed);
+                    SwingT = 1f;  // a swing at thin air
                 }
+            }
+            else if (Input.GetMouseButtonDown(1) && !free && options.Count > 0)
+            {
+                // The menu needs the mouse: free it, and grab it again once something is chosen.
+                G.Rig.LockCursor(false);
+                G.Hud.OpenMenu(options, true);
             }
             return ReadWasd() * WasdSpeed * dt;
         }
 
-        /// What's under the crosshair and within reach: a standing tree, an Interactable, a live Npc or a GroundItem.
-        Component AimedObject()
+        /// First person: one chop per click, no faster than a swing.
+        void FirstPersonChop(TreeObject tree)
         {
-            var cam = G.Rig.Cam.transform;
-            if (!Physics.Raycast(cam.position, cam.forward, out RaycastHit hit, FirstPersonReach + 1.5f))
-                return null;
-            Component thing = hit.collider.GetComponentInParent<Interactable>();
-            if (thing == null)
-            {
-                var npc = hit.collider.GetComponentInParent<Npc>();
-                if (npc != null && !npc.IsDead)
-                    thing = npc;
-            }
-            if (thing == null)
-                thing = hit.collider.GetComponentInParent<GroundItem>();
-            if (thing == null)
-            {
-                var tree = hit.collider.GetComponentInParent<TreeObject>();
-                if (tree != null && !tree.IsStump)
-                    thing = tree;
-            }
-            if (thing == null)
-                return null;
-            Vector3 d = thing.transform.position - transform.position;
-            d.y = 0f;
-            return d.magnitude <= FirstPersonReach ? thing : null;
+            if (swingCooldown > 0f)
+                return;
+            swingCooldown = WoodcuttingRules.FirstPersonSwingTicks * WoodcuttingRules.TickSeconds;
+            SwingT = 1f;
+            if (CanChop(tree))
+                Chop(tree);
+        }
+
+        /// First person: one attack per click, no faster than the weapon's speed.
+        void FirstPersonAttack(Npc npc)
+        {
+            if (swingCooldown > 0f || npc.IsDead || !CanFight())
+                return;
+            swingCooldown = G.Equipment.AttackTicks * WoodcuttingRules.TickSeconds;
+            SwingT = 1f;
+            npc.Engage(transform.position);
+            Attack(npc);
         }
 
         // ---- Woodcutting (both modes) ----

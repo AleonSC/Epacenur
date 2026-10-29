@@ -36,6 +36,7 @@ namespace Epacenur.Runtime
         UnityEngine.Vector2 bankScroll;
         bool showDev, showHelp = true;
         int devSkill;  // which skill the dev tools' level buttons change
+        readonly OptionMenu menu = new OptionMenu();
         int selectedSlot = -1;
         Rect devRect = new Rect(0f, 0f, 300f, 10f);
         bool devPlaced;
@@ -92,13 +93,22 @@ namespace Epacenur.Runtime
 
         public void CloseWindow() => openAt = null;
 
+        public bool MenuOpen => menu.IsOpen;
+        Vector2 MouseGui => new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
+
+        /// Opens the right-click menu at the mouse (or mid-screen in first person, where relock is true).
+        public void OpenMenu(List<MenuOption> options, bool relock)
+        {
+            menu.Open(options, relock ? new Vector2(W / 2f, H / 2f) : MouseGui, new Vector2(W, H), relock);
+        }
+
         /// Whether the mouse is over a panel (so clicks there don't walk or chop).
         public bool IsMouseOverUi()
         {
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
-            return PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
+            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
         }
 
         public void AddXpDrop(SkillId skill, BigInteger tenths)
@@ -131,6 +141,7 @@ namespace Epacenur.Runtime
         {
             MakeStyles();
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
+            menu.HandleInput();  // before anything else, so a click on the menu goes nowhere else
             DrawWorldLabels();
             DrawCombatOverlays();
             DrawTopLeft();
@@ -153,9 +164,10 @@ namespace Epacenur.Runtime
                 }
                 devRect = GUILayout.Window(1, devRect, DrawDevWindow, "Dev tools (F1)");
             }
+            menu.Draw();
         }
 
-        static void Fill(Rect r, Color c)
+        public static void Fill(Rect r, Color c)
         {
             var old = GUI.color;
             GUI.color = c;
@@ -195,12 +207,11 @@ namespace Epacenur.Runtime
         void DrawTopLeft()
         {
             var p = G.Player;
-            string action = p.HoverAction;
-            if (action.Length > 0 && p.HoverTarget.Length > 0)
-                action += " <color=#ffff00>" + p.HoverTarget + "</color>";
-            if (p.IsChopping)
+            // What left-click does, e.g. "Attack Goblin (level-2) / 2 more options".
+            string action = p.HoverText;
+            if (action.Length == 0 && p.IsChopping)
                 action = "Woodcutting...";
-            else if (p.IsFighting)
+            else if (action.Length == 0 && p.IsFighting)
                 action = "Fighting...";
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
@@ -209,8 +220,8 @@ namespace Epacenur.Runtime
             if (!showHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nClick a sword or shield: wield it\nRight- or shift-click an item: drop it\nF1: dev tools"
-                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nClick a sword or shield: wield it\nRight- or shift-click an item: drop it\nF1: dev tools";
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools"
+                : "Mouse: look    WASD: walk\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\nClick a sword or shield: wield it.  Shift-click an item: drop it\nF1: dev tools";
             Shadowed(new Rect(10f, 50f, 440f, 130f), help, small);
         }
 
@@ -306,29 +317,32 @@ namespace Epacenur.Runtime
                         tooltip = stack.Def.Name;
                 }
 
-                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && BankOpen)
+                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && e.button == 1)
                 {
-                    // With the bank open, clicking an item deposits it (right- or shift-click: all of it).
                     if (!stack.IsEmpty)
-                        G.Bank.Deposit(inv, stack.ItemId, e.button == 1 || e.shift ? int.MaxValue : bankAmount);
+                        OpenMenu(InventoryOptions(i, stack), false);
+                    e.Use();
+                }
+                else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && BankOpen)
+                {
+                    // With the bank open, clicking an item deposits it (shift-click: all of it).
+                    if (!stack.IsEmpty)
+                        G.Bank.Deposit(inv, stack.ItemId, e.shift ? int.MaxValue : bankAmount);
                     e.Use();
                 }
                 else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && ShopOpen)
                 {
-                    // With a shop open, clicking an item sells it; right-click tells you what it would get.
+                    // With a shop open, clicking an item sells it (shift-click: all of it).
                     if (!stack.IsEmpty)
-                        SellToShop(stack.Def, e.button == 1 ? 0 : e.shift ? int.MaxValue : shopAmount);
+                        SellToShop(stack.Def, e.shift ? int.MaxValue : shopAmount);
                     e.Use();
                 }
                 else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
                 {
-                    bool drop = e.button == 1 || e.shift;
+                    bool drop = e.shift;
                     if (drop && !stack.IsEmpty)
                     {
-                        // It lands on the ground under you.
-                        inv.RemoveAt(i);
-                        G.World.SpawnGroundItem(stack.ItemId, stack.Count, World.TileAt(G.Player.transform.position));
-                        selectedSlot = -1;
+                        Drop(i);
                     }
                     else if (!drop)
                     {
@@ -349,6 +363,117 @@ namespace Epacenur.Runtime
             }
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 200f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        // ---- Right-click options for items in the panel and windows ----
+
+        List<MenuOption> InventoryOptions(int slot, ItemStack stack)
+        {
+            var def = stack.Def;
+            string name = MenuOption.Item(def.Name);
+            var o = new List<MenuOption>();
+            if (BankOpen)
+            {
+                foreach (int a in BankAmounts)
+                {
+                    int n = a;
+                    o.Add(new MenuOption("Deposit-" + (n == int.MaxValue ? "All" : n.ToString()), name, () => G.Bank.Deposit(G.Inventory, def.Id, n)));
+                }
+            }
+            else if (ShopOpen)
+            {
+                o.Add(new MenuOption("Value", name, () => SellToShop(def, 0)));
+                foreach (int a in ShopAmounts)
+                {
+                    int n = a;
+                    o.Add(new MenuOption("Sell " + n, name, () => SellToShop(def, n)));
+                }
+            }
+            else
+            {
+                if (def.Slot != EquipSlot.None)
+                    o.Add(new MenuOption(def.Slot == EquipSlot.Weapon ? "Wield" : "Wear", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                o.Add(new MenuOption("Drop", name, () =>
+                {
+                    if (G.Inventory[slot].ItemId == def.Id)
+                        Drop(slot);
+                }));
+            }
+            o.Add(new MenuOption("Examine", name, () => GameLog.Add(def.Examine)));
+            return o;
+        }
+
+        /// Drops an inventory slot's items on the ground under you.
+        void Drop(int slot)
+        {
+            var stack = G.Inventory[slot];
+            if (stack.IsEmpty)
+                return;
+            G.Inventory.RemoveAt(slot);
+            G.World.SpawnGroundItem(stack.ItemId, stack.Count, World.TileAt(G.Player.transform.position));
+            selectedSlot = -1;
+        }
+
+        List<MenuOption> BankOptions(BankSlot s)
+        {
+            var def = s.Def;
+            string name = MenuOption.Item(def.Name);
+            var o = new List<MenuOption>();
+            foreach (int a in BankAmounts)
+            {
+                long n = a == int.MaxValue ? long.MaxValue : a;
+                o.Add(new MenuOption("Withdraw-" + (a == int.MaxValue ? "All" : a.ToString()), name, () => Withdraw(def.Id, n)));
+            }
+            o.Add(new MenuOption("Examine", name, () => GameLog.Add(def.Examine)));
+            return o;
+        }
+
+        void Withdraw(int itemId, long amount)
+        {
+            int index = G.Bank.IndexOf(itemId);
+            if (index >= 0 && G.Bank.Withdraw(G.Inventory, index, amount) == 0 && G.Inventory.IsFull)
+                GameLog.Add("You don't have enough inventory space.");
+        }
+
+        List<MenuOption> ShopOptions(Shop shop, ShopItem item)
+        {
+            var def = item.Def;
+            string name = MenuOption.Item(def.Name);
+            var o = new List<MenuOption> { new MenuOption("Value", name, () => GameLog.Add(def.Name + ": currently costs " + Shop.BuyPrice(def) + " coins.")) };
+            foreach (int a in ShopAmounts)
+            {
+                int n = a;
+                o.Add(new MenuOption("Buy " + n, name, () => Buy(shop, def.Id, n)));
+            }
+            o.Add(new MenuOption("Examine", name, () => GameLog.Add(def.Examine)));
+            return o;
+        }
+
+        void Buy(Shop shop, int itemId, int amount)
+        {
+            int index = shop.Items.FindIndex(it => it.ItemId == itemId);
+            if (index >= 0 && shop.Buy(G.Inventory, index, amount, out string problem) < amount && problem != null)
+                GameLog.Add(problem);
+        }
+
+        List<MenuOption> EquipOptions(EquipSlot slot, ItemDef def)
+        {
+            string name = MenuOption.Item(def.Name);
+            return new List<MenuOption>
+            {
+                new MenuOption("Remove", name, () => Unequip(slot)),
+                new MenuOption("Examine", name, () => GameLog.Add(def.Examine)),
+            };
+        }
+
+        void Unequip(EquipSlot slot)
+        {
+            if (!G.Equipment.Unequip(slot, G.Inventory))
+                GameLog.Add("You don't have enough free inventory space to do that.");
         }
 
         // ---- Equipment ----
@@ -408,8 +533,10 @@ namespace Epacenur.Runtime
                         tooltip = "Remove " + worn.Def.Name;
                     if (e.type == EventType.MouseDown && r.Contains(e.mousePosition))
                     {
-                        if (!eq.Unequip(slot, G.Inventory))
-                            GameLog.Add("You don't have enough free inventory space to do that.");
+                        if (e.button == 1)
+                            OpenMenu(EquipOptions(slot, worn.Def), false);
+                        else
+                            Unequip(slot);
                         e.Use();
                     }
                 }
@@ -491,8 +618,13 @@ namespace Epacenur.Runtime
                     tooltip = s.Def.Name + " x " + Experience.Format(s.Count);
                 if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
                 {
-                    withdrawSlot = i;  // withdraw after the loop, so the slot list doesn't change mid-draw
-                    withdrawAmount = e.button == 1 || e.shift ? long.MaxValue : bankAmount;
+                    if (e.button == 1)
+                        OpenMenu(BankOptions(s), false);
+                    else
+                    {
+                        withdrawSlot = i;  // withdraw after the loop, so the slot list doesn't change mid-draw
+                        withdrawAmount = e.shift ? long.MaxValue : bankAmount;
+                    }
                     e.Use();
                 }
             }
@@ -514,7 +646,7 @@ namespace Epacenur.Runtime
             if (GUI.Button(new Rect(r.x + Pad, y + 28f, 150f, 24f), "Deposit inventory"))
                 bank.DepositAll(G.Inventory);
             GUI.Label(new Rect(r.x + Pad + 160f, y + 26f, r.width - Pad * 2 - 160f, 50f),
-                "Click: withdraw / deposit that many\nRight- or shift-click: all of it", small);
+                "Click: withdraw / deposit that many\nShift-click: all of it. Right-click: options", small);
 
             if (tooltip != null && new Rect(view.x, view.y, view.width, view.height).Contains(e.mousePosition))
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 260f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
@@ -554,8 +686,13 @@ namespace Epacenur.Runtime
                     tooltip = item.Def.Name + ": " + price + " coins (" + item.Stock + " in stock)";
                 if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
                 {
-                    buyIndex = i;  // buy after the loop, so the stock list doesn't change mid-draw
-                    buyAmount = e.button == 1 ? 0 : e.shift ? 50 : shopAmount;
+                    if (e.button == 1)
+                        OpenMenu(ShopOptions(shop, item), false);
+                    else
+                    {
+                        buyIndex = i;  // buy after the loop, so the stock list doesn't change mid-draw
+                        buyAmount = e.shift ? 50 : shopAmount;
+                    }
                     e.Use();
                 }
             }
@@ -563,9 +700,7 @@ namespace Epacenur.Runtime
             if (buyIndex >= 0)
             {
                 var def = shop.Items[buyIndex].Def;
-                if (buyAmount == 0)
-                    GameLog.Add(def.Name + ": currently costs " + Shop.BuyPrice(def) + " coins.");
-                else if (shop.Buy(G.Inventory, buyIndex, buyAmount, out string problem) < buyAmount && problem != null)
+                if (shop.Buy(G.Inventory, buyIndex, buyAmount, out string problem) < buyAmount && problem != null)
                     GameLog.Add(problem);
             }
 
@@ -579,7 +714,7 @@ namespace Epacenur.Runtime
             }
             Shadowed(new Rect(r.x + Pad, y + 28f, 160f, 22f), "Your coins: <color=#ffff00>" + Experience.Format(G.Inventory.Count(ItemDefs.Coins.Id)) + "</color>", label);
             GUI.Label(new Rect(r.x + Pad + 160f, y + 26f, r.width - Pad * 2 - 160f, 50f),
-                "Click: buy / sell that many\nRight-click: price. Your items: click to sell", small);
+                "Click: buy / sell that many. Shift: 50 / all\nRight-click: options. Your items: click to sell", small);
 
             if (tooltip != null && view.Contains(e.mousePosition))
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 300f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);

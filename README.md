@@ -31,9 +31,15 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 | Pick up an item on the ground | Left-click it ("Take"): you walk onto its tile and pick it up | Look at it and left-click (within reach) |
 | Switch view | **V** | **V** |
 
+- **Right-click menu**: right-click anything for RuneScape's "Choose Option" menu, listing every option for
+  what's under the cursor, e.g. *Attack Goblin (level-2)*, *Take Coins (12)*, *Walk here*, *Examine Goblin*, *Cancel*.
+  Items lying on the tile are all listed. The top option is what left-click does, and the top-left text shows it
+  ("Chop down Tree / 2 more options"). Inventory items get Wield / Wear, Drop and Examine. Worn items get Remove and Examine.
+  In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
+  once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
 - **Panel tabs**: **Items** (inventory), **Worn** (equipment) and **Skills**.
 - **Inventory**: 28 slots, one log per slot. Click a sword or shield to wield it. Click any other item and then another
-  slot to swap them. Right-click or shift-click an item to **drop it on the ground**.
+  slot to swap them. Shift-click an item to **drop it on the ground** (or use Drop in its right-click menu).
 - **Skills** tab: every skill's level (out of 999) and progress. Hover a skill for its xp and xp to the next level.
 - **H** shows or hides the help, and **F1** opens the dev tools.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
@@ -44,7 +50,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - Each kind of item takes **one bank slot and stacks there**, even items like logs that take a slot each in the
   inventory. The bank has 400 slots. Counts show RuneScape style: yellow below 100K, then K, then M in green.
 - While the bank is open, click an inventory item to deposit it, or click a bank slot to withdraw. The **1 / 5 / 10 / All**
-  buttons set how many. Right-click or shift-click always moves all of it. **Deposit inventory** empties your backpack in one go.
+  buttons set how many. Shift-click moves all of it, and right-click lists Deposit-1 / 5 / 10 / All (Withdraw-… in the bank). **Deposit inventory** empties your backpack in one go.
   You only get as many items as you have free inventory slots.
 - The bank closes with **X**, **Esc**, or when you walk away from the booth. It's saved along with everything else.
 
@@ -53,7 +59,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 - The **shop keeper** stands two tiles east of the bank booth. "Trade" opens the **Dev Area General Store**.
 - It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp) and a **Wooden shield** (20 gp). The stock is in
   `Shops.DevAreaStore()` in `Assets/Scripts/Core/Shop.cs`.
-- Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50, and right-click shows the price.
+- Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50. Right-click for Value, Buy 1 / 5 / 10 / 50 and Examine (your own items get Value and Sell …).
 - While the shop is open, click your own items to sell them. It's a general store, so it buys anything but coins, for 40% of the item's
   value (logs sell for 1 gp). Items you sell show up in its stock.
 - Stock drifts back to normal by one every 6 seconds, and items players sold slowly disappear.
@@ -120,7 +126,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 | Folder | What's there |
 |---|---|
 | `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank, shops, equipment, combat formulas, monsters and drop tables, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `GroundItem` and `ItemModels`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `GroundItem` and `ItemModels`, `PlayerController` (including what's on each right-click menu), `OptionMenu` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
 | `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, equipment, combat, pathfinding) |
 | `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |

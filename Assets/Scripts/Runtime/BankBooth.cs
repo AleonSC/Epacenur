@@ -9,6 +9,7 @@ namespace Epacenur.Runtime
     {
         public override string Action => "Bank";
         public override string DisplayName => "Bank booth";
+        public override string Examine => "The bank teller will serve you here.";
         public override void Interact() => Game.Instance.Hud.OpenBank(this);
 
         public static BankBooth Create(Tile tile, Transform parent)

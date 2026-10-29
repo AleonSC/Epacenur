@@ -55,6 +55,7 @@ namespace Epacenur.Core
     public sealed class NpcDef
     {
         public string Name;
+        public string Examine;
         public int CombatLevel;
         public int Hitpoints;
         public int DefenceLevel;
@@ -69,7 +70,7 @@ namespace Epacenur.Core
         /// Doesn't fight back yet. Always drops some coins.
         public static readonly NpcDef Goblin = new NpcDef
         {
-            Name = "Goblin", CombatLevel = 2, Hitpoints = 5, DefenceLevel = 1, DefenceBonus = -2, RespawnSeconds = 15f,
+            Name = "Goblin", Examine = "An ugly green creature.", CombatLevel = 2, Hitpoints = 5, DefenceLevel = 1, DefenceBonus = -2, RespawnSeconds = 15f,
             Drops = new DropTable()
                 .Add(ItemDefs.Coins, 1, 5, 50)
                 .Add(ItemDefs.Coins, 6, 15, 35)

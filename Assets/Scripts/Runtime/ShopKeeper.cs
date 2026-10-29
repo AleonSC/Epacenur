@@ -12,6 +12,7 @@ namespace Epacenur.Runtime
         public Shop Shop { get; private set; }
         public override string Action => "Trade";
         public override string DisplayName => "Shop keeper";
+        public override string Examine => "I can buy swords and shields from him.";
         public override void Interact() => Game.Instance.Hud.OpenShop(this);
 
         float nextRestock;

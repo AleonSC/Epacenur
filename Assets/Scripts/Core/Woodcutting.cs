@@ -6,6 +6,7 @@ namespace Epacenur.Core
     public sealed class TreeDef
     {
         public string Name;
+        public string Examine, StumpExamine;
         public int LevelRequired;
         public double Xp;              // per log
         public int LogItemId;
@@ -19,7 +20,8 @@ namespace Epacenur.Core
     {
         public static readonly TreeDef Basic = new TreeDef
         {
-            Name = "Tree", LevelRequired = 1, Xp = 25, LogItemId = ItemDefs.Logs.Id,
+            Name = "Tree", Examine = "One of the most common trees in the land.", StumpExamine = "This tree has been cut down.",
+            LevelRequired = 1, Xp = 25, LogItemId = ItemDefs.Logs.Id,
             MinLives = 3, MaxLives = 6, RespawnSeconds = 12f,
             LowChance = 64, HighChance = 200,
             TrunkR = 0.42f, TrunkG = 0.28f, TrunkB = 0.15f,

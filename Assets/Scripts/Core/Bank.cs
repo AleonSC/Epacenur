@@ -90,7 +90,7 @@ namespace Epacenur.Core
             Changed?.Invoke();
         }
 
-        int IndexOf(int itemId)
+        public int IndexOf(int itemId)
         {
             for (int i = 0; i < slots.Count; i++)
                 if (slots[i].ItemId == itemId)

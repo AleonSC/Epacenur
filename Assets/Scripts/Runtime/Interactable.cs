@@ -11,6 +11,7 @@ namespace Epacenur.Runtime
         /// The verb and name for the hover text, e.g. "Trade" + "Shop keeper".
         public abstract string Action { get; }
         public abstract string DisplayName { get; }
+        public abstract string Examine { get; }
         public abstract void Interact();
     }
 }
