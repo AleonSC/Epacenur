@@ -1,0 +1,14 @@
+{
+    "name": "Epacenur.Editor",
+    "rootNamespace": "Epacenur.EditorTools",
+    "references": ["Epacenur.Core", "Epacenur.Runtime"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

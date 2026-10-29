@@ -2,21 +2,23 @@ using System;
 using System.Numerics;
 using Epacenur.Core;
 
-/// Checks the game rules that don't need Unity. Run with Tools/Tests/run.sh.
-static class CoreTests
+namespace Epacenur.Tests
 {
-    static int failures;
+/// Checks the game rules that don't need Unity. Two runners use it: Unity's Test Runner (CoreRulesTests,
+/// edit mode) and Tools/Tests/run.sh (mono, outside Unity).
+public static class CoreRulesSuite
+{
+    static Action<bool, string> check;
+    static Action<string> info;
 
-    static void Check(bool ok, string what)
-    {
-        Console.WriteLine((ok ? "  ok   " : "  FAIL ") + what);
-        if (!ok)
-            failures++;
-    }
+    static void Check(bool ok, string what) => check(ok, what);
 
-    static int Main()
+    /// `check(ok, description)` is called for every check, `info` for section headings and notes.
+    public static void Run(Action<bool, string> checkCallback, Action<string> infoCallback)
     {
-        Console.WriteLine("Experience curve");
+        check = checkCallback;
+        info = infoCallback;
+        info("Experience curve");
         Check(Experience.XpForLevel(2) == 83, "level 2 = 83 xp");
         Check(Experience.XpForLevel(99) == 13034431, "level 99 = 13,034,431 xp");
         Check(Experience.XpForLevel(120) == 104273167, "level 120 = 104,273,167 xp");
@@ -26,14 +28,14 @@ static class CoreTests
         Check(Experience.LevelForXp(Experience.MaxXp * 2) == 999, "levels stop at 999");
         double ratio = (double)(Experience.XpForLevel(600) - Experience.XpForLevel(599)) / (double)(Experience.XpForLevel(599) - Experience.XpForLevel(598));
         Check(Math.Abs(ratio - Math.Pow(2, 1 / 7.0)) < 1e-6, "gap between levels grows by 2^(1/7) = " + ratio.ToString("0.00000"));
-        Console.WriteLine("  level 999 needs " + Experience.Format(Experience.MaxXp) + " xp (" + Experience.FormatShort(Experience.MaxXp) + ")");
+        info("  level 999 needs " + Experience.Format(Experience.MaxXp) + " xp (" + Experience.FormatShort(Experience.MaxXp) + ")");
         var py = BigInteger.Parse("6590753875914258720611083014045249960396472940");
         Check(BigInteger.Abs(Experience.MaxXp - py) <= py / 1000000000000, "level 999 xp matches the formula computed independently");
         for (int l = 1; l < 999; l++)
             if (Experience.XpForLevel(l + 1) <= Experience.XpForLevel(l)) { Check(false, "table rises at level " + l); break; }
         Check(Experience.Format(13034431) == "13,034,431" && Experience.Format(83) == "83", "comma formatting");
 
-        Console.WriteLine("Skills");
+        info("Skills");
         var skills = new SkillSet();
         int ups = 0, lastLevel = 0;
         skills.LevelledUp += (id, lvl) => { ups++; lastLevel = lvl; };
@@ -48,14 +50,14 @@ static class CoreTests
         skills.SetLevel(SkillId.Woodcutting, 99);
         Check(skills.GetLevel(SkillId.Woodcutting) == 99, "set level 99");
 
-        Console.WriteLine("Inventory");
+        info("Inventory");
         var inv = new Inventory();
         Check(inv.Add(ItemDefs.Logs.Id, 30) == 28, "28 logs fit, one per slot");
         Check(inv.IsFull && !inv.HasRoomFor(ItemDefs.Logs.Id) && inv.Count(ItemDefs.Logs.Id) == 28, "inventory full of logs");
         inv.RemoveAt(5);
         Check(inv.FreeSlots == 1 && inv.Add(ItemDefs.Logs.Id) == 1 && !inv[5].IsEmpty, "a log goes in the freed slot");
 
-        Console.WriteLine("Bank");
+        info("Bank");
         var bank = new Bank();
         inv.Clear();
         inv.Add(ItemDefs.Logs.Id, 10);
@@ -70,7 +72,7 @@ static class CoreTests
         bank.Add(ItemDefs.Logs.Id, 5);
         Check(bank.Withdraw(inv, 0, long.MaxValue) == 5 && bank.UsedSlots == 0 && inv.Count(ItemDefs.Logs.Id) == 5, "an emptied bank slot is removed");
 
-        Console.WriteLine("Shop");
+        info("Shop");
         var shop = Shops.DevAreaStore();
         Check(shop.Items.Count == 7 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
@@ -91,7 +93,7 @@ static class CoreTests
         inv.Add(ItemDefs.Coins.Id, 26);
         Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "buying with pouch coins into the last free slot");
 
-        Console.WriteLine("Money pouch");
+        info("Money pouch");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(ItemDefs.Logs.Id, 28);
@@ -112,7 +114,7 @@ static class CoreTests
         inv.Clear();
         inv.SetPouch(0);
 
-        Console.WriteLine("Tool belt");
+        info("Tool belt");
         var belt = new ToolBelt();
         inv.Clear();
         inv.Add(ItemDefs.Tinderbox.Id);
@@ -126,7 +128,7 @@ static class CoreTests
         Check(ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id), "a tool on the belt counts with an empty backpack");
         inv.Clear();
 
-        Console.WriteLine("Equipment and combat");
+        info("Equipment and combat");
         var fresh = new SkillSet();
         Check(fresh.GetLevel(SkillId.Hitpoints) == 10 && fresh.GetLevel(SkillId.Attack) == 1, "Hitpoints starts at 10, the rest at 1");
         Check(CombatRules.CombatLevel(fresh) == 3, "a new player is combat level 3");
@@ -160,7 +162,7 @@ static class CoreTests
             if (!NpcDefs.Goblin.Drops.Roll(rng, out int id, out int n) || id != ItemDefs.Coins.Id || n < 1 || n > 30) allCoins = false;
         Check(allCoins, "goblins always drop 1-30 coins");
 
-        Console.WriteLine("Abilities");
+        info("Abilities");
         Check(Abilities.All.Length == 9, "nine basic melee abilities for a 9-slot bar");
         bool ordered = true;
         for (int i = 0; i < Abilities.All.Length; i++) if ((int)Abilities.All[i].Id != i) ordered = false;
@@ -190,7 +192,7 @@ static class CoreTests
         var bleed = Abilities.SplitBleed(7);
         Check(bleed.Length == 3 && bleed[0] + bleed[1] + bleed[2] == 7 && bleed[0] == 3, "a bleed of 7 lands as 3, 2, 2");
 
-        Console.WriteLine("Firemaking and fishing");
+        info("Firemaking and fishing");
         var burn = FiremakingRules.For(ItemDefs.Logs.Id);
         Check(burn != null && burn.Xp == 40 && FiremakingRules.For(ItemDefs.Coins.Id) == null, "logs burn for 40 xp; coins don't burn");
         double l1 = FiremakingRules.LightChance(burn, 1);
@@ -205,7 +207,7 @@ static class CoreTests
         Check(FishingRules.MinLevel(FishingRules.NetSpot) == 1, "net fishing starts at level 1");
         Check(new SkillSet().GetLevel(SkillId.Fishing) == 1 && SkillDefs.Get(SkillId.Firemaking).Name == "Firemaking", "Firemaking and Fishing skills exist");
 
-        Console.WriteLine("Cooking");
+        info("Cooking");
         var cook = CookingRules.For(ItemDefs.RawShrimps.Id);
         Check(cook != null && cook.CookedItemId == ItemDefs.Shrimps.Id && cook.Xp == 30 && CookingRules.For(ItemDefs.Logs.Id) == null, "raw shrimps cook into shrimps for 30 xp; logs don't cook");
         Check(CookingRules.For(ItemDefs.RawAnchovies.Id).BurntItemId == ItemDefs.BurntFish.Id, "anchovies burn into burnt fish");
@@ -213,7 +215,7 @@ static class CoreTests
         Check(cookChance > 0.25 && cookChance < 0.4, "about 1 in 3 cooked at level 1 (" + cookChance.ToString("0.00") + ")");
         Check(CookingRules.SuccessChance(cook, 33) < 1.0 && CookingRules.SuccessChance(cook, 34) == 1.0, "stops burning at level 34");
 
-        Console.WriteLine("Health and eating");
+        info("Health and eating");
         var hp = new Health(10);
         Check(hp.Current == 10 && hp.IsFull, "start at full health");
         Check(hp.Damage(7) == 7 && hp.Current == 3 && hp.Damage(50) == 3 && hp.IsDead, "damage stops at 0");
@@ -231,7 +233,7 @@ static class CoreTests
         Check(hp.Max == 12 && hp.Current == 8, "a Hitpoints level gained adds to current health");
         inv.Clear();
 
-        Console.WriteLine("Prayer and monsters fighting back");
+        info("Prayer and monsters fighting back");
         var pb = new PrayerBook(10);
         Check(pb.Toggle(PrayerId.ThickSkin, 10) == null && pb.IsActive(PrayerId.ThickSkin) && Math.Abs(pb.DefenceMultiplier - 1.05) < 1e-9, "Thick Skin: +5% Defence");
         Check(pb.Toggle(PrayerId.RockSkin, 10) == null && !pb.IsActive(PrayerId.ThickSkin) && Math.Abs(pb.DefenceMultiplier - 1.10) < 1e-9, "Rock Skin replaces Thick Skin");
@@ -261,12 +263,12 @@ static class CoreTests
         foreach (var id in new[] { SkillId.Attack, SkillId.Strength, SkillId.Defence, SkillId.Hitpoints, SkillId.Prayer }) ps.SetLevel(id, 99);
         Check(CombatRules.CombatLevel(ps) == 126, "99 in every melee skill and Prayer is combat level 126");
 
-        Console.WriteLine("Woodcutting");
+        info("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");
         Check(WoodcuttingRules.SuccessChance(TreeDefs.Basic, 999) == 1.0, "certain at high levels");
 
-        Console.WriteLine("Mining and smithing");
+        info("Mining and smithing");
         Check(MiningRules.Copper.OreItemId == ItemDefs.CopperOre.Id && MiningRules.Tin.Xp == 17.5, "copper and tin rocks give their ore for 17.5 xp");
         double m1 = MiningRules.SuccessChance(MiningRules.Copper, 1);
         Check(m1 > 0.35 && m1 < 0.45, "about 2 in 5 swings get ore at level 1 (" + m1.ToString("0.00") + ")");
@@ -285,7 +287,7 @@ static class CoreTests
         Check(ItemDefs.BronzeFullHelm.Slot == EquipSlot.Head && ItemDefs.BronzePlatebody.Slot == EquipSlot.Body && ItemDefs.BronzePlatelegs.Slot == EquipSlot.Legs, "armour goes on head, body and legs");
         Check(ToolBelt.IsTool(ItemDefs.BronzePickaxe.Id) && ToolBelt.IsTool(ItemDefs.Hammer.Id), "pickaxe and hammer go on the tool belt");
 
-        Console.WriteLine("World generation");
+        info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })
         {
             var map = WorldGen.Generate(128, 128, seed);
@@ -317,7 +319,7 @@ static class CoreTests
                 + map.PondShores.Count + " ponds (" + water + " water tiles), " + trees + " trees, nothing walled in");
         }
 
-        Console.WriteLine("Pathfinding");
+        info("Pathfinding");
         var grid = new TileGrid(10, 10);
         for (int z = 0; z < 9; z++)
             grid.SetBlocked(new Tile(5, z), true);  // wall with a gap at the top
@@ -335,7 +337,6 @@ static class CoreTests
         foreach (var t in new[] { new Tile(1, 2), new Tile(3, 2), new Tile(2, 1), new Tile(2, 3) }) boxed.SetBlocked(t, true);
         Check(Pathfinder.PathToInteract(boxed, new Tile(0, 0), new Tile(2, 2)) == null, "a surrounded tree can't be reached");
 
-        Console.WriteLine(failures == 0 ? "All passed." : failures + " FAILED.");
-        return failures == 0 ? 0 : 1;
     }
+}
 }
