@@ -42,6 +42,16 @@ namespace Epacenur.Runtime
         Rect devRect = new Rect(0f, 0f, 300f, 10f);
         bool devPlaced;
         readonly List<XpDrop> drops = new List<XpDrop>();
+
+        struct Pickup
+        {
+            public ItemDef Def;
+            public int Count;
+            public float Born;
+        }
+        const float PickupSeconds = 4f;
+        const int MaxPickups = 5;
+        readonly List<Pickup> pickups = new List<Pickup>();
         string levelUpText;
         float levelUpUntil;
         float scale = 1f;
@@ -155,6 +165,7 @@ namespace Epacenur.Runtime
             DrawActionBar();
             DrawHealthBar();
             DrawPanel();
+            DrawPickups();
             if (BankOpen)
                 DrawBank();
             else if (ShopOpen)
@@ -441,6 +452,46 @@ namespace Epacenur.Runtime
                 rich);
             if (tooltip != null)
                 Shadowed(new Rect(e.mousePosition.x - 210f, e.mousePosition.y + 16f, 210f, 20f), "<color=#ffcc66>" + tooltip + "</color>", rightSmall);
+        }
+
+        // ---- Pickups: what you just picked up, stacked above the inventory ----
+
+        /// Shows an item you picked up. Picking up more of the same while it's showing adds to it.
+        public void ShowPickup(ItemDef def, int count)
+        {
+            if (def == null || count <= 0)
+                return;
+            int last = pickups.Count - 1;
+            if (last >= 0 && pickups[last].Def == def && Time.time - pickups[last].Born < PickupSeconds)
+            {
+                var p = pickups[last];
+                p.Count += count;
+                p.Born = Time.time;
+                pickups[last] = p;
+                return;
+            }
+            pickups.Add(new Pickup { Def = def, Count = count, Born = Time.time });
+            if (pickups.Count > MaxPickups)
+                pickups.RemoveAt(0);
+        }
+
+        void DrawPickups()
+        {
+            pickups.RemoveAll(p => Time.time - p.Born > PickupSeconds);
+            var panel = PanelRect;
+            const float h = Slot + 4f;
+            for (int i = 0; i < pickups.Count; i++)
+            {
+                var p = pickups[i];
+                float age = Time.time - p.Born;
+                // Slide in from the right, slide back out at the end. Newest sits just above the panel.
+                float slide = Mathf.Max(Mathf.Clamp01(1f - age / 0.2f), Mathf.Clamp01((age - (PickupSeconds - 0.3f)) / 0.3f));
+                var r = new Rect(panel.x + slide * (panel.width + 20f), panel.y - (pickups.Count - i) * (h + 3f) - 3f, panel.width, h);
+                Bevel(r);
+                DrawItemIcon(new Rect(r.x + 2f, r.y + 2f, Slot, Slot), p.Def);
+                string what = p.Def.Stackable || p.Count > 1 ? "+" + Experience.Format(p.Count) + " " + p.Def.Name : p.Def.Name;
+                Shadowed(new Rect(r.x + Slot + 8f, r.y + (h - 18f) / 2f, r.width - Slot - 12f, 18f), "<color=#ffcc66>" + what + "</color>", label);
+            }
         }
 
         // ---- Money pouch ----
