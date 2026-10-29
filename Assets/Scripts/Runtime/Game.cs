@@ -83,6 +83,7 @@ namespace Epacenur.Runtime
             else
             {
                 Inventory.Add(ItemDefs.Coins.Id, 100);  // pocket money for the shop
+                ToolBelt.Add(ItemDefs.BronzeHatchet.Id); // so you can chop straight away
                 GameLog.Add("Welcome to the Epacenur dev area.");
             }
             GameLog.Add("Click a tree to chop it. V switches to first person, F1 opens the dev tools.");

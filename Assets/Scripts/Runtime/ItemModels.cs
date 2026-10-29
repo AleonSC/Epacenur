@@ -48,6 +48,14 @@ namespace Epacenur.Runtime
                 shield.localRotation = Quaternion.Euler(0f, 0f, 90f);
                 BuildShield(shield, def);
             }
+            else if (def == ItemDefs.BronzeHatchet)
+            {
+                var hatchet = new GameObject("Hatchet").transform;
+                hatchet.SetParent(parent, false);
+                hatchet.localPosition = new Vector3(0f, 0.03f, -0.25f);
+                hatchet.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                PlayerController.BuildAxe(hatchet);
+            }
             else if (def == ItemDefs.Ashes)
             {
                 Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, 0.02f, 0f), new Vector3(0.3f, 0.08f, 0.26f), c);

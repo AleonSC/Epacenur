@@ -65,9 +65,14 @@ namespace Epacenur.Core
             Id = 9, Name = "Raw anchovies", Examine = "I should try cooking this.", Value = 15, R = 0.5f, G = 0.6f, B = 0.75f,
         };
 
+        public static readonly ItemDef BronzeHatchet = new ItemDef
+        {
+            Id = 10, Name = "Bronze hatchet", Examine = "A woodcutter's hatchet.", Value = 16, R = 0.72f, G = 0.5f, B = 0.28f,
+        };
+
         public static readonly ItemDef[] All =
         {
-            Logs, Coins, Tinderbox, BronzeSword, WoodenShield, Ashes, SmallFishingNet, RawShrimps, RawAnchovies,
+            Logs, Coins, Tinderbox, BronzeSword, WoodenShield, Ashes, SmallFishingNet, RawShrimps, RawAnchovies, BronzeHatchet,
         };
 
         public static ItemDef Get(int id)

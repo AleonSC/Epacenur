@@ -1007,6 +1007,16 @@ namespace Epacenur.Runtime
                 Fill(new Rect(ix + 12f, iy + 26f, 17f, 3f), new Color(0.4f, 0.4f, 0.45f)); // guard
                 Fill(new Rect(ix + 18f, iy + 29f, 5f, 6f), new Color(0.35f, 0.22f, 0.12f)); // grip
             }
+            else if (def == ItemDefs.BronzeHatchet)
+            {
+                var wood = new Color(0.5f, 0.32f, 0.16f);
+                var m = GUI.matrix;
+                GUIUtility.RotateAroundPivot(-35f, slot.center);
+                Fill(new Rect(ix + 18.5f, iy + 7f, 3f, 27f), wood);           // handle
+                Fill(new Rect(ix + 18.5f, iy + 6f, 11f, 8f), c);              // head
+                Fill(new Rect(ix + 27f, iy + 5f, 3f, 10f), Shade(c, 1.25f));  // edge
+                GUI.matrix = m;
+            }
             else if (def == ItemDefs.Ashes)
             {
                 Fill(new Rect(ix + 9f, iy + 24f, 22f, 7f), c);
@@ -1307,7 +1317,7 @@ namespace Epacenur.Runtime
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("+1,000 coins")) G.Inventory.Add(ItemDefs.Coins.Id, 1000);
             if (GUILayout.Button("Sword + shield")) { G.Inventory.Add(ItemDefs.BronzeSword.Id); G.Inventory.Add(ItemDefs.WoodenShield.Id); }
-            if (GUILayout.Button("Tinderbox + net")) { G.Inventory.Add(ItemDefs.Tinderbox.Id); G.Inventory.Add(ItemDefs.SmallFishingNet.Id); }
+            if (GUILayout.Button("Tools")) { G.Inventory.Add(ItemDefs.BronzeHatchet.Id); G.Inventory.Add(ItemDefs.Tinderbox.Id); G.Inventory.Add(ItemDefs.SmallFishingNet.Id); }
             if (GUILayout.Button("Fill belt")) foreach (var t in ToolBelt.Tools) G.ToolBelt.Add(t.Id);
             GUILayout.EndHorizontal();
 
@@ -1339,6 +1349,7 @@ namespace Epacenur.Runtime
                 G.Inventory.SetPouch(0);
                 G.Inventory.Add(ItemDefs.Coins.Id, 100);
                 G.ToolBelt.Clear();
+                G.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
                 G.Bank.Clear();
                 G.Player.Teleport(G.World.Spawn);
                 GameLog.Add("Progress reset.");

@@ -37,6 +37,8 @@ namespace Epacenur.Core
         public const int AutoChopTicks = 4;
         /// First person: the shortest time between two clicks that count as chops.
         public const int FirstPersonSwingTicks = 2;
+        /// Hatchets that can chop trees (bronze only so far; add better ones here).
+        public static readonly ItemDef[] Hatchets = { ItemDefs.BronzeHatchet };
 
         /// Chance (0..1) that one chop gets a log. RuneScape-style: rises in a straight line from
         /// LowChance at level 1 to HighChance at level 99, and keeps rising past 99 until it is certain.

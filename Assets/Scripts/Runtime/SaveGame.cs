@@ -24,6 +24,7 @@ namespace Epacenur.Runtime
             public bool hasPouch;    // saves from before the money pouch kept coins in a slot
             public int pouch;
             public int[] toolIds;    // tools on the tool belt
+            public bool hatchetGiven;  // saves from before hatchets were needed get one on the belt
             public float x, z;
         }
 
@@ -56,6 +57,7 @@ namespace Epacenur.Runtime
                 d.equipIds[i] = game.Equipment[(EquipSlot)i].ItemId;
             d.style = (int)game.Style;
             d.hasPouch = true;
+            d.hatchetGiven = true;
             d.pouch = game.Inventory.PouchCoins;
             d.toolIds = new System.Collections.Generic.List<int>(game.ToolBelt.Owned).ToArray();
             for (int i = 0; i < Inventory.Size; i++)
@@ -104,6 +106,8 @@ namespace Epacenur.Runtime
             if (d.toolIds != null)
                 foreach (int id in d.toolIds)
                     game.ToolBelt.Add(id);
+            if (!d.hatchetGiven)
+                game.ToolBelt.Add(ItemDefs.BronzeHatchet.Id);
             if (d.hasPouch)
                 game.Inventory.SetPouch(d.pouch);
             else

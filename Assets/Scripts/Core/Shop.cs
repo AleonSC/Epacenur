@@ -123,6 +123,7 @@ namespace Epacenur.Core
             (ItemDefs.Tinderbox, 5),
             (ItemDefs.BronzeSword, 5),
             (ItemDefs.WoodenShield, 5),
-            (ItemDefs.SmallFishingNet, 5));
+            (ItemDefs.SmallFishingNet, 5),
+            (ItemDefs.BronzeHatchet, 5));
     }
 }

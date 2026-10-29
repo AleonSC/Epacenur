@@ -718,8 +718,15 @@ namespace Epacenur.Runtime
 
         // ---- Woodcutting (both modes) ----
 
+        bool HasHatchet => System.Array.Exists(WoodcuttingRules.Hatchets, h => G.HasTool(h.Id));
+
         bool CanChop(TreeObject tree)
         {
+            if (!HasHatchet)
+            {
+                GameLog.Add("You need a hatchet to chop down this tree.");
+                return false;
+            }
             int level = G.Skills.GetLevel(SkillId.Woodcutting);
             if (level < tree.Def.LevelRequired)
             {

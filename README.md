@@ -66,7 +66,7 @@ so they don't take up slots.
 
 - Click a tool in your backpack, or right-click it and choose **Add to tool belt**, to move it onto the belt. It stays there for good:
   it can't be taken off or dropped, and a second copy stays in the backpack.
-- It can hold the **tinderbox** (firemaking) and the **small fishing net** (fishing). The tab shows every tool it can hold,
+- It can hold the **bronze hatchet** (woodcutting), the **tinderbox** (firemaking) and the **small fishing net** (fishing). The tab shows every tool it can hold,
   with the ones you have in full colour.
 - Tools still work from the backpack too. The list of tools is `ToolBelt.Tools` in `Assets/Scripts/Core/ToolBelt.cs`.
 
@@ -83,7 +83,7 @@ so they don't take up slots.
 ## Shop
 
 - The **shop keeper** stands two tiles east of the bank booth. "Trade" opens the **Dev Area General Store**.
-- It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp), a **Wooden shield** (20 gp) and a **Small fishing net** (5 gp). The stock is in
+- It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp), a **Wooden shield** (20 gp) a **Small fishing net** (5 gp) and a **Bronze hatchet** (16 gp). The stock is in
   `Shops.DevAreaStore()` in `Assets/Scripts/Core/Shop.cs`.
 - Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50. Right-click for Value, Buy 1 / 5 / 10 / 50 and Examine (your own items get Value and Sell …).
 - While the shop is open, click your own items to sell them. It's a general store, so it buys anything but coins, for 40% of the item's
@@ -178,7 +178,9 @@ hold the net out to fish, and carry the axe, sword, shield or net as needed.
 - Tile mode makes a chop attempt every 4 ticks (2.4 s) while you stand next to the tree. In first person each
   click is one attempt, at most one every 2 ticks (1.2 s). The crosshair turns green when a tree is in reach and your
   swing is ready, and yellow while you recover. These timings are in `WoodcuttingRules` in `Assets/Scripts/Core/Woodcutting.cs`.
-- You can't chop with a full inventory, and you stop when it fills up. No axe is needed yet.
+- You need a **Bronze hatchet**, in your backpack or on your tool belt. New characters start with one on the belt,
+  older saves are given one, and the shop sells them (16 gp). Without one: "You need a hatchet to chop down this tree."
+- You can't chop with a full inventory, and you stop when it fills up.
 
 ## Experience: levels 1 to 999
 
@@ -196,7 +198,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - A skill (pick it with **<** and **>**): set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
-- Add 1,000 coins, a sword and shield, or a tinderbox and net, or fill the tool belt
+- Add 1,000 coins, a sword and shield, or the tools (hatchet, tinderbox, net) to your backpack, or fill the tool belt
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything

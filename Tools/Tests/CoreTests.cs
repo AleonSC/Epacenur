@@ -72,7 +72,7 @@ static class CoreTests
 
         Console.WriteLine("Shop");
         var shop = Shops.DevAreaStore();
-        Check(shop.Items.Count == 4 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 5 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -82,9 +82,9 @@ static class CoreTests
         Check(shop.Sell(inv, ItemDefs.BronzeSword.Id, 1, out why) == 1 && inv.Count(ItemDefs.Coins.Id) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, ItemDefs.Coins.Id, 1, out why) == 0, "coins can't be sold");
         inv.Add(ItemDefs.Logs.Id, 3);
-        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 5 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 6 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 4 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 5 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(ItemDefs.Logs.Id, 27);
@@ -118,6 +118,7 @@ static class CoreTests
         inv.Add(ItemDefs.Tinderbox.Id);
         inv.Add(ItemDefs.Tinderbox.Id);
         inv.Add(ItemDefs.Logs.Id);
+        Check(ToolBelt.IsTool(ItemDefs.BronzeHatchet.Id) && Array.IndexOf(WoodcuttingRules.Hatchets, ItemDefs.BronzeHatchet) >= 0, "the bronze hatchet chops and goes on the belt");
         Check(!ToolBelt.HasTool(belt, new Inventory(), ItemDefs.Tinderbox.Id) && ToolBelt.HasTool(belt, inv, ItemDefs.Tinderbox.Id), "a tinderbox in the backpack counts as having one");
         Check(belt.AddFromInventory(inv, 0, out string bwhy) && belt.Has(ItemDefs.Tinderbox.Id) && inv[0].IsEmpty, "add a tinderbox: it leaves the backpack");
         Check(!belt.AddFromInventory(inv, 1, out bwhy) && bwhy == "That is already on your tool belt." && !inv[1].IsEmpty, "a second one stays in the backpack");

@@ -8,7 +8,7 @@ namespace Epacenur.Core
     public sealed class ToolBelt
     {
         /// Every tool the belt can hold, in display order. To add one: put its ItemDef here.
-        public static readonly ItemDef[] Tools = { ItemDefs.Tinderbox, ItemDefs.SmallFishingNet };
+        public static readonly ItemDef[] Tools = { ItemDefs.BronzeHatchet, ItemDefs.Tinderbox, ItemDefs.SmallFishingNet };
 
         readonly HashSet<int> owned = new HashSet<int>();
 
