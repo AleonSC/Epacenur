@@ -33,7 +33,8 @@ namespace Epacenur.Runtime
             {
                 new WoodcuttingArea { Plot = new RectInt(3, 26, 13, 16) },
                 new GoblinArea { Plot = new RectInt(18, 26, 12, 16) },
-                new EmptyPlot { Plot = new RectInt(32, 26, 13, 16) },
+                new FishingArea { Plot = new RectInt(32, 26, 13, 16) },
+                new FiremakingArea { Plot = new RectInt(3, 14, 13, 9) },
             };
         }
     }
@@ -74,6 +75,40 @@ namespace Epacenur.Runtime
                 world.AddNpc(NpcDefs.Goblin, tile, new RectInt(Plot.x + 1, Plot.y + 1, Plot.width - 2, Plot.height - 3));
             }
         }
+    }
+
+    /// A pond with net fishing spots along its edge.
+    public sealed class FishingArea : SkillArea
+    {
+        public override string Name => "Fishing";
+        public override Color GroundColor => new Color(0.32f, 0.5f, 0.3f);
+
+        public override void Build(World world)
+        {
+            var pond = new RectInt(Plot.x + 2, Plot.y + 3, Plot.width - 4, Plot.height - 7);
+            world.AddWater(pond);
+            // Spots sit on water tiles with dry land straight next to them.
+            var shore = new List<Tile>();
+            for (int x = pond.x; x < pond.x + pond.width; x++)
+                for (int z = pond.y; z < pond.y + pond.height; z++)
+                {
+                    var t = new Tile(x, z);
+                    if (world.Grid.IsWalkable(new Tile(x - 1, z)) || world.Grid.IsWalkable(new Tile(x + 1, z))
+                        || world.Grid.IsWalkable(new Tile(x, z - 1)) || world.Grid.IsWalkable(new Tile(x, z + 1)))
+                        shore.Add(t);
+                }
+            var rng = new System.Random(7);
+            for (int i = 0; i < 3; i++)
+                world.AddFishingSpot(FishingRules.NetSpot, shore[rng.Next(shore.Count)], shore);
+        }
+    }
+
+    /// Open ground for lighting fires (any free tile works; this is just room to do it).
+    public sealed class FiremakingArea : SkillArea
+    {
+        public override string Name => "Firemaking";
+        public override Color GroundColor => new Color(0.5f, 0.45f, 0.32f);
+        public override void Build(World world) { }
     }
 
     /// A plot kept free for the next skill.

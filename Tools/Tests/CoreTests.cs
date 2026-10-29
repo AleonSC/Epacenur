@@ -72,7 +72,7 @@ static class CoreTests
 
         Console.WriteLine("Shop");
         var shop = Shops.DevAreaStore();
-        Check(shop.Items.Count == 3 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 4 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -82,9 +82,9 @@ static class CoreTests
         Check(shop.Sell(inv, ItemDefs.BronzeSword.Id, 1, out why) == 1 && inv.Count(ItemDefs.Coins.Id) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, ItemDefs.Coins.Id, 1, out why) == 0, "coins can't be sold");
         inv.Add(ItemDefs.Logs.Id, 3);
-        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 4 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 5 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 3 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 4 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.Add(ItemDefs.Logs.Id, 27);
         inv.Add(ItemDefs.Coins.Id, 26);
@@ -153,6 +153,21 @@ static class CoreTests
         Check(low > high * 2.5, "Punish hits about 3x harder below half health");
         var bleed = Abilities.SplitBleed(7);
         Check(bleed.Length == 3 && bleed[0] + bleed[1] + bleed[2] == 7 && bleed[0] == 3, "a bleed of 7 lands as 3, 2, 2");
+
+        Console.WriteLine("Firemaking and fishing");
+        var burn = FiremakingRules.For(ItemDefs.Logs.Id);
+        Check(burn != null && burn.Xp == 40 && FiremakingRules.For(ItemDefs.Coins.Id) == null, "logs burn for 40 xp; coins don't burn");
+        double l1 = FiremakingRules.LightChance(burn, 1);
+        Check(l1 > 0.2 && l1 < 0.3 && FiremakingRules.LightChance(burn, 43) == 1.0, "about 1 in 4 to light at level 1, certain at 43");
+        var frng = new Random(3);
+        bool onlyShrimp = true;
+        for (int i = 0; i < 300; i++) { var f = FishingRules.Roll(FishingRules.NetSpot, 14, frng); if (f != null && f != FishingRules.Shrimps) onlyShrimp = false; }
+        Check(onlyShrimp, "below level 15 a net spot only gives shrimps");
+        int anch = 0, shr = 0, none = 0;
+        for (int i = 0; i < 2000; i++) { var f = FishingRules.Roll(FishingRules.NetSpot, 30, frng); if (f == FishingRules.Anchovies) anch++; else if (f == FishingRules.Shrimps) shr++; else none++; }
+        Check(anch > 100 && shr > 100, "at 30 both anchovies (" + anch + ") and shrimps (" + shr + ") bite");
+        Check(FishingRules.MinLevel(FishingRules.NetSpot) == 1, "net fishing starts at level 1");
+        Check(new SkillSet().GetLevel(SkillId.Fishing) == 1 && SkillDefs.Get(SkillId.Firemaking).Name == "Firemaking", "Firemaking and Fishing skills exist");
 
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);

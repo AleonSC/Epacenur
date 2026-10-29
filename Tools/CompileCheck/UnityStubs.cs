@@ -20,7 +20,7 @@ namespace UnityEngine
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
-        public static Vector3 zero, up, forward; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
+        public static Vector3 zero, up, forward, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
         public static bool operator ==(Vector3 a, Vector3 b) => true; public static bool operator !=(Vector3 a, Vector3 b) => true;
@@ -41,7 +41,8 @@ namespace UnityEngine
     public static class Mathf { public const float Deg2Rad = 0f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
-        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; }
+        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Abs(float f) => f; }
+    public static class Random { public static float value; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
     public static class Time { public static float time, deltaTime; public static int frameCount; }
     public static class Screen { public static int width, height; }
     public static class Application { public static int targetFrameRate; }
@@ -59,7 +60,7 @@ namespace UnityEngine
     public sealed class AudioListener : Behaviour { }
     public enum LightType { Spot, Directional, Point }
     public enum LightShadows { None, Hard, Soft }
-    public sealed class Light : Behaviour { public LightType type; public float intensity; public Color color; public LightShadows shadows; }
+    public sealed class Light : Behaviour { public LightType type; public float intensity, range; public Color color; public LightShadows shadows; }
     public enum FogMode { Linear = 1 }
     public static class RenderSettings { public static Rendering.AmbientMode ambientMode; public static Color ambientLight, fogColor; public static bool fog; public static FogMode fogMode; public static float fogStartDistance, fogEndDistance; }
     public class Renderer : Component { public Material sharedMaterial; public Rendering.ShadowCastingMode shadowCastingMode; }
@@ -68,7 +69,7 @@ namespace UnityEngine
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
     public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void Apply() { } }
-    public class Material : Object { public Material(Material m) { } public Color color; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } }
+    public class Material : Object { public Material(Material m) { } public Color color; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
     public sealed class BoxCollider : Collider { public Vector3 center, size; }
     public sealed class CapsuleCollider : Collider { public float radius, height; public Vector3 center; }

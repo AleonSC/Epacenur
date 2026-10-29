@@ -2,7 +2,7 @@
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
 For now it's a **dev area** with plots for testing skills, a **bank booth** and a **shop**: **Woodcutting** with basic trees,
-and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
+**Firemaking**, **Fishing** at a pond, and **goblins** to fight (Attack, Strength, Defence and Hitpoints).
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -59,14 +59,14 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 ## Shop
 
 - The **shop keeper** stands two tiles east of the bank booth. "Trade" opens the **Dev Area General Store**.
-- It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp) and a **Wooden shield** (20 gp). The stock is in
+- It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp), a **Wooden shield** (20 gp) and a **Small fishing net** (5 gp). The stock is in
   `Shops.DevAreaStore()` in `Assets/Scripts/Core/Shop.cs`.
 - Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50. Right-click for Value, Buy 1 / 5 / 10 / 50 and Examine (your own items get Value and Sell …).
 - While the shop is open, click your own items to sell them. It's a general store, so it buys anything but coins, for 40% of the item's
   value (logs sell for 1 gp). Items you sell show up in its stock.
 - Stock drifts back to normal by one every 6 seconds, and items players sold slowly disappear.
 - New saves start with **100 coins**. The dev tools can add 1,000 more.
-- The sword and shield can be wielded (see below). The tinderbox is just an item for now: there is no firemaking yet.
+- The sword and shield can be wielded, the tinderbox lights fires and the net catches fish (see below).
 
 ## Items on the ground
 
@@ -117,6 +117,34 @@ Right-click a slot for Activate and Examine, and hover one for what it does. Lik
 - Goblins don't fight back yet, so a stun just stops them in place (they show "Stunned").
 - The abilities are defined in `Assets/Scripts/Core/Abilities.cs`.
 
+## Firemaking
+
+- You need a **tinderbox** (the shop sells them). Click logs in your inventory to light them, or right-click them and choose **Light**.
+  They go down on your tile and you kneel to light them. Logs lying on the ground can be lit too (right-click, **Light**):
+  you walk onto their tile first.
+- Each attempt (every 3 ticks) has a chance to catch: about 1 in 4 at level 1, certain from level 43. Moving stops you.
+- A lit fire gives **40 xp**. It flickers, glows, blocks its tile and burns for 1–2 minutes, then leaves **ashes** on the ground.
+  You step off it to the west (or another free side) in tile mode.
+- Fires can't be lit on a tile that already has one. The **Firemaking** plot, south-west of spawn, is open ground for it, but any free tile works.
+- Rules are in `Assets/Scripts/Core/Firemaking.cs`. Fires are `Assets/Scripts/Runtime/Fire.cs`.
+
+## Fishing
+
+- The **Fishing** plot has a pond with three rippling **fishing spots** along its edge. Spots move to another place
+  on the shore every 40–90 s, which stops you fishing ("The fishing spot has moved.").
+- You need a **small fishing net** (5 gp from the shop). Click a spot (**Net**) to walk up to it and fish automatically, one attempt every 5 ticks,
+  until your inventory is full. In first person each click is one cast.
+- Each attempt tries the best fish you have the level for first: **raw anchovies** (level 15, 40 xp), then **raw shrimps** (level 1, 10 xp).
+  There's no cooking yet.
+- Rules are in `Assets/Scripts/Core/Fishing.cs`. Spots are `Assets/Scripts/Runtime/FishingSpot.cs`.
+
+## The player model
+
+Built from primitive shapes like everything else: hair with a fringe, eyes, brows, nose, mouth and ears; steel shoulder pads;
+a blue tunic with gold trim and a flared skirt; a belt with a gold buckle and pouch; trousers; cuffed boots; and a red cape with a gold hem.
+It has a walk cycle (legs, arms and a bobbing step) and idle breathing, and the cape flies back as you move. You kneel to light fires,
+hold the net out to fish, and carry the axe, sword, shield or net as needed.
+
 ## Woodcutting
 
 - A chop succeeds RuneScape style: the chance rises in a straight line from 25% at level 1 to 79% at level 99
@@ -144,7 +172,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - A skill (pick it with **<** and **>**): set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
-- Add 1,000 coins, or a sword and shield
+- Add 1,000 coins, a sword and shield, or a tinderbox and net
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything
@@ -154,7 +182,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 | Folder | What's there |
 |---|---|
 | `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank, shops, equipment, combat formulas, monsters and drop tables, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `GroundItem` and `ItemModels`, `PlayerController` (including what's on each right-click menu), `OptionMenu` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `Npc` (monsters), `Fire`, `FishingSpot`, `GroundItem` and `ItemModels`, `PlayerController` (the model, walking, woodcutting, combat and what's on each right-click menu) and `PlayerSkilling` (firemaking and fishing), `OptionMenu` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
 | `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, equipment, combat, pathfinding) |
 | `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |

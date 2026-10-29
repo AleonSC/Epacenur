@@ -48,10 +48,55 @@ namespace Epacenur.Runtime
                 shield.localRotation = Quaternion.Euler(0f, 0f, 90f);
                 BuildShield(shield, def);
             }
+            else if (def == ItemDefs.Ashes)
+            {
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, 0.02f, 0f), new Vector3(0.3f, 0.08f, 0.26f), c);
+                Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0.05f, 0.04f, 0.03f), new Vector3(0.14f, 0.07f, 0.12f), c * 0.8f);
+            }
+            else if (def == ItemDefs.SmallFishingNet)
+            {
+                var net = new GameObject("Net").transform;
+                net.SetParent(parent, false);
+                net.localPosition = new Vector3(0f, 0.03f, -0.2f);
+                net.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                BuildNet(net);
+            }
+            else if (def == ItemDefs.RawShrimps || def == ItemDefs.RawAnchovies)
+            {
+                BuildFish(parent, def, def == ItemDefs.RawShrimps ? 2 : 3);
+            }
             else
             {
                 Visuals.Prim(PrimitiveType.Cube, parent, new Vector3(0f, 0.1f, 0f), new Vector3(0.2f, 0.2f, 0.2f), c);
             }
+        }
+
+        /// A few small fish lying side by side.
+        static void BuildFish(Transform parent, ItemDef def, int count)
+        {
+            var c = new Color(def.R, def.G, def.B);
+            for (int i = 0; i < count; i++)
+            {
+                var fish = new GameObject("Fish").transform;
+                fish.SetParent(parent, false);
+                fish.localPosition = new Vector3(-0.08f + i * 0.08f, 0.03f, (i % 2) * 0.04f);
+                fish.localRotation = Quaternion.Euler(0f, i * 25f, 0f);
+                Visuals.Prim(PrimitiveType.Sphere, fish, Vector3.zero, new Vector3(0.06f, 0.05f, 0.2f), c);
+                var tail = Visuals.Prim(PrimitiveType.Cube, fish, new Vector3(0f, 0f, -0.11f), new Vector3(0.01f, 0.06f, 0.05f), c * 0.8f);
+                tail.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
+            }
+        }
+
+        /// A small net on a handle, pointing along +z from the grip at the origin.
+        public static void BuildNet(Transform parent)
+        {
+            var wood = new Color(0.5f, 0.34f, 0.18f);
+            var mesh = new Color(0.82f, 0.8f, 0.68f);
+            Visuals.Prim(PrimitiveType.Cylinder, parent, new Vector3(0f, 0f, 0.2f), new Vector3(0.03f, 0.2f, 0.03f), wood)
+                .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var hoop = Visuals.Prim(PrimitiveType.Cylinder, parent, new Vector3(0f, 0f, 0.55f), new Vector3(0.32f, 0.008f, 0.32f), wood);
+            Visuals.Prim(PrimitiveType.Cylinder, hoop.transform, new Vector3(0f, -1f, 0f), new Vector3(0.9f, 1f, 0.9f), mesh);
+            Visuals.Prim(PrimitiveType.Sphere, parent, new Vector3(0f, -0.07f, 0.55f), new Vector3(0.26f, 0.14f, 0.26f), mesh);
         }
 
         /// A sword pointing along +z from the grip at the origin.

@@ -122,6 +122,7 @@ namespace Epacenur.Core
         public static Shop DevAreaStore() => new Shop("Dev Area General Store",
             (ItemDefs.Tinderbox, 5),
             (ItemDefs.BronzeSword, 5),
-            (ItemDefs.WoodenShield, 5));
+            (ItemDefs.WoodenShield, 5),
+            (ItemDefs.SmallFishingNet, 5));
     }
 }

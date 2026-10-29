@@ -215,6 +215,10 @@ namespace Epacenur.Runtime
                 action = "Woodcutting...";
             else if (action.Length == 0 && p.IsFighting)
                 action = "Fighting...";
+            else if (action.Length == 0 && p.IsLighting)
+                action = "Firemaking...";
+            else if (action.Length == 0 && p.IsFishing)
+                action = "Fishing...";
             Shadowed(new Rect(10f, 8f, 600f, 22f), action, title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
@@ -351,6 +355,8 @@ namespace Epacenur.Runtime
                         // Click one slot, then another, to swap them. Equipment is worn on click instead.
                         if (selectedSlot == -1 && !stack.IsEmpty && stack.Def.Slot != EquipSlot.None)
                             G.Equipment.Equip(inv, i);
+                        else if (selectedSlot == -1 && !stack.IsEmpty && FiremakingRules.For(stack.ItemId) != null && G.Player.HasTinderbox)
+                            G.Player.LightFromInventory(i);
                         else if (selectedSlot == -1 && !stack.IsEmpty)
                             selectedSlot = i;
                         else if (selectedSlot >= 0)
@@ -398,6 +404,12 @@ namespace Epacenur.Runtime
                     {
                         if (G.Inventory[slot].ItemId == def.Id)
                             G.Equipment.Equip(G.Inventory, slot);
+                    }));
+                if (FiremakingRules.For(def.Id) != null)
+                    o.Add(new MenuOption("Light", name, () =>
+                    {
+                        if (G.Inventory[slot].ItemId == def.Id)
+                            G.Player.LightFromInventory(slot);
                     }));
                 o.Add(new MenuOption("Drop", name, () =>
                 {
@@ -861,6 +873,35 @@ namespace Epacenur.Runtime
                 Fill(new Rect(ix + 12f, iy + 26f, 17f, 3f), new Color(0.4f, 0.4f, 0.45f)); // guard
                 Fill(new Rect(ix + 18f, iy + 29f, 5f, 6f), new Color(0.35f, 0.22f, 0.12f)); // grip
             }
+            else if (def == ItemDefs.Ashes)
+            {
+                Fill(new Rect(ix + 9f, iy + 24f, 22f, 7f), c);
+                Fill(new Rect(ix + 13f, iy + 19f, 14f, 6f), Shade(c, 1.2f));
+                Fill(new Rect(ix + 17f, iy + 15f, 6f, 5f), Shade(c, 1.35f));
+            }
+            else if (def == ItemDefs.SmallFishingNet)
+            {
+                var wood = new Color(0.5f, 0.34f, 0.18f);
+                Fill(new Rect(ix + 7f, iy + 5f, 18f, 18f), wood);
+                Fill(new Rect(ix + 9f, iy + 7f, 14f, 14f), c);
+                for (int k = 0; k < 3; k++)
+                {
+                    Fill(new Rect(ix + 12f + k * 3.5f, iy + 7f, 1f, 14f), Shade(c, 0.6f));
+                    Fill(new Rect(ix + 9f, iy + 10f + k * 3.5f, 14f, 1f), Shade(c, 0.6f));
+                }
+                Fill(new Rect(ix + 23f, iy + 21f, 4f, 13f), wood);
+            }
+            else if (def == ItemDefs.RawShrimps || def == ItemDefs.RawAnchovies)
+            {
+                int n = def == ItemDefs.RawShrimps ? 2 : 3;
+                for (int k = 0; k < n; k++)
+                {
+                    float fy = iy + 10f + k * 8f;
+                    Fill(new Rect(ix + 8f, fy, 18f, 5f), c);
+                    Fill(new Rect(ix + 26f, fy - 1f, 4f, 7f), Shade(c, 0.75f));
+                    Fill(new Rect(ix + 10f, fy + 1f, 2f, 2f), new Color(0.1f, 0.1f, 0.1f));
+                }
+            }
             else if (def == ItemDefs.WoodenShield)
             {
                 Fill(new Rect(ix + 8f, iy + 6f, 24f, 28f), new Color(0.45f, 0.45f, 0.5f));  // rim
@@ -1041,6 +1082,21 @@ namespace Epacenur.Runtime
                     FillRotated(new Rect(cx - 1.25f, cy - 10f, 2.5f, 20f), wood, -40f, c);
                     FillRotated(new Rect(cx - 1.25f, cy - 10f, 8f, 6f), steel, -40f, c);
                     break;
+                case SkillId.Firemaking:  // a flame
+                    Fill(new Rect(cx - 6f, cy - 1f, 12f, 9f), new Color(0.95f, 0.3f, 0.05f));
+                    Fill(new Rect(cx - 4f, cy - 6f, 8f, 6f), new Color(0.95f, 0.3f, 0.05f));
+                    Fill(new Rect(cx - 2f, cy - 10f, 4f, 5f), new Color(0.95f, 0.3f, 0.05f));
+                    Fill(new Rect(cx - 3f, cy + 1f, 6f, 6f), new Color(1f, 0.75f, 0.15f));
+                    Fill(new Rect(cx - 1f, cy - 3f, 3f, 5f), new Color(1f, 0.75f, 0.15f));
+                    Fill(new Rect(cx - 7f, cy + 8f, 14f, 2f), wood);
+                    break;
+                case SkillId.Fishing:  // a fish
+                    var fishC = new Color(0.4f, 0.65f, 0.95f);
+                    Fill(new Rect(cx - 8f, cy - 3f, 12f, 7f), fishC);
+                    Fill(new Rect(cx - 6f, cy - 5f, 8f, 11f), fishC);
+                    Fill(new Rect(cx + 4f, cy - 5f, 3f, 11f), Shade(fishC, 0.75f));
+                    Fill(new Rect(cx - 6f, cy - 1f, 2f, 2f), new Color(0.05f, 0.05f, 0.1f));
+                    break;
                 default:
                     Fill(new Rect(cx - 7f, cy - 7f, 14f, 14f), new Color(def.R, def.G, def.B));
                     break;
@@ -1117,6 +1173,7 @@ namespace Epacenur.Runtime
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("+1,000 coins")) G.Inventory.Add(ItemDefs.Coins.Id, 1000);
             if (GUILayout.Button("Sword + shield")) { G.Inventory.Add(ItemDefs.BronzeSword.Id); G.Inventory.Add(ItemDefs.WoodenShield.Id); }
+            if (GUILayout.Button("Tinderbox + net")) { G.Inventory.Add(ItemDefs.Tinderbox.Id); G.Inventory.Add(ItemDefs.SmallFishingNet.Id); }
             GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", rich);

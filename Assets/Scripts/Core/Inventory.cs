@@ -45,7 +45,30 @@ namespace Epacenur.Core
             Slot = EquipSlot.Shield, DefenceBonus = 5, R = 0.5f, G = 0.33f, B = 0.18f,
         };
 
-        public static readonly ItemDef[] All = { Logs, Coins, Tinderbox, BronzeSword, WoodenShield };
+        public static readonly ItemDef Ashes = new ItemDef
+        {
+            Id = 6, Name = "Ashes", Examine = "A heap of ashes.", Value = 2, R = 0.45f, G = 0.45f, B = 0.45f,
+        };
+
+        public static readonly ItemDef SmallFishingNet = new ItemDef
+        {
+            Id = 7, Name = "Small fishing net", Examine = "Useful for catching small fish.", Value = 5, R = 0.75f, G = 0.72f, B = 0.6f,
+        };
+
+        public static readonly ItemDef RawShrimps = new ItemDef
+        {
+            Id = 8, Name = "Raw shrimps", Examine = "I should try cooking this.", Value = 5, R = 0.95f, G = 0.55f, B = 0.55f,
+        };
+
+        public static readonly ItemDef RawAnchovies = new ItemDef
+        {
+            Id = 9, Name = "Raw anchovies", Examine = "I should try cooking this.", Value = 15, R = 0.5f, G = 0.6f, B = 0.75f,
+        };
+
+        public static readonly ItemDef[] All =
+        {
+            Logs, Coins, Tinderbox, BronzeSword, WoodenShield, Ashes, SmallFishingNet, RawShrimps, RawAnchovies,
+        };
 
         public static ItemDef Get(int id)
         {

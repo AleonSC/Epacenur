@@ -14,7 +14,7 @@ namespace Epacenur.Runtime
     public enum HeldTool { Axe, Sword }
 
     /// The player: walking (tile paths or WASD), the view toggle, woodcutting, picking things up and fighting.
-    public sealed class PlayerController : MonoBehaviour
+    public sealed partial class PlayerController : MonoBehaviour
     {
         public const float PathSpeed = 3.4f;        // tiles per second when walking a clicked path
         public const float WasdSpeed = 4.2f;
@@ -39,7 +39,9 @@ namespace Epacenur.Runtime
         Game G => Game.Instance;
 
         CharacterController cc;
-        Transform model, armPivot, heldAxe, heldSword, heldShield;
+        Transform model, armPivot, armLeft, legLeft, legRight, cape, heldAxe, heldSword, heldShield, heldNet;
+        Vector3 lastPosition;
+        float walkPhase, speed;
         Renderer[] modelRenderers;
         GameObject hoverMarker, destMarker;
 
@@ -81,40 +83,134 @@ namespace Epacenur.Runtime
             model = new GameObject("Model").transform;
             model.SetParent(transform, false);
             var skin = new Color(0.93f, 0.76f, 0.6f);
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(0f, 0.95f, 0f), new Vector3(0.55f, 0.6f, 0.4f), new Color(0.2f, 0.36f, 0.7f));
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 0.32f, 0f), new Vector3(0.42f, 0.5f, 0.28f), new Color(0.3f, 0.25f, 0.2f));
-            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0f, 1.62f, 0f), new Vector3(0.36f, 0.38f, 0.36f), skin);
-            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.66f, 0.17f), new Vector3(0.2f, 0.06f, 0.04f), new Color(0.15f, 0.15f, 0.2f));
-            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(-0.33f, 1.1f, 0f), new Vector3(0.14f, 0.3f, 0.14f), skin);
+            var hair = new Color(0.33f, 0.2f, 0.1f);
+            var tunic = new Color(0.17f, 0.3f, 0.62f);
+            var trim = new Color(0.88f, 0.72f, 0.3f);
+            var trousers = new Color(0.26f, 0.23f, 0.2f);
+            var leather = new Color(0.3f, 0.18f, 0.08f);
+            var boots = new Color(0.2f, 0.13f, 0.08f);
+            var steel = new Color(0.66f, 0.68f, 0.73f);
+            var dark = new Color(0.08f, 0.06f, 0.06f);
 
-            // Right arm with an axe, swung from the shoulder.
-            armPivot = new GameObject("Arm").transform;
-            armPivot.SetParent(model, false);
-            armPivot.localPosition = new Vector3(0.33f, 1.35f, 0f);
-            Visuals.Prim(PrimitiveType.Capsule, armPivot, new Vector3(0f, -0.28f, 0f), new Vector3(0.14f, 0.3f, 0.14f), skin);
-            heldAxe = new GameObject("Axe").transform;
-            heldAxe.SetParent(armPivot, false);
-            heldAxe.localPosition = new Vector3(0f, -0.55f, 0.1f);
+            // Legs, each swinging from the hip: thigh, shin and a boot with a turned-down cuff.
+            legLeft = Limb("Left leg", new Vector3(-0.12f, 0.86f, 0f));
+            legRight = Limb("Right leg", new Vector3(0.12f, 0.86f, 0f));
+            foreach (var leg in new[] { legLeft, legRight })
+            {
+                Visuals.Prim(PrimitiveType.Capsule, leg, new Vector3(0f, -0.22f, 0f), new Vector3(0.18f, 0.24f, 0.18f), trousers);
+                Visuals.Prim(PrimitiveType.Capsule, leg, new Vector3(0f, -0.54f, 0f), new Vector3(0.15f, 0.22f, 0.15f), trousers);
+                Visuals.Prim(PrimitiveType.Cube, leg, new Vector3(0f, -0.79f, 0.04f), new Vector3(0.16f, 0.13f, 0.28f), boots);
+                Visuals.Prim(PrimitiveType.Cylinder, leg, new Vector3(0f, -0.68f, 0f), new Vector3(0.19f, 0.04f, 0.19f), leather);
+            }
+
+            // Body: hips, tunic with a flared skirt and gold trim, belt and buckle.
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 0.9f, 0f), new Vector3(0.4f, 0.16f, 0.24f), trousers);
+            Visuals.Prim(PrimitiveType.Cylinder, model, new Vector3(0f, 0.93f, 0f), new Vector3(0.5f, 0.09f, 0.34f), tunic);
+            Visuals.Prim(PrimitiveType.Cylinder, model, new Vector3(0f, 0.85f, 0f), new Vector3(0.51f, 0.012f, 0.35f), trim);
+            Visuals.Prim(PrimitiveType.Capsule, model, new Vector3(0f, 1.2f, 0f), new Vector3(0.5f, 0.38f, 0.32f), tunic);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.24f, 0.155f), new Vector3(0.05f, 0.36f, 0.02f), trim);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.42f, 0.14f), new Vector3(0.24f, 0.04f, 0.04f), trim);
+            Visuals.Prim(PrimitiveType.Cylinder, model, new Vector3(0f, 1.01f, 0f), new Vector3(0.45f, 0.03f, 0.31f), leather);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.01f, 0.16f), new Vector3(0.09f, 0.07f, 0.02f), trim);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0.14f, 0.97f, 0.14f), new Vector3(0.08f, 0.1f, 0.05f), leather); // pouch
+
+            // Shoulder pads.
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(-0.27f, 1.43f, 0f), new Vector3(0.22f, 0.14f, 0.24f), steel);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0.27f, 1.43f, 0f), new Vector3(0.22f, 0.14f, 0.24f), steel);
+
+            // Head: neck, face, ears, hair with a fringe, eyes, brows, nose and mouth.
+            Visuals.Prim(PrimitiveType.Cylinder, model, new Vector3(0f, 1.51f, 0f), new Vector3(0.12f, 0.05f, 0.12f), skin);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0f, 1.69f, 0f), new Vector3(0.32f, 0.36f, 0.32f), skin);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(-0.16f, 1.68f, 0f), new Vector3(0.05f, 0.09f, 0.06f), skin);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0.16f, 1.68f, 0f), new Vector3(0.05f, 0.09f, 0.06f), skin);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0f, 1.77f, -0.03f), new Vector3(0.35f, 0.28f, 0.35f), hair);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.82f, 0.12f), new Vector3(0.27f, 0.07f, 0.08f), hair);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0f, 1.63f, -0.12f), new Vector3(0.3f, 0.26f, 0.12f), hair);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(-0.065f, 1.7f, 0.145f), Vector3.one * 0.045f, dark);
+            Visuals.Prim(PrimitiveType.Sphere, model, new Vector3(0.065f, 1.7f, 0.145f), Vector3.one * 0.045f, dark);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(-0.065f, 1.745f, 0.15f), new Vector3(0.07f, 0.015f, 0.02f), hair);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0.065f, 1.745f, 0.15f), new Vector3(0.07f, 0.015f, 0.02f), hair);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.66f, 0.165f), new Vector3(0.04f, 0.06f, 0.05f), skin * 0.92f);
+            Visuals.Prim(PrimitiveType.Cube, model, new Vector3(0f, 1.6f, 0.15f), new Vector3(0.08f, 0.013f, 0.02f), new Color(0.55f, 0.2f, 0.2f));
+
+            // Arms from the shoulders: sleeve, forearm, hand. The right one holds tools, the left the shield.
+            armPivot = Limb("Right arm", new Vector3(0.33f, 1.38f, 0f));
+            armLeft = Limb("Left arm", new Vector3(-0.33f, 1.38f, 0f));
+            foreach (var arm in new[] { armPivot, armLeft })
+            {
+                Visuals.Prim(PrimitiveType.Capsule, arm, new Vector3(0f, -0.16f, 0f), new Vector3(0.14f, 0.18f, 0.14f), tunic);
+                Visuals.Prim(PrimitiveType.Cylinder, arm, new Vector3(0f, -0.3f, 0f), new Vector3(0.15f, 0.015f, 0.15f), trim);
+                Visuals.Prim(PrimitiveType.Capsule, arm, new Vector3(0f, -0.43f, 0f), new Vector3(0.12f, 0.15f, 0.12f), skin);
+                Visuals.Prim(PrimitiveType.Sphere, arm, new Vector3(0f, -0.58f, 0.01f), Vector3.one * 0.11f, skin);
+            }
+
+            // A red cape with a gold hem, hanging from the shoulders; it flies back as you move.
+            cape = Limb("Cape", new Vector3(0f, 1.46f, -0.17f));
+            Visuals.Prim(PrimitiveType.Cube, cape, new Vector3(0f, -0.47f, 0f), new Vector3(0.5f, 0.94f, 0.03f), new Color(0.62f, 0.08f, 0.1f));
+            Visuals.Prim(PrimitiveType.Cube, cape, new Vector3(0f, -0.93f, 0f), new Vector3(0.52f, 0.05f, 0.035f), trim);
+            Visuals.Prim(PrimitiveType.Cube, cape, new Vector3(0f, 0f, 0.02f), new Vector3(0.46f, 0.05f, 0.05f), trim);
+
+            heldAxe = Holder("Axe", armPivot, new Vector3(0f, -0.6f, 0.08f));
             BuildAxe(heldAxe);
-            heldSword = new GameObject("Sword").transform;
-            heldSword.SetParent(armPivot, false);
-            heldSword.localPosition = new Vector3(0f, -0.55f, 0.02f);
+            heldSword = Holder("Sword", armPivot, new Vector3(0f, -0.6f, 0.02f));
             ItemModels.BuildSword(heldSword, ItemDefs.BronzeSword);
-            // Shield strapped to the left arm.
-            heldShield = new GameObject("Shield").transform;
-            heldShield.SetParent(model, false);
-            heldShield.localPosition = new Vector3(-0.44f, 1.05f, 0.05f);
+            heldNet = Holder("Net", armPivot, new Vector3(0f, -0.6f, 0.02f));
+            ItemModels.BuildNet(heldNet);
+            heldShield = Holder("Shield", armLeft, new Vector3(-0.1f, -0.4f, 0.05f));
             ItemModels.BuildShield(heldShield, ItemDefs.WoodenShield);
             modelRenderers = model.GetComponentsInChildren<Renderer>(true);
         }
 
-        /// Show the sword and shield you're wearing; the axe comes out to chop.
+        Transform Limb(string name, Vector3 pivot)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(model, false);
+            t.localPosition = pivot;
+            return t;
+        }
+
+        static Transform Holder(string name, Transform parent, Vector3 at)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(parent, false);
+            t.localPosition = at;
+            return t;
+        }
+
+        /// Show the sword and shield you're wearing; the axe comes out to chop, the net to fish.
         void UpdateHeldItems()
         {
             bool sword = G.Equipment.IsWearing(EquipSlot.Weapon);
-            heldSword.gameObject.SetActive(sword && !chopping);
-            heldAxe.gameObject.SetActive(chopping || !sword);
+            heldNet.gameObject.SetActive(fishing);
+            heldSword.gameObject.SetActive(sword && !chopping && !fishing);
+            heldAxe.gameObject.SetActive(chopping || (!sword && !fishing));
             heldShield.gameObject.SetActive(G.Equipment.IsWearing(EquipSlot.Shield));
+        }
+
+        /// Walk cycle (legs, left arm and cape follow your speed), idle breathing, and kneeling to light fires.
+        void AnimateBody(float dt)
+        {
+            Vector3 moved = transform.position - lastPosition;
+            moved.y = 0f;
+            lastPosition = transform.position;
+            float measured = dt > 0f ? moved.magnitude / dt : 0f;
+            speed = Mathf.Lerp(speed, Mathf.Min(measured, 6f), 1f - Mathf.Exp(-12f * dt));
+            float stride = Mathf.Clamp01(speed / 3f);
+            walkPhase += dt * speed * 3.4f;
+            float swing = Mathf.Sin(walkPhase) * 38f * stride;
+
+            float kneel = lighting ? 1f : 0f;
+            legLeft.localRotation = Quaternion.Slerp(legLeft.localRotation, Quaternion.Euler(swing - kneel * 70f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
+            legRight.localRotation = Quaternion.Slerp(legRight.localRotation, Quaternion.Euler(-swing + kneel * 10f, 0f, 0f), 1f - Mathf.Exp(-20f * dt));
+            float leftArm = G.Equipment.IsWearing(EquipSlot.Shield) && (fighting || attackAnim > 0f) ? -50f : -swing * 0.8f;
+            armLeft.localRotation = Quaternion.Slerp(armLeft.localRotation, Quaternion.Euler(leftArm, 0f, -4f), 1f - Mathf.Exp(-15f * dt));
+
+            float bob = stride > 0.05f ? Mathf.Abs(Mathf.Sin(walkPhase)) * 0.04f * stride : Mathf.Sin(Time.time * 2f) * 0.008f;
+            model.localPosition = new Vector3(0f, bob - kneel * 0.22f, 0f);
+            model.localRotation = Quaternion.Euler(kneel * 12f, 0f, 0f);
+
+            float flutter = Mathf.Sin(Time.time * 7f) * 4f * stride + Mathf.Sin(Time.time * 1.7f) * 1.5f;
+            cape.localRotation = Quaternion.Slerp(cape.localRotation, Quaternion.Euler(6f + stride * 32f + flutter, 0f, 0f), 1f - Mathf.Exp(-8f * dt));
         }
 
         /// A small axe pointing forward along +z (shared with the first-person view).
@@ -145,6 +241,7 @@ namespace Epacenur.Runtime
             CancelAction();
             cc.enabled = false;  // a CharacterController overrides position changes while enabled
             transform.position = World.TileCenter(tile);
+            lastPosition = transform.position;
             cc.enabled = true;
         }
 
@@ -170,8 +267,10 @@ namespace Epacenur.Runtime
                 fallSpeed -= 20f * dt;
             cc.Move(move + Vector3.up * fallSpeed * dt);
 
+            UpdateSkilling(dt);
             UpdateHeldItems();
             AnimateArm(dt);
+            AnimateBody(dt);
             destMarker.SetActive(Mode == ViewMode.Tile && pathIndex < path.Count);
         }
 
@@ -279,6 +378,7 @@ namespace Epacenur.Runtime
                 if (thing == null) thing = hit.collider.GetComponentInParent<Npc>();
                 if (thing == null) thing = hit.collider.GetComponentInParent<GroundItem>();
                 if (thing == null) thing = hit.collider.GetComponentInParent<TreeObject>();
+                if (thing == null) thing = hit.collider.GetComponentInParent<Fire>();
                 if (thing == null)
                 {
                     // The ground (or a wall): the tile you'd walk to. Nothing behind it counts.
@@ -333,7 +433,13 @@ namespace Epacenur.Runtime
             {
                 string name = MenuOption.Item(item.Label);
                 options.Add(new MenuOption("Take", name, () => { if (firstPerson) PickUp(item); else WalkToItem(item); }));
+                if (FiremakingRules.For(item.ItemId) != null && HasTinderbox)
+                    options.Add(new MenuOption("Light", name, () => LightGroundItem(item)));
                 examines.Add(new MenuOption("Examine", MenuOption.Item(item.Def.Name), () => GameLog.Add(item.Def.Examine)));
+            }
+            else if (thing is Fire fire)
+            {
+                examines.Add(new MenuOption("Examine", MenuOption.Thing("Fire"), () => GameLog.Add(Fire.Examine)));
             }
             else if (thing is TreeObject tree)
             {
@@ -353,6 +459,7 @@ namespace Epacenur.Runtime
             if (thing is Interactable obj) return obj.Tile;
             if (thing is Npc npc) return npc.Tile;
             if (thing is GroundItem item) return item.Tile;
+            if (thing is Fire fire) return fire.Tile;
             return ((TreeObject)thing).Tile;
         }
 
@@ -534,6 +641,7 @@ namespace Epacenur.Runtime
             attackTarget = null;
             chopping = false;
             fighting = false;
+            CancelSkilling();
         }
 
         void Face(Vector3 dir, float dt)
@@ -920,9 +1028,17 @@ namespace Epacenur.Runtime
                 float t = 1f - attackAnim / 0.4f;
                 angle = t < 0.35f ? Mathf.Lerp(-15f, -140f, t / 0.35f) : Mathf.Lerp(-140f, -60f, (t - 0.35f) / 0.65f);
             }
+            else if (fishing)
+            {
+                angle = -70f + Mathf.Sin(Time.time * 1.5f) * 6f;  // net held out over the water
+            }
+            else if (lighting)
+            {
+                angle = -55f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 20f;  // striking the tinderbox
+            }
             else
             {
-                angle = fighting ? -60f : -15f;
+                angle = fighting ? -60f : -15f + Mathf.Sin(walkPhase) * 30f * Mathf.Clamp01(speed / 3f);
             }
             armPivot.localRotation = Quaternion.Slerp(armPivot.localRotation, Quaternion.Euler(angle, 0f, 0f), 1f - Mathf.Exp(-25f * dt));
         }

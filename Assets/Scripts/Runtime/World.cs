@@ -21,6 +21,8 @@ namespace Epacenur.Runtime
         public readonly List<ShopKeeper> ShopKeepers = new List<ShopKeeper>();
         public readonly List<Npc> Npcs = new List<Npc>();
         public readonly List<GroundItem> GroundItems = new List<GroundItem>();
+        public readonly List<Fire> Fires = new List<Fire>();
+        public readonly List<FishingSpot> FishingSpots = new List<FishingSpot>();
         readonly System.Random rng = new System.Random();
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
@@ -150,6 +152,43 @@ namespace Epacenur.Runtime
         {
             GroundItems.Remove(item);
             Destroy(item.gameObject);
+        }
+
+        public Fire AddFire(Tile tile, float burnSeconds)
+        {
+            var fire = Fire.Create(tile, burnSeconds, transform);
+            Grid.SetBlocked(tile, true);
+            Fires.Add(fire);
+            return fire;
+        }
+
+        /// Puts a fire out; a fire that burned down leaves ashes.
+        public void RemoveFire(Fire fire, bool leaveAshes)
+        {
+            Fires.Remove(fire);
+            Grid.SetBlocked(fire.Tile, false);
+            if (leaveAshes)
+                SpawnGroundItem(ItemDefs.Ashes.Id, 1, fire.Tile);
+            Destroy(fire.gameObject);
+        }
+
+        /// Water: blocked tiles under a blue surface.
+        public void AddWater(RectInt area)
+        {
+            for (int x = area.x; x < area.x + area.width; x++)
+                for (int z = area.y; z < area.y + area.height; z++)
+                    Grid.SetBlocked(new Tile(x, z), true);
+            var center = new Vector3(area.x + (area.width - 1) * 0.5f, 0.025f, area.y + (area.height - 1) * 0.5f);
+            Visuals.Prim(PrimitiveType.Cube, transform, center, new Vector3(area.width, 0.03f, area.height), new Color(0.2f, 0.42f, 0.7f));
+            // A sandy bank round the edge.
+            Visuals.Prim(PrimitiveType.Cube, transform, center - Vector3.up * 0.01f, new Vector3(area.width + 0.6f, 0.03f, area.height + 0.6f), new Color(0.76f, 0.68f, 0.48f));
+        }
+
+        public FishingSpot AddFishingSpot(FishingSpotDef def, Tile tile, List<Tile> shore)
+        {
+            var spot = FishingSpot.Create(def, tile, shore, transform);
+            FishingSpots.Add(spot);
+            return spot;
         }
 
         public TreeObject AddTree(TreeDef def, Tile tile, System.Random rng)

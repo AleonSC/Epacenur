@@ -40,10 +40,18 @@ namespace Epacenur.Core
 
         /// Chance (0..1) that one chop gets a log. RuneScape-style: rises in a straight line from
         /// LowChance at level 1 to HighChance at level 99, and keeps rising past 99 until it is certain.
-        public static double SuccessChance(TreeDef tree, int level)
+        public static double SuccessChance(TreeDef tree, int level) => GatherRules.Chance(tree.LowChance, tree.HighChance, level);
+    }
+
+    /// The success roll shared by gathering skills (woodcutting, firemaking, fishing).
+    public static class GatherRules
+    {
+        /// Chance (0..1) out of 256: a straight line from `low` at level 1 to `high` at level 99,
+        /// carrying on past 99 until it's certain.
+        public static double Chance(int low, int high, int level)
         {
-            double perLevel = (tree.HighChance - tree.LowChance) / 98.0;
-            double outOf256 = tree.LowChance + perLevel * (level - 1);
+            double perLevel = (high - low) / 98.0;
+            double outOf256 = low + perLevel * (level - 1);
             return Math.Max(0.0, Math.Min(1.0, (outOf256 + 1) / 256.0));
         }
     }
