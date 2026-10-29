@@ -1,7 +1,7 @@
 # Epacenur
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
-For now it's a **dev area** with plots for testing skills and a **bank booth**. The only skill so far is **Woodcutting**, with basic trees.
+For now it's a **dev area** with plots for testing skills a **bank booth** and a **shop**. The only skill so far is **Woodcutting**, with basic trees.
 
 There are no art assets: everything is built from Unity's primitive shapes when you press Play,
 so there are no scenes or prefabs to wire up.
@@ -25,6 +25,7 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
 | Chop a tree | Left-click it: you walk next to it and chop automatically until it becomes a stump or your inventory is full | Look at it and **left-click once per chop** (within reach) |
 | Camera | Arrow keys or middle-drag to rotate, scroll to zoom | Mouse look. **Esc** frees the mouse; click the view to grab it again |
 | Use the bank | Left-click the bank booth (by spawn): you walk up to it and the bank opens | Look at it and left-click (within reach) |
+| Trade with the shop keeper | Left-click him (beside the bank booth) | Look at him and left-click |
 | Switch view | **V** | **V** |
 
 - **Inventory**: 28 slots, one log per slot. Click a slot and then another to swap them. Right-click or shift-click to drop an item.
@@ -41,6 +42,18 @@ The **Epacenur** menu has *Build Windows Game*, *Open Dev Area Scene* and *Delet
   buttons set how many. Right-click or shift-click always moves all of it. **Deposit inventory** empties your backpack in one go.
   You only get as many items as you have free inventory slots.
 - The bank closes with **X**, **Esc**, or when you walk away from the booth. It's saved along with everything else.
+
+## Shop
+
+- The **shop keeper** stands two tiles east of the bank booth. "Trade" opens the **Dev Area General Store**.
+- It stocks 5 each of a **Tinderbox** (1 gp), a **Bronze sword** (26 gp) and a **Wooden shield** (20 gp). The stock is in
+  `Shops.DevAreaStore()` in `Assets/Scripts/Core/Shop.cs`.
+- Click an item to buy it, using the **1 / 5 / 10 / 50** buttons for how many. Shift-click buys 50, and right-click shows the price.
+- While the shop is open, click your own items to sell them. It's a general store, so it buys anything but coins, for 40% of the item's
+  value (logs sell for 1 gp). Items you sell show up in its stock.
+- Stock drifts back to normal by one every 6 seconds, and items players sold slowly disappear.
+- New saves start with **100 coins**. The dev tools can add 1,000 more.
+- The sword, shield and tinderbox are just items for now: there's no equipment or firemaking yet.
 
 ## Woodcutting
 
@@ -69,6 +82,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - Each skill: set the level (−1, +1, 1, 99, 120, 999) or add 1K / 1M / 1B xp
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
+- Add 1,000 coins
 - Regrow every tree
 - Teleport to spawn or to a skill's plot
 - Save now, or reset everything
@@ -77,10 +91,10 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory and bank, tree definitions and chop chances, tile grid and A* pathfinding |
-| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `BankBooth`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency: xp curve, skills, items, inventory, bank and shops, tree definitions and chop chances, tile grid and A* pathfinding |
+| `Assets/Scripts/Runtime` | The Unity side: `Game` (startup), `World` and `DevArea` (the map and its plots), `TreeObject`, `Interactable` with `BankBooth` and `ShopKeeper`, `PlayerController` (both view modes, walking, chopping), `CameraRig`, `Hud` (all the UI, built with IMGUI), `SaveGame` |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
-| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, pathfinding) |
+| `Tools/Tests` | `run.sh`: tests for the rules in Core (xp table, skills, inventory, bank, shop, pathfinding) |
 | `Tools/CompileCheck` | `check.sh`: compiles every script against stubbed Unity APIs, without Unity |
 
 Both scripts need mono (`apt-get install mono-mcs mono-runtime`).

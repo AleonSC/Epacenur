@@ -72,9 +72,14 @@ namespace Epacenur.Runtime
             Skills.LevelledUp += OnLevelUp;
 
             if (SaveGame.Load(this))
+            {
                 GameLog.Add("Welcome back to the Epacenur dev area.");
+            }
             else
+            {
+                Inventory.Add(ItemDefs.Coins.Id, 100);  // pocket money for the shop
                 GameLog.Add("Welcome to the Epacenur dev area.");
+            }
             GameLog.Add("Click a tree to chop it. V switches to first person, F1 opens the dev tools.");
             nextSave = Time.time + 15f;
         }

@@ -9,7 +9,7 @@ using Vector3 = UnityEngine.Vector3;
 namespace Epacenur.Runtime
 {
     /// Everything on screen: inventory and skills panel, chat box, xp drops, level-ups,
-    /// the action under the mouse, the first-person crosshair, the bank window and the dev tools (F1).
+    /// the action under the mouse, the first-person crosshair, the bank and shop windows and the dev tools (F1).
     public sealed class Hud : MonoBehaviour
     {
         const float Slot = 40f, Gap = 4f, Pad = 10f, TabH = 26f;
@@ -27,10 +27,11 @@ namespace Epacenur.Runtime
 
         const int BankColumns = 8;
         static readonly int[] BankAmounts = { 1, 5, 10, int.MaxValue };  // int.MaxValue = All
+        static readonly int[] ShopAmounts = { 1, 5, 10, 50 };
 
         Tab tab = Tab.Inventory;
-        BankBooth openBooth;          // the bank window is open while this is set
-        int bankAmount = 1;
+        Interactable openAt;          // the bank booth or shop keeper whose window is open
+        int bankAmount = 1, shopAmount = 1;
         UnityEngine.Vector2 bankScroll;
         bool showDev, showHelp = true;
         int selectedSlot = -1;
@@ -47,7 +48,7 @@ namespace Epacenur.Runtime
         float H => Screen.height / scale;
         Rect PanelRect => new Rect(W - PanelW - 10f, H - PanelH - 10f, PanelW, PanelH);
         Rect ChatRect => new Rect(10f, H - 160f, Mathf.Clamp(W - PanelW - 40f, 200f, 520f), 150f);
-        Rect BankRect
+        Rect WindowRect
         {
             get
             {
@@ -55,7 +56,8 @@ namespace Epacenur.Runtime
                 return new Rect(Mathf.Max(10f, (W - PanelW - 20f - w) / 2f), Mathf.Max(60f, (H - h) / 2f - 50f), w, h);
             }
         }
-        public bool BankOpen => openBooth != null;
+        public bool BankOpen => openAt is BankBooth;
+        public bool ShopOpen => openAt is ShopKeeper;
 
         void Update()
         {
@@ -64,25 +66,29 @@ namespace Epacenur.Runtime
                 showDev = !showDev;
             if (Input.GetKeyDown(KeyCode.H))
                 showHelp = !showHelp;
-            if (openBooth != null)
+            if (openAt != null)
             {
-                // Like RuneScape, the bank closes when you walk away from the booth.
-                Vector3 d = openBooth.transform.position - G.Player.transform.position;
+                // Like RuneScape, the bank or shop closes when you walk away.
+                Vector3 d = openAt.transform.position - G.Player.transform.position;
                 d.y = 0f;
                 if (Input.GetKeyDown(KeyCode.Escape) || d.magnitude > 2.2f)
-                    CloseBank();
+                    CloseWindow();
             }
         }
 
-        public void OpenBank(BankBooth booth)
+        public void OpenBank(BankBooth booth) => OpenWindow(booth);
+        public void OpenShop(ShopKeeper npc) => OpenWindow(npc);
+
+        void OpenWindow(Interactable at)
         {
-            openBooth = booth;
+            openAt = at;
+            bankScroll = UnityEngine.Vector2.zero;
             tab = Tab.Inventory;
             selectedSlot = -1;
             G.Rig.LockCursor(false);  // first person: free the mouse to use the window
         }
 
-        public void CloseBank() => openBooth = null;
+        public void CloseWindow() => openAt = null;
 
         /// Whether the mouse is over a panel (so clicks there don't walk or chop).
         public bool IsMouseOverUi()
@@ -90,7 +96,7 @@ namespace Epacenur.Runtime
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y) / scale;
-            return PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (BankOpen && BankRect.Contains(m));
+            return PanelRect.Contains(m) || ChatRect.Contains(m) || (showDev && devRect.Contains(m)) || (openAt != null && WindowRect.Contains(m));
         }
 
         public void AddXpDrop(SkillId skill, BigInteger tenths)
@@ -131,6 +137,8 @@ namespace Epacenur.Runtime
             DrawPanel();
             if (BankOpen)
                 DrawBank();
+            else if (ShopOpen)
+                DrawShop();
             if (G.Player.Mode == ViewMode.FirstPerson)
                 DrawCrosshair();
             if (showDev)
@@ -298,6 +306,13 @@ namespace Epacenur.Runtime
                         G.Bank.Deposit(inv, stack.ItemId, e.button == 1 || e.shift ? int.MaxValue : bankAmount);
                     e.Use();
                 }
+                else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition) && ShopOpen)
+                {
+                    // With a shop open, clicking an item sells it; right-click tells you what it would get.
+                    if (!stack.IsEmpty)
+                        SellToShop(stack.Def, e.button == 1 ? 0 : e.shift ? int.MaxValue : shopAmount);
+                    e.Use();
+                }
                 else if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
                 {
                     bool drop = e.button == 1 || e.shift;
@@ -330,7 +345,7 @@ namespace Epacenur.Runtime
 
         void DrawBank()
         {
-            var r = BankRect;
+            var r = WindowRect;
             var bank = G.Bank;
             var e = Event.current;
             Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
@@ -338,7 +353,7 @@ namespace Epacenur.Runtime
             Shadowed(new Rect(r.x + Pad, r.y + 5f, 260f, 22f), "<b>Bank of Epacenur</b>", title);
             Shadowed(new Rect(r.x + r.width - 140f, r.y + 7f, 100f, 20f), bank.UsedSlots + " / " + Bank.Size, rightSmall);
             if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
-                CloseBank();
+                CloseWindow();
 
             // Items: one slot per kind of item, with the whole stack in it.
             var view = new Rect(r.x + Pad, r.y + 38f, r.width - Pad * 2, r.height - 38f - 84f);
@@ -388,6 +403,86 @@ namespace Epacenur.Runtime
                 Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 260f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
         }
 
+        // ---- Shop ----
+
+        void DrawShop()
+        {
+            var r = WindowRect;
+            var shop = ((ShopKeeper)openAt).Shop;
+            var e = Event.current;
+            Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
+            Fill(new Rect(r.x, r.y, r.width, 30f), new Color(0.16f, 0.13f, 0.09f, 1f));
+            Shadowed(new Rect(r.x + Pad, r.y + 5f, 300f, 22f), "<b>" + shop.Name + "</b>", title);
+            if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
+                CloseWindow();
+
+            // Stock: each item with how many the shop has, and its price under it.
+            const float cellH = Slot + 16f;
+            var view = new Rect(r.x + Pad, r.y + 38f, r.width - Pad * 2, r.height - 38f - 84f);
+            int rows = Mathf.Max(1, (shop.Items.Count + BankColumns - 1) / BankColumns);
+            var content = new Rect(0f, 0f, view.width - 18f, rows * (cellH + Gap));
+            bankScroll = GUI.BeginScrollView(view, bankScroll, content);
+            string tooltip = null;
+            int buyIndex = -1, buyAmount = 0;
+            for (int i = 0; i < shop.Items.Count; i++)
+            {
+                var item = shop.Items[i];
+                var slot = new Rect((i % BankColumns) * (Slot + Gap), (i / BankColumns) * (cellH + Gap), Slot, Slot);
+                int price = Shop.BuyPrice(item.Def);
+                Fill(slot, new Color(0f, 0f, 0f, 0.25f));
+                DrawItemIcon(slot, item.Def);
+                Shadowed(new Rect(slot.x + 2f, slot.y - 1f, slot.width, 16f), (item.Stock > 0 ? "<color=#ffff00>" : "<color=#ff6060>") + item.Stock + "</color>", small);
+                Shadowed(new Rect(slot.x - 4f, slot.yMax, slot.width + 8f, 16f), price + " gp", centered);
+                if (slot.Contains(e.mousePosition))
+                    tooltip = item.Def.Name + ": " + price + " coins (" + item.Stock + " in stock)";
+                if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
+                {
+                    buyIndex = i;  // buy after the loop, so the stock list doesn't change mid-draw
+                    buyAmount = e.button == 1 ? 0 : e.shift ? 50 : shopAmount;
+                    e.Use();
+                }
+            }
+            GUI.EndScrollView();
+            if (buyIndex >= 0)
+            {
+                var def = shop.Items[buyIndex].Def;
+                if (buyAmount == 0)
+                    GameLog.Add(def.Name + ": currently costs " + Shop.BuyPrice(def) + " coins.");
+                else if (shop.Buy(G.Inventory, buyIndex, buyAmount, out string problem) < buyAmount && problem != null)
+                    GameLog.Add(problem);
+            }
+
+            float y = r.yMax - 76f;
+            GUI.Label(new Rect(r.x + Pad, y, 140f, 22f), "Buy / sell:", small);
+            for (int i = 0; i < ShopAmounts.Length; i++)
+            {
+                int a = ShopAmounts[i];
+                if (GUI.Toggle(new Rect(r.x + Pad + 120f + i * 46f, y, 42f, 22f), shopAmount == a, a.ToString(), GUI.skin.button))
+                    shopAmount = a;
+            }
+            Shadowed(new Rect(r.x + Pad, y + 28f, 160f, 22f), "Your coins: <color=#ffff00>" + Experience.Format(G.Inventory.Count(ItemDefs.Coins.Id)) + "</color>", label);
+            GUI.Label(new Rect(r.x + Pad + 160f, y + 26f, r.width - Pad * 2 - 160f, 50f),
+                "Click: buy / sell that many\nRight-click: price. Your items: click to sell", small);
+
+            if (tooltip != null && view.Contains(e.mousePosition))
+                Shadowed(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 300f, 20f), "<color=#ffcc66>" + tooltip + "</color>", small);
+        }
+
+        /// amount 0: just say what the shop would pay.
+        void SellToShop(ItemDef def, int amount)
+        {
+            var shop = ((ShopKeeper)openAt).Shop;
+            if (amount == 0 || !Shop.CanSell(def))
+            {
+                GameLog.Add(Shop.CanSell(def)
+                    ? def.Name + ": shop will buy for " + Shop.SellPrice(def) + " coins."
+                    : "You can't sell this item to this shop.");
+                return;
+            }
+            if (shop.Sell(G.Inventory, def.Id, amount, out string problem) == 0 && problem != null)
+                GameLog.Add(problem);
+        }
+
         /// RuneScape-style stack counts: yellow below 100K, white in K below 10M, green in M above.
         static string BankCount(long n)
         {
@@ -397,6 +492,8 @@ namespace Epacenur.Runtime
                 return "<color=#ffffff>" + (n / 1000) + "K</color>";
             return "<color=#00ff80>" + (n / 1000000) + "M</color>";
         }
+
+        static Color Shade(Color c, float f) => new Color(c.r * f, c.g * f, c.b * f, c.a);
 
         /// No art yet: items are drawn from coloured rectangles.
         static void DrawItemIcon(Rect slot, ItemDef def)
@@ -408,12 +505,46 @@ namespace Epacenur.Runtime
                 for (int k = 0; k < 3; k++)
                 {
                     float y = slot.y + 9f + k * 8f, x = slot.x + 6f + (k == 1 ? 4f : 0f);
-                    Fill(new Rect(x, y, 24f, 7f), k == 1 ? c * 0.85f : c);
+                    Fill(new Rect(x, y, 24f, 7f), k == 1 ? Shade(c, 0.85f) : c);
                     Fill(new Rect(x + 24f, y, 4f, 7f), end);
                 }
                 return;
             }
-            Fill(new Rect(slot.x + 8f, slot.y + 8f, slot.width - 16f, slot.height - 16f), c);
+            float ix = slot.x, iy = slot.y;
+            if (def == ItemDefs.Coins)
+            {
+                var dark = new Color(0.7f, 0.55f, 0.1f);
+                for (int k = 0; k < 4; k++)
+                {
+                    Fill(new Rect(ix + 10f + (k % 2) * 6f, iy + 26f - k * 5f, 16f, 5f), dark);
+                    Fill(new Rect(ix + 10f + (k % 2) * 6f, iy + 26f - k * 5f, 16f, 3f), c);
+                }
+            }
+            else if (def == ItemDefs.Tinderbox)
+            {
+                Fill(new Rect(ix + 9f, iy + 15f, 22f, 14f), c);
+                Fill(new Rect(ix + 9f, iy + 13f, 22f, 4f), Shade(c, 0.7f));
+                Fill(new Rect(ix + 27f, iy + 8f, 4f, 5f), new Color(1f, 0.55f, 0.1f));
+            }
+            else if (def == ItemDefs.BronzeSword)
+            {
+                Fill(new Rect(ix + 18f, iy + 4f, 5f, 22f), c);                          // blade
+                Fill(new Rect(ix + 19f, iy + 4f, 2f, 22f), new Color(0.9f, 0.7f, 0.45f));
+                Fill(new Rect(ix + 12f, iy + 26f, 17f, 3f), new Color(0.4f, 0.4f, 0.45f)); // guard
+                Fill(new Rect(ix + 18f, iy + 29f, 5f, 6f), new Color(0.35f, 0.22f, 0.12f)); // grip
+            }
+            else if (def == ItemDefs.WoodenShield)
+            {
+                Fill(new Rect(ix + 8f, iy + 6f, 24f, 28f), new Color(0.45f, 0.45f, 0.5f));  // rim
+                Fill(new Rect(ix + 10f, iy + 8f, 20f, 24f), c);
+                Fill(new Rect(ix + 16f, iy + 8f, 1f, 24f), Shade(c, 0.7f));
+                Fill(new Rect(ix + 23f, iy + 8f, 1f, 24f), Shade(c, 0.7f));
+                Fill(new Rect(ix + 17f, iy + 17f, 6f, 6f), new Color(0.6f, 0.6f, 0.65f));  // boss
+            }
+            else
+            {
+                Fill(new Rect(ix + 8f, iy + 8f, slot.width - 16f, slot.height - 16f), c);
+            }
         }
 
         void DrawSkills(Rect body)
@@ -478,6 +609,7 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Empty bank")) G.Bank.Clear();
             if (GUILayout.Button("+1,000 logs in bank")) G.Bank.Add(ItemDefs.Logs.Id, 1000);
             GUILayout.EndHorizontal();
+            if (GUILayout.Button("+1,000 coins")) G.Inventory.Add(ItemDefs.Coins.Id, 1000);
 
             GUILayout.Label("<b>World</b>", rich);
             if (GUILayout.Button("Regrow every tree"))

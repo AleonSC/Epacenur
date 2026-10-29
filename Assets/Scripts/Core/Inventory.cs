@@ -8,6 +8,7 @@ namespace Epacenur.Core
         public string Name;
         public bool Stackable;  // stackable items share one slot; everything else takes a slot each
         public string Examine;
+        public int Value;       // in coins: shops sell at this price and buy back for less
         public float R, G, B;   // icon colour until there are real icons
     }
 
@@ -16,10 +17,30 @@ namespace Epacenur.Core
     {
         public static readonly ItemDef Logs = new ItemDef
         {
-            Id = 1, Name = "Logs", Examine = "A number of wooden logs.", R = 0.55f, G = 0.36f, B = 0.18f,
+            Id = 1, Name = "Logs", Examine = "A number of wooden logs.", Value = 4, R = 0.55f, G = 0.36f, B = 0.18f,
         };
 
-        public static readonly ItemDef[] All = { Logs };
+        public static readonly ItemDef Coins = new ItemDef
+        {
+            Id = 2, Name = "Coins", Stackable = true, Examine = "Lovely money!", Value = 1, R = 0.95f, G = 0.8f, B = 0.25f,
+        };
+
+        public static readonly ItemDef Tinderbox = new ItemDef
+        {
+            Id = 3, Name = "Tinderbox", Examine = "Useful for lighting a fire.", Value = 1, R = 0.5f, G = 0.5f, B = 0.52f,
+        };
+
+        public static readonly ItemDef BronzeSword = new ItemDef
+        {
+            Id = 4, Name = "Bronze sword", Examine = "A razor-sharp sword.", Value = 26, R = 0.72f, G = 0.5f, B = 0.28f,
+        };
+
+        public static readonly ItemDef WoodenShield = new ItemDef
+        {
+            Id = 5, Name = "Wooden shield", Examine = "A solid wooden shield.", Value = 20, R = 0.5f, G = 0.33f, B = 0.18f,
+        };
+
+        public static readonly ItemDef[] All = { Logs, Coins, Tinderbox, BronzeSword, WoodenShield };
 
         public static ItemDef Get(int id)
         {

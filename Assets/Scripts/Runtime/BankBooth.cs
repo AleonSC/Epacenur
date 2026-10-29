@@ -5,14 +5,15 @@ namespace Epacenur.Runtime
 {
     /// A bank booth on one tile. Clicking it (tile mode: walk next to it first; first person: within reach)
     /// opens the bank window.
-    public sealed class BankBooth : MonoBehaviour
+    public sealed class BankBooth : Interactable
     {
-        public const string Name = "Bank booth";
-        public Tile Tile { get; private set; }
+        public override string Action => "Bank";
+        public override string DisplayName => "Bank booth";
+        public override void Interact() => Game.Instance.Hud.OpenBank(this);
 
         public static BankBooth Create(Tile tile, Transform parent)
         {
-            var go = new GameObject(Name + " " + tile);
+            var go = new GameObject("Bank booth " + tile);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = World.TileCenter(tile);
             var booth = go.AddComponent<BankBooth>();

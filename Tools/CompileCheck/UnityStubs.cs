@@ -17,7 +17,7 @@ namespace UnityEngine
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
     public class Transform : Component { public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
         public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { } }
-    public struct Vector2 { public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
+    public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 zero, up, forward; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;

@@ -18,6 +18,7 @@ namespace Epacenur.Runtime
         public TileGrid Grid { get; private set; }
         public readonly List<TreeObject> Trees = new List<TreeObject>();
         public readonly List<BankBooth> BankBooths = new List<BankBooth>();
+        public readonly List<ShopKeeper> ShopKeepers = new List<ShopKeeper>();
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
         public Tile Spawn { get; private set; }
@@ -40,6 +41,7 @@ namespace Epacenur.Runtime
             BuildWalls();
             AddLabel(TileCenter(Spawn) + new Vector3(0f, 0.2f, 2.5f), "Dev Area", new Color(1f, 0.9f, 0.5f));
             AddBankBooth(DevArea.BankBooth);
+            AddShopKeeper(DevArea.ShopKeeper, Shops.DevAreaStore());
 
             Areas.AddRange(DevArea.CreateAreas());
             foreach (var area in Areas)
@@ -105,6 +107,15 @@ namespace Epacenur.Runtime
             BankBooths.Add(booth);
             AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Bank", new Color(1f, 0.85f, 0.3f));
             return booth;
+        }
+
+        public ShopKeeper AddShopKeeper(Tile tile, Shop shop)
+        {
+            var npc = ShopKeeper.Create(tile, shop, transform);
+            Grid.SetBlocked(tile, true);
+            ShopKeepers.Add(npc);
+            AddLabel(TileCenter(tile) + Vector3.up * 2.6f, "Shop", new Color(1f, 0.85f, 0.3f));
+            return npc;
         }
 
         public TreeObject AddTree(TreeDef def, Tile tile, System.Random rng)

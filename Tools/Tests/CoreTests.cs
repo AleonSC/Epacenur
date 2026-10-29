@@ -70,6 +70,26 @@ static class CoreTests
         bank.Add(ItemDefs.Logs.Id, 5);
         Check(bank.Withdraw(inv, 0, long.MaxValue) == 5 && bank.UsedSlots == 0 && inv.Count(ItemDefs.Logs.Id) == 5, "an emptied bank slot is removed");
 
+        Console.WriteLine("Shop");
+        var shop = Shops.DevAreaStore();
+        Check(shop.Items.Count == 3 && shop.Items[0].Def == ItemDefs.Tinderbox && shop.Items[1].Def == ItemDefs.BronzeSword && shop.Items[2].Def == ItemDefs.WoodenShield, "stocks a tinderbox, a sword and a shield");
+        inv.Clear();
+        string why;
+        Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
+        inv.Add(ItemDefs.Coins.Id, 60);
+        Check(shop.Buy(inv, 1, 10, out why) == 2 && inv.Count(ItemDefs.BronzeSword.Id) == 2 && inv.Count(ItemDefs.Coins.Id) == 8, "60 coins buy two 26-coin swords");
+        Check(shop.Items[1].Stock == 3, "stock goes down");
+        Check(shop.Sell(inv, ItemDefs.BronzeSword.Id, 1, out why) == 1 && inv.Count(ItemDefs.Coins.Id) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
+        Check(shop.Sell(inv, ItemDefs.Coins.Id, 1, out why) == 0, "coins can't be sold");
+        inv.Add(ItemDefs.Logs.Id, 3);
+        Check(shop.Sell(inv, ItemDefs.Logs.Id, 5, out why) == 3 && shop.Items.Count == 4 && inv.Count(ItemDefs.Coins.Id) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        for (int i = 0; i < 5; i++) shop.Restock();
+        Check(shop.Items.Count == 3 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        inv.Clear();
+        inv.Add(ItemDefs.Logs.Id, 27);
+        inv.Add(ItemDefs.Coins.Id, 26);
+        Check(shop.Buy(inv, 1, 1, out why) == 1 && inv.IsFull && inv.Count(ItemDefs.Coins.Id) == 0, "spending your last coins frees their slot for the item");
+
         Console.WriteLine("Woodcutting");
         double c1 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 1), c99 = WoodcuttingRules.SuccessChance(TreeDefs.Basic, 99);
         Check(Math.Abs(c1 - 65 / 256.0) < 1e-9 && Math.Abs(c99 - 201 / 256.0) < 1e-9, "chance 25% at level 1, 79% at 99");
