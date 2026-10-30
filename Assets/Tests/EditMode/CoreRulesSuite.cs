@@ -459,42 +459,55 @@ public static class CoreRulesSuite
 
         info("Spawning");
         var sow = new Overworld(2024);
-        bool nearOnlyBasics = true, farHasAdamant = false, farHasYew = false, nearHasOak = false;
-        for (int x = 0; x < 64; x++)
-            for (int z = 0; z < 64; z++)
+        bool safeOnlyBasics = true, safeHasOak = false, deepHasAdamant = false, deepHasYew = false;
+        int deepTiles = 0;
+        for (int x = -1200; x < 1200; x += 3)
+            for (int z = -1200; z < 1200; z += 7)
             {
                 var t = new Tile(x, z);
+                int danger = sow.Danger(t);
                 var rock = Spawning.NodeAt(sow, t, Terrain.Rock);
-                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
-                if (Spawning.NodeAt(sow, t, Terrain.Tree).Id == WoodcuttingModule.Oak) nearHasOak = true;
-                var farTile = new Tile(x + 1100, z);
-                if (Spawning.NodeAt(sow, farTile, Terrain.Rock).Id == MiningModule.AdamantiteRock) farHasAdamant = true;
-                if (Spawning.NodeAt(sow, farTile, Terrain.Tree).Id == WoodcuttingModule.Yew) farHasYew = true;
+                var treeHere = Spawning.NodeAt(sow, t, Terrain.Tree);
+                if (danger == 0 && rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock) safeOnlyBasics = false;
+                if (danger == 0 && treeHere.Id == WoodcuttingModule.Oak) safeHasOak = true;
+                if (danger >= 30)
+                {
+                    deepTiles++;
+                    if (rock.Id == MiningModule.AdamantiteRock) deepHasAdamant = true;
+                    if (treeHere.Id == WoodcuttingModule.Yew) deepHasYew = true;
+                }
             }
-        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper and tin near the start, adamantite and yews far out");
+        Check(safeOnlyBasics && safeHasOak && deepTiles > 0 && deepHasAdamant && deepHasYew, "copper, tin and oaks on the safe ground round towns; adamantite and yews deep in the wilderness");
         var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
-        Check(homeGroups.Count == 3 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
+        Check(homeGroups.Count == 3 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home city has chickens or cows (" + homeGroups[0].Npc.Name + ")");
         Check(homeGroups[1].Npc.Pickpocket != null && homeGroups[2].Npc.Pickpocket != null && homeGroups[1].Npc.Pickpocket.Level <= 10,
             "...and two groups of townsfolk to pickpocket (" + homeGroups[1].Npc.Name + ", " + homeGroups[2].Npc.Name + ")");
-        int campCount = 0, goblinCamps = 0, wildFar = 0, dangerous = 0;
-        for (int rx = -12; rx <= 12; rx++)
-            for (int rz = -12; rz <= 12; rz++)
+        int campCount = 0, goblinCamps = 0, wildDeep = 0, dangerous = 0, wildSafe = 0, safeButFierce = 0;
+        for (int rx = -14; rx <= 14; rx++)
+            for (int rz = -14; rz <= 14; rz++)
             {
                 var plan = sow.Plan(rx, rz);
                 var groups = Spawning.GroupsIn(sow, plan);
+                int danger = sow.Danger(plan.Center);
                 if (plan.Kind == RegionKind.Camp)
                 {
                     campCount++;
                     if (groups[0].Npc.Id == CombatModule.Goblin) goblinCamps++;
                 }
-                if (plan.Kind == RegionKind.Wild && Spawning.Distance(sow, plan.Center) > 500)
+                if (plan.Kind == RegionKind.Wild && danger >= 20)
                 {
-                    wildFar++;
+                    wildDeep++;
                     if (groups.Exists(g => g.Npc.Aggressive)) dangerous++;
                 }
+                if (danger == 0 && plan.Kind != RegionKind.Camp)
+                {
+                    wildSafe++;
+                    if (groups.Exists(g => g.Npc.Aggressive)) safeButFierce++;
+                }
             }
-        Check(goblinCamps > 0 && goblinCamps < campCount && dangerous > wildFar / 2, campCount + " camps (" + goblinCamps + " goblin, the rest bandits); "
-            + dangerous + " of " + wildFar + " far-out wild regions have aggressive monsters");
+        Check(goblinCamps > 0 && goblinCamps < campCount && wildDeep > 0 && dangerous > wildDeep / 2 && wildSafe > 0 && safeButFierce == 0,
+            campCount + " camps (" + goblinCamps + " goblin, the rest fiercer); " + dangerous + " of " + wildDeep + " regions deep in the wilderness have aggressive monsters; none of the "
+            + wildSafe + " safe ones do");
         Check(db.Npc(CombatModule.HillGiant).AlwaysDrops[0] == PrayerModule.BigBones && db.Item(PrayerModule.BigBones).BuryXp == 15, "hill giants drop big bones (15 xp)");
 
         info("Magic and runecrafting");
@@ -550,16 +563,16 @@ public static class CoreRulesSuite
         Check(rw.Plan(1, 0).Kind == RegionKind.Shrine && Spawning.ShrineAltar(rw, rw.Plan(1, 0)).Id == "air_altar" && !rw.IsBlocked(new Tile(rw.Plan(1, 0).Altar.X, rw.Plan(1, 0).Altar.Z - 1)),
             "just east of the start there's always an air altar, and you can walk up to it");
         bool nearFire = false, farLaw = false;
-        for (int rx = -25; rx <= 25; rx++)
-            for (int rz = -25; rz <= 25; rz++)
+        for (int rx = -35; rx <= 35; rx++)
+            for (int rz = -35; rz <= 35; rz++)
             {
                 var plan = rw.Plan(rx, rz);
                 if (plan.Kind != RegionKind.Shrine) continue;
                 var altarDef = Spawning.ShrineAltar(rw, plan);
-                if (altarDef.Id == "fire_altar" && Spawning.Distance(rw, plan.Center) < 300) nearFire = true;
+                if (altarDef.Id == "fire_altar" && rw.Danger(plan.Center) < 10) nearFire = true;
                 if (altarDef.Id == "law_altar") farLaw = true;
             }
-        Check(!nearFire && farLaw, "better altars lie further out");
+        Check(!nearFire && farLaw, "better altars lie deeper in the wilderness");
         var airShrine = rw.Plan(1, 0);
         int essenceRocks = 0;
         foreach (var e in airShrine.Essence)
@@ -678,10 +691,10 @@ public static class CoreRulesSuite
         Check(body2.ToolType == "needle" && body2.Level == 14 && body2.Xp == 25 && Item(CraftingModule.LeatherBody).Slot == EquipSlot.Body
             && Item(CraftingModule.LeatherVambraces).Bonuses.RangedAttack == 4, "a leather body needs a needle and Crafting 14; vambraces help rangers");
         int flaxTiles = 0;
-        for (int x = -100; x < 100; x++)
-            for (int z = -100; z < 100; z++)
+        for (int x = -600; x < 600; x += 2)
+            for (int z = -600; z < 600; z += 2)
                 if (sow.At(new Tile(x, z)) == Terrain.Flax) flaxTiles++;
-        Check(flaxTiles > 20 && Spawning.NodeAt(sow, new Tile(0, 0), Terrain.Flax).Id == CraftingModule.FlaxPlant, "flax fields in the countryside (" + flaxTiles + " plants near the start)");
+        Check(flaxTiles > 20 && Spawning.NodeAt(sow, new Tile(0, 0), Terrain.Flax).Id == CraftingModule.FlaxPlant, "flax fields in the meadows (" + flaxTiles + " plants in a quarter of the tiles round the start)");
 
         info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })
@@ -780,6 +793,118 @@ public static class CoreRulesSuite
         cg.Load(-1, 0, t => t.X == -3);
         Check(cg.ChunkOf(-1) == -1 && cg.ChunkOf(-16) == -1 && cg.ChunkOf(-17) == -2 && cg.ChunkOf(15) == 0, "negative tiles fall in negative chunks");
         Check(cg.IsWalkable(new Tile(-1, 5)) && !cg.IsWalkable(new Tile(-3, 5)) && !cg.IsWalkable(new Tile(1, 5)), "a chunked grid: loaded tiles, blocked tiles, and nothing outside");
+
+        info("Towns, cities and the wilderness");
+        var ww = new Overworld(2024);
+        var homeCity = ww.SettlementOf(0, 0);
+        Check(homeCity != null && homeCity.City && homeCity.RX == 0 && homeCity.RZ == 0 && ww.Plan(0, 0).City && ww.Danger(ww.Spawn) == 0,
+            "Epacenur, where you start, is a city on safe ground");
+        var places = new System.Collections.Generic.List<Settlement>();
+        for (int cx = -6; cx <= 6; cx++)
+            for (int cz = -6; cz <= 6; cz++)
+            {
+                var st = ww.SettlementInCell(cx, cz);
+                if (st != null) places.Add(st);
+            }
+        bool apart = true, safeAtHome = true, plannedAsTowns = true;
+        int cities = 0;
+        foreach (var a1 in places)
+        {
+            if (a1.City) cities++;
+            if (ww.Danger(a1.Center) != 0) safeAtHome = false;
+            if (ww.Plan(a1.RX, a1.RZ).Kind != RegionKind.Town || ww.Plan(a1.RX, a1.RZ).City != a1.City) plannedAsTowns = false;
+            foreach (var b1 in places)
+                if (a1 != b1 && Math.Max(Math.Abs(a1.RX - b1.RX), Math.Abs(a1.RZ - b1.RZ)) < 3) apart = false;
+        }
+        int strayTowns = 0;
+        for (int rx = -30; rx <= 30; rx++)
+            for (int rz = -30; rz <= 30; rz++)
+            {
+                var pl = ww.Plan(rx, rz);
+                var st = ww.SettlementOf(rx, rz);
+                if (pl.Kind == RegionKind.Town && (st == null || st.RX != rx || st.RZ != rz)) strayTowns++;
+            }
+        Check(places.Count > 80 && places.Count < 169 && cities > 5 && cities < places.Count / 2 && apart && safeAtHome && plannedAsTowns && strayTowns == 0,
+            places.Count + " towns and cities (" + cities + " cities) in 13 x 13 cells, at least 3 regions apart, each on safe ground, and no other towns");
+        // Walking from one town to the next: safe, then more and more dangerous, then safe again.
+        var from = homeCity;
+        Settlement to = null;
+        foreach (var p1 in places)
+            if (p1 != from && p1.RZ == from.RZ && p1.RX > from.RX && (to == null || p1.RX < to.RX)) to = p1;
+        if (to == null)
+            foreach (var p1 in places)
+                if (p1 != from && (to == null || p1.Center.StepsTo(from.Center) < to.Center.StepsTo(from.Center))) to = p1;
+        int peak = 0, peakAt = 0, steps = 64;
+        bool rises = true, falls = true;
+        int[] along = new int[steps + 1];
+        for (int i = 0; i <= steps; i++)
+        {
+            var t = new Tile(from.Center.X + (to.Center.X - from.Center.X) * i / steps, from.Center.Z + (to.Center.Z - from.Center.Z) * i / steps);
+            along[i] = ww.Danger(t);
+            if (along[i] > peak) { peak = along[i]; peakAt = i; }
+        }
+        for (int i = 1; i <= peakAt; i++) if (along[i] < along[i - 1] - 1) rises = false;
+        for (int i = peakAt + 1; i <= steps; i++) if (along[i] > along[i - 1] + 1) falls = false;
+        Check(along[0] == 0 && along[steps] == 0 && peak >= 3 && rises && falls,
+            "from Epacenur to " + "the next town" + ": safe, up to wilderness level " + peak + ", then safe again");
+        int maxDanger = 0;
+        for (int x = -3000; x < 3000; x += 23)
+            for (int z = -3000; z < 3000; z += 23)
+                maxDanger = Math.Max(maxDanger, ww.Danger(new Tile(x, z)));
+        var ns = ww.NearestSettlement(new Tile(to.Center.X + 3, to.Center.Z - 2));
+        Check(maxDanger >= 40 && maxDanger <= Overworld.MaxDanger && ns == to, "the deepest wilderness reaches level " + maxDanger + "; the nearest town to a town's square is that town");
+
+        info("Noise and biomes");
+        var vn = new ValueNoise(3);
+        int repeats = 0;
+        for (int i = 0; i < 200; i++)
+            if (Math.Abs(vn.Sample(i * 0.37, i * 0.11) - vn.Sample(i * 0.37 + 256, i * 0.11)) < 1e-9) repeats++;
+        double fsum = 0, fsq = 0;
+        for (int x = 0; x < 300; x++)
+            for (int z = 0; z < 300; z++)
+            {
+                double v = vn.Fractal(x / 7.3, z / 7.3, 4);
+                fsum += v; fsq += v * v;
+            }
+        double fmean = fsum / 90000, fsd = Math.Sqrt(fsq / 90000 - fmean * fmean);
+        Check(repeats == 0 && Math.Abs(fmean - 0.5) < 0.03 && fsd > 0.2 && fsd < 0.25, "noise never repeats, and layered noise spreads like plain noise (sd " + fsd.ToString("0.000") + ")");
+        var seen = new System.Collections.Generic.Dictionary<Biome, int>();
+        bool wasteOnlyDeep = true;
+        int flaxOutsideMeadow = 0;
+        for (int x = -3000; x < 3000; x += 29)
+            for (int z = -3000; z < 3000; z += 29)
+            {
+                var t = new Tile(x, z);
+                var bi = ww.BiomeAt(t);
+                seen[bi] = seen.TryGetValue(bi, out int nb) ? nb + 1 : 1;
+                if (bi == Biome.Wasteland && ww.DangerAt(x, z) < Overworld.DeepWilderness) wasteOnlyDeep = false;
+                if (ww.At(t) == Terrain.Flax && bi != Biome.Meadow) flaxOutsideMeadow++;
+            }
+        bool all = true;
+        string mix = "";
+        foreach (Biome bi in Enum.GetValues(typeof(Biome)))
+        {
+            int n1 = seen.TryGetValue(bi, out int got) ? got : 0;
+            if (n1 < 1000) all = false;
+            mix += (mix.Length > 0 ? ", " : "") + bi.ToString().ToLowerInvariant() + " " + (n1 * 100 / 42849) + "%";
+        }
+        Check(all && wasteOnlyDeep && flaxOutsideMeadow == 0, "every biome is common (" + mix + "); wasteland only deep in the wilderness; flax only in meadows");
+        int marshWater = 0, marshTiles = 0, meadowWater = 0, meadowTiles = 0, highRock = 0, highTiles = 0, woodTrees = 0, woodTiles = 0, wasteTrees = 0, wasteTiles = 0;
+        for (int x = -1500; x < 1500; x += 7)  // (not a multiple of 3: trees and rocks grow on a 3-tile lattice)
+            for (int z = -1500; z < 1500; z += 7)
+            {
+                var t = new Tile(x, z);
+                var bi = ww.BiomeAt(t);
+                var k = ww.At(t);
+                if (bi == Biome.Marsh) { marshTiles++; if (k == Terrain.Water) marshWater++; }
+                if (bi == Biome.Meadow) { meadowTiles++; if (k == Terrain.Water) meadowWater++; }
+                if (bi == Biome.Highlands) { highTiles++; if (k == Terrain.Rock) highRock++; }
+                if (bi == Biome.Woodland) { woodTiles++; if (k == Terrain.Tree) woodTrees++; }
+                if (bi == Biome.Wasteland) { wasteTiles++; if (k == Terrain.Tree) wasteTrees++; }
+            }
+        Check((double)marshWater / marshTiles > 2.0 * meadowWater / meadowTiles && (double)woodTrees / woodTiles > 2.0 * wasteTrees / wasteTiles && highRock > 0,
+            "marshes are wetter than meadows (" + (marshWater * 1000 / marshTiles) + " to " + (meadowWater * 1000 / meadowTiles) + " water tiles in 1000), woodland thicker than wasteland ("
+            + (woodTrees * 1000 / woodTiles) + " to " + (wasteTrees * 1000 / wasteTiles) + " trees in 1000), and highlands rocky");
 
         info("Pathfinding");
         var grid = new TileGrid(10, 10);

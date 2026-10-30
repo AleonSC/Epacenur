@@ -4,7 +4,7 @@ using Epacenur.Core;
 namespace Epacenur.Content
 {
     /// Mining: rocks from copper and tin to adamantite, their ores, and a pickaxe of each metal.
-    /// Better rocks lie further from the start (each rock's Spawns).
+    /// Better rocks lie deeper in the wilderness (each rock's Spawns).
     public sealed class MiningModule : IContentModule
     {
         public const string Skill = "mining", CopperOre = "copper_ore", TinOre = "tin_ore", IronOre = "iron_ore", Coal = "coal",
@@ -50,13 +50,13 @@ namespace Epacenur.Content
             }
 
             // Rocks (OSRS levels, xp and chances with a bronze pickaxe), and where they lie: copper and tin
-            // near the start, the rest further out.
-            Rock(db, CopperRock, "Copper rocks", "copper", CopperOre, 1, 17.5, 100, 350, 2.4f, new Rgb(0.85f, 0.45f, 0.2f), 0, 900, 3);
-            Rock(db, TinRock, "Tin rocks", "tin", TinOre, 1, 17.5, 100, 350, 2.4f, new Rgb(0.82f, 0.82f, 0.8f), 0, 900, 3);
-            Rock(db, IronRock, "Iron rocks", "iron", IronOre, 15, 35, 96, 350, 5.4f, new Rgb(0.55f, 0.32f, 0.25f), 80, int.MaxValue, 3);
-            Rock(db, CoalRock, "Coal rocks", "coal", Coal, 30, 50, 16, 100, 20f, new Rgb(0.1f, 0.1f, 0.1f), 200, int.MaxValue, 2.5);
-            Rock(db, MithrilRock, "Mithril rocks", "mithril", MithrilOre, 55, 80, 4, 50, 60f, Metals.Mithril.Colour * 1.2f, 450, int.MaxValue, 1.2);
-            Rock(db, AdamantiteRock, "Adamantite rocks", "adamantite", AdamantiteOre, 70, 95, 2, 25, 120f, Metals.Adamant.Colour * 1.2f, 800, int.MaxValue, 0.8);
+            // round the towns, the rest deeper in the wilderness (from a level), commoner in some biomes.
+            Rock(db, CopperRock, "Copper rocks", "copper", CopperOre, 1, 17.5, 100, 350, 2.4f, new Rgb(0.85f, 0.45f, 0.2f), 0, 40, 3);
+            Rock(db, TinRock, "Tin rocks", "tin", TinOre, 1, 17.5, 100, 350, 2.4f, new Rgb(0.82f, 0.82f, 0.8f), 0, 40, 3);
+            Rock(db, IronRock, "Iron rocks", "iron", IronOre, 15, 35, 96, 350, 5.4f, new Rgb(0.55f, 0.32f, 0.25f), 2, int.MaxValue, 3);
+            Rock(db, CoalRock, "Coal rocks", "coal", Coal, 30, 50, 16, 100, 20f, new Rgb(0.1f, 0.1f, 0.1f), 6, int.MaxValue, 2.5, Biome.Highlands, 3);
+            Rock(db, MithrilRock, "Mithril rocks", "mithril", MithrilOre, 55, 80, 4, 50, 60f, Metals.Mithril.Colour * 1.2f, 16, int.MaxValue, 1.2, Biome.Highlands, 12);
+            Rock(db, AdamantiteRock, "Adamantite rocks", "adamantite", AdamantiteOre, 70, 95, 2, 25, 120f, Metals.Adamant.Colour * 1.2f, 28, int.MaxValue, 0.8, Biome.Wasteland, 26);
         }
 
         static void Ore(ContentDb db, string id, string name, int value, Rgb c, string examine = "This needs refining.")
@@ -67,7 +67,8 @@ namespace Epacenur.Content
         }
 
         static void Rock(ContentDb db, string id, string name, string metal, string ore, int level, double xp, int low, int high,
-            float respawn, Rgb oreColour, int minDistance, int maxDistance, double weight)
+            float respawn, Rgb oreColour, int minDanger, int maxDanger, double weight,
+            Biome? likes = null, int likesFrom = 0)
         {
             var empty = new Model()
                 .Sphere(0f, 0.32f, 0f, 0.95f, 0.7f, 0.85f, Looks.Rock)
@@ -93,7 +94,9 @@ namespace Epacenur.Content
                 LevelMessage = "You need a Mining level of {0} to mine this rock.",
                 EmptyMessage = "There is currently no ore available in this rock.",
             };
-            node.Spawns.Add(new SpawnRule { On = Terrain.Rock, MinDistance = minDistance, MaxDistance = maxDistance, Weight = weight });
+            node.Spawns.Add(new SpawnRule { On = Terrain.Rock, MinDanger = minDanger, MaxDanger = maxDanger, Weight = weight });
+            if (likes != null)
+                node.Spawns.Add(new SpawnRule { On = Terrain.Rock, MinDanger = likesFrom, MaxDanger = maxDanger, Weight = weight, Biome = likes });
             db.Add(node);
         }
     }

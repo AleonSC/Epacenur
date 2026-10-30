@@ -104,7 +104,6 @@ namespace Epacenur.Runtime
         readonly Dictionary<long, Owner> regions = new Dictionary<long, Owner>();
         readonly Dictionary<long, int> regionChunks = new Dictionary<long, int>();
         Transform backdrop;
-        Material groundMat;
         // The minimap's colours: per loaded chunk (overworld) or for the whole dev plot.
         readonly Dictionary<long, Color32[]> chunkColours = new Dictionary<long, Color32[]>();
         Color32[] devColours;
@@ -262,7 +261,7 @@ namespace Epacenur.Runtime
             chunkGrid.Load(cx, cz, Overworld.IsBlocked);
             chunkColours[key] = ChunkColours(cx, cz);
             building = owner;
-            OverworldBuilder.BuildChunk(this, cx, cz, GroundMaterial());
+            OverworldBuilder.BuildChunk(this, cx, cz);
             ShowPiles(key);
             building = null;
 
@@ -368,15 +367,46 @@ namespace Epacenur.Runtime
         /// The parent for things built now (the chunk, region or dev plot being built).
         public Transform BuildRoot => (building ?? dev).Root;
 
-        Material GroundMaterial()
+        /// The overworld's ground in a biome, at a band of danger (DangerBand): its colour (GroundColour) over a
+        /// pale texture with a faint line round each tile. One material for each, shared by every chunk.
+        public Material GroundMaterial(Biome biome, int band)
         {
-            if (groundMat == null)
+            int key = (int)biome * DangerBands + band;
+            if (groundMats[key] == null)
             {
-                groundMat = Visuals.NewMat(Color.white);
-                groundMat.mainTexture = Visuals.TileTexture(new Color(0.34f, 0.53f, 0.25f), new Color(0.29f, 0.46f, 0.21f));
-                groundMat.mainTextureScale = new Vector2(Overworld.ChunkSize, Overworld.ChunkSize);
+                if (groundTex == null)
+                    groundTex = Visuals.TileTexture(new Color(0.93f, 0.93f, 0.93f), new Color(0.8f, 0.8f, 0.8f));
+                var m = Visuals.NewMat(GroundColour(biome, band) * 1.07f);
+                m.mainTexture = groundTex;
+                m.mainTextureScale = new Vector2(Overworld.ChunkSize, Overworld.ChunkSize);
+                groundMats[key] = m;
             }
-            return groundMat;
+            return groundMats[key];
+        }
+
+        public const int DangerBands = 4;
+        readonly Material[] groundMats = new Material[5 * DangerBands];
+        Texture2D groundTex;
+
+        /// Safe, the edge of the wilderness, the wilderness, the deep wilderness.
+        public static int DangerBand(int danger) => danger == 0 ? 0 : danger < 10 ? 1 : danger < Overworld.DeepWilderness ? 2 : 3;
+
+        static readonly Color[] BiomeGround =
+        {
+            new Color(0.38f, 0.56f, 0.25f),  // meadow: fresh green
+            new Color(0.26f, 0.44f, 0.19f),  // woodland: deep green
+            new Color(0.3f, 0.44f, 0.3f),    // marsh: grey-green
+            new Color(0.43f, 0.47f, 0.33f),  // highlands: dry, stony
+            new Color(0.37f, 0.32f, 0.23f),  // wasteland: scorched brown
+        };
+
+        /// The colour of the ground in a biome, browning a little in each band of danger further out.
+        public static Color GroundColour(Biome biome, int band)
+        {
+            var c = BiomeGround[(int)biome];
+            var wild = new Color(0.36f, 0.3f, 0.21f);
+            float t = band * 0.13f;
+            return new Color(c.r + (wild.r - c.r) * t, c.g + (wild.g - c.g) * t, c.b + (wild.b - c.b) * t);
         }
 
         // ---- The dev plot ----
@@ -586,22 +616,11 @@ namespace Epacenur.Runtime
             AddPile(new GroundPile { item = itemId, count = count, x = tile.X, z = tile.Z, map = (int)map });
         }
 
-        /// The square of the town nearest a tile (where you wake up after dying), searching a few regions out.
+        /// The square of the town or city nearest a tile (where you wake up after dying).
         public Tile NearestTown(Tile t)
         {
-            int rx = Overworld.RegionOf(t.X), rz = Overworld.RegionOf(t.Z);
-            Tile best = MainSpawn;
-            int bestSteps = int.MaxValue;
-            for (int dx = -6; dx <= 6; dx++)
-                for (int dz = -6; dz <= 6; dz++)
-                {
-                    var plan = Overworld.Plan(rx + dx, rz + dz);
-                    if (plan.Kind != RegionKind.Town || plan.Center.StepsTo(t) >= bestSteps)
-                        continue;
-                    best = plan.Center;
-                    bestSteps = plan.Center.StepsTo(t);
-                }
-            return best;
+            var s = Overworld.NearestSettlement(t);
+            return s != null ? s.Center : MainSpawn;
         }
 
         // ---- Minimap colours ----
@@ -612,6 +631,17 @@ namespace Epacenur.Runtime
             MapFlax = new Color32(110, 140, 175, 255), MapStone = new Color32(165, 165, 170, 255),
             MapEssence = new Color32(205, 210, 225, 255), MapQuarry = new Color32(128, 120, 108, 255),
             MapBlocked = new Color32(90, 90, 95, 255);
+
+        /// A tile's colour on the maps: open ground and trees in its biome's colour, the rest by what it is.
+        public static Color32 MapColour(Overworld ow, Tile t)
+        {
+            var k = ow.At(t);
+            if (k != Terrain.Grass && k != Terrain.Tree)
+                return TerrainColour(k);
+            var g = GroundColour(ow.BiomeAt(t), DangerBand(ow.Danger(t)));
+            float f = k == Terrain.Tree ? 0.62f : 1.05f;
+            return new Color32((byte)Mathf.Clamp(g.r * f * 255f, 0f, 255f), (byte)Mathf.Clamp(g.g * f * 255f, 0f, 255f), (byte)Mathf.Clamp(g.b * f * 255f, 0f, 255f), 255);
+        }
 
         public static Color32 TerrainColour(Terrain t)
         {
@@ -650,7 +680,7 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                 {
                     var t = new Tile(cx * size + x, cz * size + z);
-                    c[x * size + z] = HillShade(TerrainColour(Overworld.At(t)), Overworld, t, 1);
+                    c[x * size + z] = HillShade(MapColour(Overworld, t), Overworld, t, 1);
                 }
             return c;
         }

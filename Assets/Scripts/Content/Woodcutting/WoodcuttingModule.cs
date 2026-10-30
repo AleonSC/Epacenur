@@ -3,7 +3,7 @@ using Epacenur.Core;
 namespace Epacenur.Content
 {
     /// Woodcutting: trees from normal to yew, their logs, and a hatchet of each metal. Better trees grow
-    /// further from the start (each tree's Spawns).
+    /// deeper in the wilderness (each tree's Spawns), and each has a biome it likes.
     public sealed class WoodcuttingModule : IContentModule
     {
         public const string Skill = "woodcutting", Logs = "logs", OakLogs = "oak_logs", WillowLogs = "willow_logs",
@@ -42,18 +42,19 @@ namespace Epacenur.Content
                 hatchet.GroundModel = Looks.OnGround(hatchet.HeldModel);
             }
 
-            // Trees (OSRS levels, xp, and chances with a bronze hatchet), and where they grow.
+            // Trees (OSRS levels, xp, and chances with a bronze hatchet), and where they grow: the wilderness level
+            // from which they grow anywhere, and a biome where they're commoner (from a lower level).
             var trunk = new Rgb(0.42f, 0.28f, 0.15f);
             TreeNode(db, Tree, "Tree", "One of the most common trees in the land.", Logs, "logs", 1, 25, 64, 200, 3, 6, 12f,
-                trunk, new Rgb(0.22f, 0.55f, 0.2f), 1f, 0, 6);
+                trunk, new Rgb(0.22f, 0.55f, 0.2f), 1f, 0, 6, Biome.Meadow, 0);
             TreeNode(db, Oak, "Oak", "A beautiful old oak.", OakLogs, "oak logs", 15, 37.5, 32, 100, 3, 8, 14f,
-                new Rgb(0.4f, 0.3f, 0.18f), new Rgb(0.27f, 0.5f, 0.18f), 1.25f, 30, 2.5);
+                new Rgb(0.4f, 0.3f, 0.18f), new Rgb(0.27f, 0.5f, 0.18f), 1.25f, 0, 2.5, Biome.Woodland, 0);
             TreeNode(db, Willow, "Willow", "A droopy tree.", WillowLogs, "willow logs", 30, 67.5, 16, 50, 3, 10, 14f,
-                new Rgb(0.45f, 0.38f, 0.25f), new Rgb(0.45f, 0.62f, 0.3f), 1.1f, 120, 2);
+                new Rgb(0.45f, 0.38f, 0.25f), new Rgb(0.45f, 0.62f, 0.3f), 1.1f, 3, 2, Biome.Marsh, 0);
             TreeNode(db, Maple, "Maple tree", "It's a maple tree.", MapleLogs, "maple logs", 45, 100, 8, 25, 3, 10, 35f,
-                new Rgb(0.4f, 0.24f, 0.13f), new Rgb(0.82f, 0.38f, 0.12f), 1.2f, 250, 1.5);
+                new Rgb(0.4f, 0.24f, 0.13f), new Rgb(0.82f, 0.38f, 0.12f), 1.2f, 10, 1.5, Biome.Woodland, 6);
             TreeNode(db, Yew, "Yew", "A tough-looking yew tree.", YewLogs, "yew logs", 60, 175, 4, 12, 4, 12, 60f,
-                new Rgb(0.32f, 0.2f, 0.12f), new Rgb(0.12f, 0.32f, 0.14f), 1.4f, 500, 0.8);
+                new Rgb(0.32f, 0.2f, 0.12f), new Rgb(0.12f, 0.32f, 0.14f), 1.4f, 20, 0.8, Biome.Wasteland, 18);
         }
 
         static void LogItem(ContentDb db, string id, string name, string examine, int value, Rgb bark, Rgb end)
@@ -65,7 +66,8 @@ namespace Epacenur.Content
 
         /// A tree: a trunk flaring into roots, with a leafy crown (which shakes when chopped), then a stump for a while.
         static void TreeNode(ContentDb db, string id, string name, string examine, string logs, string logName, int level, double xp,
-            int low, int high, int minLives, int maxLives, float respawn, Rgb trunk, Rgb leaf, float size, int minDistance, double weight)
+            int low, int high, int minLives, int maxLives, float respawn, Rgb trunk, Rgb leaf, float size, int minDanger, double weight,
+            Biome likes, int likesFrom)
         {
             var crown = id == Oak ? OakCrown(leaf) : id == Willow ? WillowCrown(leaf) : id == Maple ? MapleCrown(leaf)
                 : id == Yew ? YewCrown(leaf) : RoundCrown(leaf);
@@ -88,7 +90,8 @@ namespace Epacenur.Content
                 FullMessage = "Your inventory is too full to hold any more logs.",
                 LevelMessage = "You need a Woodcutting level of {0} to chop down this tree.",
             };
-            node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDistance = minDistance, Weight = weight });
+            node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDanger = minDanger, Weight = weight });
+            node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDanger = likesFrom, Weight = weight * 1.5, Biome = likes });
             db.Add(node);
         }
 

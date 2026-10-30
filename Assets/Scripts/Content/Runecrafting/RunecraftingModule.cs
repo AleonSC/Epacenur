@@ -4,7 +4,7 @@ namespace Epacenur.Content
 {
     /// Runecrafting: mine rune essence (it never runs out; boulders of it ring every altar), take it to an altar in a ring of standing
     /// stones out in the wilds, and craft it all into that altar's runes at once (OSRS levels and xp).
-    /// The air altar is always just east of the start; the others lie further out the better their runes.
+    /// The air altar is always just east of the start; the better an altar's runes, the deeper in the wilderness it lies.
     public sealed class RunecraftingModule : IContentModule
     {
         public const string Skill = "runecrafting", Essence = "rune_essence", EssenceRock = "essence_rock",
@@ -50,19 +50,19 @@ namespace Epacenur.Content
             });
             node.Spawns.Add(new SpawnRule { On = Terrain.Essence });
 
-            // The runes and their altars: level, xp per essence, value, colour, and how far out the altar lies.
-            Rune(db, Air, "Air", 1, 5, 4, new Rgb(0.85f, 0.9f, 0.95f), 0, 600, 3, true);
-            Rune(db, Mind, "Mind", 2, 5.5, 3, new Rgb(0.95f, 0.6f, 0.2f), 60, 800, 3);
-            Rune(db, Water, "Water", 5, 6, 4, new Rgb(0.25f, 0.5f, 0.95f), 120, 1000, 3);
-            Rune(db, Earth, "Earth", 9, 6.5, 4, new Rgb(0.45f, 0.32f, 0.18f), 200, 1300, 3);
-            Rune(db, Fire, "Fire", 14, 7, 4, new Rgb(0.95f, 0.3f, 0.12f), 300, int.MaxValue, 3);
-            Rune(db, Body, "Body", 20, 7.5, 7, new Rgb(0.3f, 0.35f, 0.75f), 420, int.MaxValue, 2);
-            Rune(db, Nature, "Nature", 44, 9, 180, new Rgb(0.2f, 0.75f, 0.25f), 650, int.MaxValue, 1.5);
-            Rune(db, Law, "Law", 54, 9.5, 240, new Rgb(0.2f, 0.2f, 0.85f), 900, int.MaxValue, 1);
+            // The runes and their altars: level, xp per essence, value, colour, and the wilderness levels the altar lies at.
+            Rune(db, Air, "Air", 1, 5, 4, new Rgb(0.85f, 0.9f, 0.95f), 0, 30, 3, true);
+            Rune(db, Mind, "Mind", 2, 5.5, 3, new Rgb(0.95f, 0.6f, 0.2f), 0, 40, 3);
+            Rune(db, Water, "Water", 5, 6, 4, new Rgb(0.25f, 0.5f, 0.95f), 3, 50, 3);
+            Rune(db, Earth, "Earth", 9, 6.5, 4, new Rgb(0.45f, 0.32f, 0.18f), 6, 36, 3);
+            Rune(db, Fire, "Fire", 14, 7, 4, new Rgb(0.95f, 0.3f, 0.12f), 10, 46, 3);
+            Rune(db, Body, "Body", 20, 7.5, 7, new Rgb(0.3f, 0.35f, 0.75f), 15, int.MaxValue, 2);
+            Rune(db, Nature, "Nature", 44, 9, 180, new Rgb(0.2f, 0.75f, 0.25f), 25, int.MaxValue, 2);
+            Rune(db, Law, "Law", 54, 9.5, 240, new Rgb(0.2f, 0.2f, 0.85f), 32, int.MaxValue, 2);
         }
 
         static void Rune(ContentDb db, string id, string element, int level, double xp, int value, Rgb colour,
-            int minDistance, int maxDistance, double weight, bool starter = false)
+            int minDanger, int maxDanger, double weight, bool starter = false)
         {
             var rune = db.Item(id, element + " rune", "One of the basic " + element.ToLowerInvariant() + " runes.", value, colour);
             rune.Stackable = true;
@@ -83,7 +83,7 @@ namespace Epacenur.Content
                     .Cube(0f, 0.83f, 0f, 1.25f, 0.08f, 1.25f, stone * 1.1f)
                     .Sphere(0f, 1.25f, 0f, 0.4f, 0.4f, 0.4f, colour).Glowing(),
             });
-            station.Spawns.Add(new StationSpawnRule { MinDistance = minDistance, MaxDistance = maxDistance, Weight = weight, Starter = starter });
+            station.Spawns.Add(new StationSpawnRule { MinDanger = minDanger, MaxDanger = maxDanger, Weight = weight, Starter = starter });
             db.Add(new RecipeDef
             {
                 Id = "craft_" + id, Name = element + " rune", Station = altar, Skill = Skill, Level = level, Xp = xp, Ticks = 1, Batch = 28,

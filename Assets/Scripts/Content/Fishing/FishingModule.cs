@@ -93,12 +93,12 @@ namespace Epacenur.Content
             Raw(db, RawTuna, "Raw tuna", 70, new Rgb(0.42f, 0.48f, 0.62f), 1);
             Raw(db, RawSwordfish, "Raw swordfish", 160, new Rgb(0.55f, 0.55f, 0.72f), 1);
 
-            Spot(db, LureSpot, "Lure", "Fish are rising to the surface here.", "fly_rod", "a fly fishing rod", Feathers, 60, 3,
+            Spot(db, LureSpot, "Lure", "Fish are rising to the surface here.", "fly_rod", "a fly fishing rod", Feathers, 2, 3,
                 new NodeYield { ItemId = RawSalmon, Level = 30, Xp = 70, LowChance = 16, HighChance = 96, Message = "You catch a salmon." },
                 new NodeYield { ItemId = RawTrout, Level = 20, Xp = 50, LowChance = 32, HighChance = 192, Message = "You catch a trout." });
-            Spot(db, CageSpot, "Cage", "Lobsters scuttle about on the bottom here.", "lobster_pot", "a lobster pot", null, 250, 1.5,
+            Spot(db, CageSpot, "Cage", "Lobsters scuttle about on the bottom here.", "lobster_pot", "a lobster pot", null, 10, 1.5,
                 new NodeYield { ItemId = RawLobster, Level = 40, Xp = 90, LowChance = 6, HighChance = 95, Message = "You catch a lobster." });
-            Spot(db, HarpoonSpot, "Harpoon", "Big fish swim deep down here.", "harpoon", "a harpoon", null, 250, 1.5,
+            Spot(db, HarpoonSpot, "Harpoon", "Big fish swim deep down here.", "harpoon", "a harpoon", null, 10, 1.5,
                 new NodeYield { ItemId = RawSwordfish, Level = 50, Xp = 100, LowChance = 4, HighChance = 48, Message = "You catch a swordfish." },
                 new NodeYield { ItemId = RawTuna, Level = 35, Xp = 80, LowChance = 8, HighChance = 64, Message = "You catch a tuna." });
         }
@@ -120,10 +120,10 @@ namespace Epacenur.Content
             fish.GroundModel = Looks.Fish(colour, count);
         }
 
-        /// A fishing spot: never runs out, moves along the shore now and then, and lies `minDistance` or more
-        /// tiles from the start. Yields best first.
+        /// A fishing spot: never runs out, moves along the shore now and then, and lies at wilderness level
+        /// `minDanger` or deeper. Yields best first.
         static void Spot(ContentDb db, string id, string action, string examine, string toolType, string toolName, string bait,
-            int minDistance, double weight, params NodeYield[] yields)
+            int minDanger, double weight, params NodeYield[] yields)
         {
             var spot = db.Add(new NodeDef
             {
@@ -136,7 +136,7 @@ namespace Epacenur.Content
                 FullMessage = "You can't carry any more fish.",
                 LevelMessage = "You need a Fishing level of {0} to fish here.",
             });
-            spot.Spawns.Add(new SpawnRule { On = Terrain.Water, MinDistance = minDistance, Weight = weight });
+            spot.Spawns.Add(new SpawnRule { On = Terrain.Water, MinDanger = minDanger, Weight = weight });
         }
     }
 }

@@ -3,7 +3,7 @@ using Epacenur.Core;
 namespace Epacenur.Content
 {
     /// Agility: courses of five obstacles round a loop of path, out in the countryside (course regions),
-    /// harder and better further out; the field course is always just west of the start. A higher level
+    /// harder and better deeper in the wilderness; the field course is always just west of the start. A higher level
     /// also brings back your run energy faster.
     public sealed class AgilityModule : IContentModule
     {
@@ -16,15 +16,15 @@ namespace Epacenur.Content
                 .Turned(5f, 13f, 3f, 7f, new Rgb(0.3f, 0.45f, 0.8f), 40f).Turned(11f, 13f, 3f, 7f, new Rgb(0.3f, 0.45f, 0.8f), -30f)
                 .Turned(4f, 7f, 7f, 2f, new Rgb(0.95f, 0.85f, 0.7f), -20f).Turned(12f, 7f, 7f, 2f, new Rgb(0.95f, 0.85f, 0.7f), 30f));
 
-            Course(db, FieldCourse, "Field course", 1, 7, 39, 0, 600, true,
+            Course(db, FieldCourse, "Field course", 1, 7, 39, 0, 30, true,
                 new[] { "Log balance", "Low wall", "Balancing rope", "Obstacle pipe", "Stepping stones" });
-            Course(db, "hill_course", "Hill course", 20, 13, 70, 180, 1400, false,
+            Course(db, "hill_course", "Hill course", 20, 13, 70, 6, 50, false,
                 new[] { "Fallen tree", "Stone wall", "Rope bridge", "Narrow tunnel", "Rocky ford" });
-            Course(db, "ranger_course", "Ranger's course", 40, 22, 125, 400, int.MaxValue, false,
+            Course(db, "ranger_course", "Ranger's course", 40, 22, 125, 14, int.MaxValue, false,
                 new[] { "Mossy log", "High wall", "Tightrope", "Hollow log", "River stones" });
-            Course(db, "cliff_course", "Cliff course", 60, 34, 200, 700, int.MaxValue, false,
+            Course(db, "cliff_course", "Cliff course", 60, 34, 200, 24, int.MaxValue, false,
                 new[] { "Slippery log", "Crumbling wall", "Swaying rope", "Dark crevice", "Leaping stones" });
-            Course(db, "sky_course", "Sky course", 80, 48, 300, 1000, int.MaxValue, false,
+            Course(db, "sky_course", "Sky course", 80, 48, 300, 34, int.MaxValue, false,
                 new[] { "Narrow beam", "Sheer wall", "Long tightrope", "Cramped pipe", "Gap stones" });
         }
 
@@ -43,7 +43,7 @@ namespace Epacenur.Content
 
         /// A course of five obstacles at one level: each about 75% safe at that level and certain 30 levels on
         /// (the easiest course's wall and pipe never fail); a fall costs a few hitpoints, more on harder courses.
-        static void Course(ContentDb db, string id, string name, int level, double xp, double lapXp, int minDistance, int maxDistance,
+        static void Course(ContentDb db, string id, string name, int level, double xp, double lapXp, int minDanger, int maxDanger,
             bool starter, string[] names)
         {
             int low = (int)(192 - 2.13 * (level - 1)), high = low + 209;
@@ -59,7 +59,7 @@ namespace Epacenur.Content
                     FailDamage = 1 + level / 12, Success = Success[i], Fail = Fail[i],
                 };
             }
-            c.Spawns.Add(new StationSpawnRule { MinDistance = minDistance, MaxDistance = maxDistance, Weight = 1, Starter = starter });
+            c.Spawns.Add(new StationSpawnRule { MinDanger = minDanger, MaxDanger = maxDanger, Weight = 1, Starter = starter });
             db.Add(c);
         }
     }

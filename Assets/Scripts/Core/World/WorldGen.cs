@@ -71,16 +71,16 @@ namespace Epacenur.Core
     }
 
     /// Builds towns from a seed: a square in the middle with a bank, general store, chapel and houses
-    /// round it, joined by dirt roads, with roads running out to the four edges. The same seed always
-    /// gives the same town.
+    /// round it, joined by dirt roads, with roads running out to the four edges. A city has more houses,
+    /// spread wider. The same seed always gives the same town.
     public static class WorldGen
     {
-        public static TownLayout GenerateTown(int size, int seed)
+        public static TownLayout GenerateTown(int size, int seed, bool city = false)
         {
             var rng = new Random(seed);
             var w = new TownLayout { Width = size, Height = size, Seed = seed, Map = new Terrain[size, size] };
             w.Spawn = new Tile(size / 2, size / 2);
-            PlaceBuildings(w, rng);
+            PlaceBuildings(w, rng, city);
             LayRoads(w);
             // Two market stalls at corners of the square (the square is paved, so you can always walk round them).
             int stalls = 0;
@@ -140,10 +140,10 @@ namespace Epacenur.Core
 
         // ---- Town ----
 
-        static void PlaceBuildings(TownLayout w, Random rng)
+        static void PlaceBuildings(TownLayout w, Random rng, bool city)
         {
             var kinds = new List<BuildingKind> { BuildingKind.Bank, BuildingKind.Shop, BuildingKind.Chapel, BuildingKind.Smithy, BuildingKind.Workshop };
-            int houses = 3 + rng.Next(3);
+            int houses = city ? 8 + rng.Next(4) : 3 + rng.Next(3);
             for (int i = 0; i < houses; i++)
                 kinds.Add(BuildingKind.House);
 
@@ -155,7 +155,7 @@ namespace Epacenur.Core
                     int bw = kind == BuildingKind.Chapel ? 7 : kind == BuildingKind.House ? 5 + rng.Next(3) : 7;
                     int bh = kind == BuildingKind.Chapel ? 8 : kind == BuildingKind.House ? 5 + rng.Next(2) : 6;
                     double angle = rng.NextDouble() * Math.PI * 2;
-                    double dist = 7 + rng.NextDouble() * (kind == BuildingKind.House ? 14 : 8);
+                    double dist = 7 + rng.NextDouble() * (kind == BuildingKind.House ? (city ? 19 : 14) : 8);
                     int cx = w.Spawn.X + (int)Math.Round(Math.Cos(angle) * dist);
                     int cz = w.Spawn.Z + (int)Math.Round(Math.Sin(angle) * dist);
                     var area = new Area(cx - bw / 2, cz - bh / 2, bw, bh);
@@ -262,40 +262,59 @@ namespace Epacenur.Core
         }
     }
 
-    /// Smooth 2D noise (bilinear value noise) for where forests grow. Same seed, same noise.
+    /// Smooth 2D value noise. The value at each whole-number point comes from hashing the point with the
+    /// seed, so it never repeats however far out you go. Same seed, same noise.
     public sealed class ValueNoise
     {
-        readonly double[] values = new double[256];
-        readonly int[] perm = new int[512];
+        readonly ulong seed;
 
         public ValueNoise(int seed)
         {
-            var rng = new Random(seed * 31 + 7);
-            for (int i = 0; i < 256; i++)
-            {
-                values[i] = rng.NextDouble();
-                perm[i] = i;
-            }
-            for (int i = 255; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                int t = perm[i]; perm[i] = perm[j]; perm[j] = t;
-            }
-            for (int i = 0; i < 256; i++)
-                perm[256 + i] = perm[i];
+            unchecked { this.seed = ((ulong)(uint)seed + 0x632BE59BD9B4E019UL) * 0x9E3779B97F4A7C15UL; }
         }
 
-        double At(int x, int z) => values[perm[(perm[x & 255] + z) & 511] & 255];
+        /// The value at a whole-number point (0..1).
+        public double At(int x, int z)
+        {
+            unchecked
+            {
+                ulong h = seed ^ ((ulong)(uint)x * 0xBF58476D1CE4E5B9UL);
+                h = (h ^ (h >> 31)) * 0x94D049BB133111EBUL;
+                h ^= (ulong)(uint)z * 0xD6E8FEB86659FD93UL;
+                h = (h ^ (h >> 29)) * 0xBF58476D1CE4E5B9UL;
+                h ^= h >> 32;
+                return (h & 0xFFFFFF) / (double)0x1000000;
+            }
+        }
 
         /// 0..1, smooth between whole-number points.
         public double Sample(double x, double z)
         {
             int x0 = (int)Math.Floor(x), z0 = (int)Math.Floor(z);
             double fx = x - x0, fz = z - z0;
-            fx = fx * fx * (3 - 2 * fx);
-            fz = fz * fz * (3 - 2 * fz);
+            fx = fx * fx * fx * (fx * (fx * 6 - 15) + 10);  // smoother than smoothstep: no creases at the lattice
+            fz = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
             double a = At(x0, z0), b = At(x0 + 1, z0), c = At(x0, z0 + 1), d = At(x0 + 1, z0 + 1);
             return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fz;
         }
+
+        /// Several octaves of Sample, each twice as fine and half as strong, so shapes have detail at every
+        /// size. Stretched back out to spread like a single octave (adding octaves pulls values in to 0.5),
+        /// so the same thresholds give about as much forest, water and so on. 0..1.
+        public double Fractal(double x, double z, int octaves = 4)
+        {
+            double sum = 0, amp = 1, norm = 0, f = 1;
+            for (int o = 0; o < octaves; o++)
+            {
+                sum += Sample(x * f + o * 17.31, z * f - o * 29.17) * amp;
+                norm += amp;
+                amp *= 0.5;
+                f *= 2.03;
+            }
+            double v = 0.5 + (sum / norm - 0.5) * Spread(octaves);
+            return v < 0 ? 0 : v > 1 ? 1 : v;
+        }
+
+        static double Spread(int octaves) => octaves <= 1 ? 1 : octaves == 2 ? 1.35 : octaves == 3 ? 1.53 : 1.63;
     }
 }

@@ -3,7 +3,7 @@ using Epacenur.Core;
 namespace Epacenur.Content
 {
     /// Melee combat: Attack, Strength, Defence and Hitpoints, the kinds of weapon and their attack styles, the
-    /// wooden shield, and the monsters: where each lives (its Spawns: kind of region, distance from the start),
+    /// wooden shield, and the monsters: where each lives (its Spawns: kind of region, wilderness level),
     /// its stats (OSRS-like) and drops. Weapons and armour are smithed (SmithingModule).
     public sealed class CombatModule : IContentModule
     {
@@ -102,8 +102,8 @@ namespace Epacenur.Content
             };
             goblin.Drops.Add(ItemIds.Coins, 1, 5, 50).Add(ItemIds.Coins, 6, 15, 35).Add(ItemIds.Coins, 16, 30, 15);
             goblin.AlwaysDrops.Add(PrayerModule.Bones);
-            goblin.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MaxDistance = 700, Weight = 3, MinGroup = 4, MaxGroup = 5 });
-            goblin.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDistance = 300, Weight = 1, MinGroup = 2, MaxGroup = 3 });
+            goblin.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MaxDanger = 26, Weight = 3, MinGroup = 4, MaxGroup = 5 });
+            goblin.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDanger = 10, Weight = 1, MinGroup = 2, MaxGroup = 3 });
             db.Add(goblin);
 
             var hide = db.Item(Cowhide, "Cowhide", "I should take this to a tanner.", 20, new Rgb(0.85f, 0.82f, 0.75f));
@@ -148,7 +148,7 @@ namespace Epacenur.Content
             chicken.Drops.Add(FishingModule.Feathers, 5, 5, 50).Add(FishingModule.Feathers, 10, 15, 25).Add(null, 0, 0, 25);
             chicken.WalkSpeed = 1.2f;
             chicken.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Town, Weight = 2, MinGroup = 3, MaxGroup = 5 });
-            chicken.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDistance = 300, Weight = 2, MinGroup = 4, MaxGroup = 6 });
+            chicken.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDanger = 4, Weight = 2, MinGroup = 4, MaxGroup = 6 });
 
             // Cows: big and harmless, in fields near the start. Hides, and beef to cook.
             var hide = new Rgb(0.92f, 0.9f, 0.85f);
@@ -161,7 +161,7 @@ namespace Epacenur.Content
             cow.AlwaysDrops.Add(CookingModule.RawBeef);
             cow.AlwaysDrops.Add(Cowhide);
             cow.WalkSpeed = 1f;
-            cow.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDistance = 900, Weight = 2.5, MinGroup = 3, MaxGroup = 5 });
+            cow.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MaxDanger = 8, Weight = 2.5, MinGroup = 3, MaxGroup = 5 });
             cow.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Town, Weight = 1, MinGroup = 2, MaxGroup = 3 });
 
             // Wolves: packs in the wilds further out. They go for weaker players.
@@ -172,7 +172,7 @@ namespace Epacenur.Content
             var wolf = Monster(db, Wolf, "Wolf", "Not man's best friend.", 22, 20, 18, 14, 0, 3, AttackType.Stab, 25f, 0.95f, true, wolfModel);
             wolf.AlwaysDrops.Add(PrayerModule.Bones);
             wolf.WalkSpeed = 2.2f;
-            wolf.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDistance = 150, Weight = 2, MinGroup = 3, MaxGroup = 4 });
+            wolf.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 6, Weight = 2, MinGroup = 3, MaxGroup = 4 });
 
             // Bandits: they hold the camps further out, and roam the wilds beyond. Coins and the odd weapon.
             var bandit = Monster(db, Bandit, "Bandit", "He's not very friendly.", 30, 30, 25, 20, 10, 4, AttackType.Slash, 25f, 1.9f, true,
@@ -182,8 +182,8 @@ namespace Epacenur.Content
             bandit.AlwaysDrops.Add(PrayerModule.Bones);
             bandit.Drops.Add(ItemIds.Coins, 10, 60, 55).Add("iron_dagger", 1, 1, 8).Add(MiningModule.IronOre, 1, 2, 8)
                 .Add("iron_scimitar", 1, 1, 4).Add(null, 0, 0, 25);
-            bandit.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MinDistance = 300, Weight = 2, MinGroup = 4, MaxGroup = 5 });
-            bandit.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDistance = 400, Weight = 1, MinGroup = 2, MaxGroup = 3 });
+            bandit.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MinDanger = 10, Weight = 2, MinGroup = 4, MaxGroup = 5 });
+            bandit.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 14, Weight = 1, MinGroup = 2, MaxGroup = 3 });
 
             // Hill giants: big, slow and tough, far out in the hills. Big bones and better loot.
             var skin = new Rgb(0.82f, 0.6f, 0.45f);
@@ -194,7 +194,7 @@ namespace Epacenur.Content
             giant.Drops.Add(ItemIds.Coins, 10, 80, 40).Add(MiningModule.IronOre, 1, 3, 10).Add(MiningModule.Coal, 1, 3, 10)
                 .Add("steel_dagger", 1, 1, 5).Add("iron_full_helm", 1, 1, 5).Add("steel_platelegs", 1, 1, 2).Add(null, 0, 0, 28);
             giant.WalkSpeed = 1.3f;
-            giant.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDistance = 450, Weight = 1.5, MinGroup = 2, MaxGroup = 3 });
+            giant.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 18, Weight = 1.5, MinGroup = 2, MaxGroup = 3 });
         }
     }
 }
