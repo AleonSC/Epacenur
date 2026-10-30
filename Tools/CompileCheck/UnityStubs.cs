@@ -21,7 +21,7 @@ namespace UnityEngine
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; public static Vector2 operator -(Vector2 a, Vector2 b) => a; public static Vector2 operator +(Vector2 a, Vector2 b) => a; public float magnitude => 0f; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
-        public static Vector3 zero, up, down, forward, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
+        public static Vector3 zero, up, down, forward, back, left, right, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
         public static bool operator ==(Vector3 a, Vector3 b) => true; public static bool operator !=(Vector3 a, Vector3 b) => true;
@@ -44,7 +44,7 @@ namespace UnityEngine
     public static class Mathf { public const float Rad2Deg = 57.29578f; public static float Atan(float f) => 0f; public static int FloorToInt(float f) => 0; public static int Abs(int i) => i; public static float MoveTowards(float a, float b, float d) => a; public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
-        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Ceil(float f) => f; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
+        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Ceil(float f) => f; public static float Tan(float f) => f; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
     public static class Random { public static float value; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
     public static class Time { public static float time, deltaTime; public static int frameCount; }
     public static class Screen { public static int width, height; }

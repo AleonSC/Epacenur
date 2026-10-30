@@ -95,6 +95,11 @@ outlines), ponds, forests, highlands (tan).*
   show under the minimap, and each world remembers its time of day.
 - **Lamp posts** line the roads of every town (up to 12, the ones round the square first). They light up a little before
   sunset and go out after sunrise, each casting a warm glow round it.
+- **Town buildings** are made procedurally (`Runtime/World/TownBuildings.cs`), each town in its own style: walls of
+  timber framing, stone, brick or planks on a stone plinth, roofs of thatch, red tiles, slate or shingles, with gables, eaves
+  and a ridge along the door's wall. Windows with frames, sills, shutters and sometimes flower boxes; an open door, with an
+  awning over a shop's or workshop's door and columns round the bank's; chimneys (the smithy's glows); the chapel is taller,
+  with stained glass and a bell tower. Walls are solid, and the roof hides when you're inside (in tile mode).
 - **Regions** of 64 × 64 tiles each hold a town or city, a **camp** (about 1 in 5: a clearing with tents and its occupants),
   a shrine, a quarry, an agility course or plain countryside.
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so

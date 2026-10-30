@@ -11,7 +11,7 @@ namespace Epacenur.Runtime
     {
         static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f);
         static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
-        static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f), Timber = new Color(0.55f, 0.4f, 0.25f), Trim = new Color(0.35f, 0.25f, 0.16f);
+        static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f);
         static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f), Gravel = new Color(0.5f, 0.47f, 0.42f);
 
         // ---- Chunks ----
@@ -227,7 +227,7 @@ namespace Epacenur.Runtime
             if (plan.Kind == RegionKind.Town)
             {
                 foreach (var b in plan.Buildings)
-                    BuildBuilding(world, b);
+                    BuildBuilding(world, b, (int)(world.Overworld.Hash(plan.RX, plan.RZ, 16) * int.MaxValue));
                 foreach (var lamp in plan.Lamps)
                     LampPost.Create(lamp, world.BuildRoot);
                 world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), RegionName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
@@ -353,32 +353,11 @@ namespace Epacenur.Runtime
             return starts[(int)(ow.Hash(plan.RX, plan.RZ, 13) * starts.Length)] + ends[(int)(ow.Hash(plan.RX, plan.RZ, 14) * ends.Length)];
         }
 
-        static void BuildBuilding(World world, Building b)
+        static void BuildBuilding(World world, Building b, int townSeed)
         {
             var root = world.BuildRoot;
-            var a = b.Footprint;
-            bool stone = b.Kind == BuildingKind.Bank || b.Kind == BuildingKind.Chapel || b.Kind == BuildingKind.Smithy;
-            var wallColour = stone ? Stone : Timber;
-            const float height = 1.7f, thick = 0.45f;
-
-            // Walls: the four sides, the door's side in two pieces, plus a beam over the door.
-            var lo = new Tile(a.X, a.Z);
-            var hi = new Tile(a.XMax - 1, a.ZMax - 1);
+            TownBuildings.Build(root, b, townSeed);
             var door = b.Door;
-            WallRun(root, lo.X, hi.X, lo.Z, true, door, height, thick, wallColour);
-            WallRun(root, lo.X, hi.X, hi.Z, true, door, height, thick, wallColour);
-            WallRun(root, lo.Z, hi.Z, lo.X, false, door, height, thick, wallColour);
-            WallRun(root, lo.Z, hi.Z, hi.X, false, door, height, thick, wallColour);
-            bool doorOnX = door.Z == lo.Z || door.Z == hi.Z;  // door in a wall running along x
-            Visuals.Prim(PrimitiveType.Cube, root, World.Local(door) + Vector3.up * (height - 0.15f),
-                doorOnX ? new Vector3(1f, 0.3f, thick + 0.05f) : new Vector3(thick + 0.05f, 0.3f, 1f), Trim);
-            // Darker trim along the top of the walls.
-            float cx = (lo.X + hi.X) / 2f, cz = (lo.Z + hi.Z) / 2f;
-            float w = hi.X - lo.X + 1, d = hi.Z - lo.Z + 1;
-            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(cx, height, lo.Z), new Vector3(w, 0.08f, thick + 0.08f), Trim);
-            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(cx, height, hi.Z), new Vector3(w, 0.08f, thick + 0.08f), Trim);
-            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(lo.X, height, cz), new Vector3(thick + 0.08f, 0.08f, d), Trim);
-            Visuals.Prim(PrimitiveType.Cube, root, new Vector3(hi.X, height, cz), new Vector3(thick + 0.08f, 0.08f, d), Trim);
 
             // What's inside, against the back wall, facing the door.
             var feature = b.Feature;
@@ -414,32 +393,6 @@ namespace Epacenur.Runtime
                     Table(root, feature);
                     break;
             }
-        }
-
-        /// A straight wall from `from` to `to` (inclusive tiles) along x (at z = `at`) or along z (at x = `at`),
-        /// leaving a gap where the door is.
-        static void WallRun(Transform root, int from, int to, int at, bool alongX, Tile door, float height, float thick, Color colour)
-        {
-            int doorPos = alongX ? (door.Z == at ? door.X : int.MinValue) : (door.X == at ? door.Z : int.MinValue);
-            if (doorPos >= from && doorPos <= to)
-            {
-                if (doorPos > from)
-                    WallPiece(root, from, doorPos - 1, at, alongX, height, thick, colour);
-                if (doorPos < to)
-                    WallPiece(root, doorPos + 1, to, at, alongX, height, thick, colour);
-            }
-            else
-            {
-                WallPiece(root, from, to, at, alongX, height, thick, colour);
-            }
-        }
-
-        static void WallPiece(Transform root, int from, int to, int at, bool alongX, float height, float thick, Color colour)
-        {
-            float mid = (from + to) / 2f, len = to - from + 1;
-            var pos = alongX ? new Vector3(mid, height / 2f, at) : new Vector3(at, height / 2f, mid);
-            var size = alongX ? new Vector3(len, height, thick) : new Vector3(thick, height, len);
-            Visuals.Prim(PrimitiveType.Cube, root, pos, size, colour, true);  // keeps its collider: WASD can't walk through
         }
 
         /// A table in a house (its tile is blocked by the plan).
