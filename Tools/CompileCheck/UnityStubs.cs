@@ -5,7 +5,7 @@ using System;
 namespace UnityEngine
 {
     public class Object { public string name; public static void Destroy(Object o) { } public static void DontDestroyOnLoad(Object o) { }
-        public static T FindFirstObjectByType<T>() where T : Object => null; public static T[] FindObjectsByType<T>(FindObjectsSortMode m) where T : Object => null;
+        public static T FindFirstObjectByType<T>() where T : Object => null; public static T Instantiate<T>(T o) where T : Object => o; public static T[] FindObjectsByType<T>(FindObjectsSortMode m) where T : Object => null;
         public static implicit operator bool(Object o) => o != null; }
     public enum FindObjectsSortMode { None, InstanceID }
     public class Component : Object { public GameObject gameObject; public Transform transform; public string tag;
@@ -86,16 +86,17 @@ namespace UnityEngine
     public sealed class RuntimeInitializeOnLoadMethodAttribute : Attribute { public RuntimeInitializeOnLoadMethodAttribute(RuntimeInitializeLoadType t) { } }
     public enum FullScreenMode { Windowed }
     public enum FontStyle { Normal, Bold }
-    public enum TextAnchor { UpperRight, MiddleCenter }
-    public class GUIStyleState { public Color textColor; }
+    public enum TextAnchor { UpperLeft, UpperRight, MiddleLeft, MiddleCenter }
+    public class GUIStyleState { public Color textColor; public Texture2D background; }
     public class RectOffset { public RectOffset(int l, int r, int t, int b) { } }
     public class GUIContent { public GUIContent(string s) { } }
-    public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding; public Vector2 CalcSize(GUIContent c) => default(Vector2); public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
-    public class GUISkin { public GUIStyle label, button; }
+    public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding, border, margin; public GUIStyleState hover, active, focused, onNormal, onHover, onActive, onFocused; public float fixedWidth, fixedHeight; public Vector2 CalcSize(GUIContent c) => default(Vector2); public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
+    public class ScriptableObject : Object { }
+    public class GUISkin : ScriptableObject { public GUIStyle label, button, toggle, textField, window, box, verticalScrollbar, verticalScrollbarThumb, horizontalScrollbar, horizontalScrollbarThumb; }
     public delegate void WindowFunction(int id);
     public static class GUI { public static void BeginGroup(Rect r) { } public static void EndGroup() { } public static Matrix4x4 matrix; public static bool enabled; public static string TextField(Rect r, string t, int max) => t; public static Color color; public static GUISkin skin; public static void DrawTexture(Rect r, Texture t) { }
         public static void Label(Rect r, string s, GUIStyle st) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static void DragWindow() { }
-        public static bool Button(Rect r, string s) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
+        public static bool Button(Rect r, string s) => false; public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
     public static class GUIUtility { public static int keyboardControl; public static void RotateAroundPivot(float a, Vector2 p) { } }
     public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }

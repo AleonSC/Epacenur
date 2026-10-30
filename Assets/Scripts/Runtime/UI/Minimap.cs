@@ -23,7 +23,8 @@ namespace Epacenur.Runtime
         float cacheTime;
         float px, pz, yaw;  // the player in map space, and the camera's facing (radians)
 
-        static readonly Color32 Clear = new Color32(0, 0, 0, 0), Unknown = new Color32(18, 16, 12, 255), Rim = new Color32(60, 48, 32, 255);
+        static readonly Color32 Clear = new Color32(0, 0, 0, 0), Unknown = new Color32(18, 16, 12, 255), Rim = new Color32(168, 135, 79, 255),
+            RimEdge = new Color32(8, 6, 5, 255);
 
         public static Rect RectFor(Hud hud) => new Rect(hud.W - Size - 10f, 8f, Size, Size);
 
@@ -75,14 +76,16 @@ namespace Epacenur.Runtime
                 FillCache(here);
 
             float s = Mathf.Sin(yaw), c = Mathf.Cos(yaw);
-            const float half = Pixels / 2f, outer = half - 0.5f, rim = half - 3f;
+            const float half = Pixels / 2f, outer = half - 0.5f, edge = half - 1.5f, rim = half - 3f, inside = half - 4f;
             for (int y = 0; y < Pixels; y++)
                 for (int x = 0; x < Pixels; x++)
                 {
                     float ox = x + 0.5f - half, oy = y + 0.5f - half, d2 = ox * ox + oy * oy;
                     int i = y * Pixels + x;
                     if (d2 > outer * outer) { pixels[i] = Clear; continue; }
+                    if (d2 > edge * edge) { pixels[i] = RimEdge; continue; }  // a dark edge, a gold ring, a dark line inside it
                     if (d2 > rim * rim) { pixels[i] = Rim; continue; }
+                    if (d2 > inside * inside) { pixels[i] = RimEdge; continue; }
                     float dx = ox * TilesPerPixel, dy = oy * TilesPerPixel;
                     int tx = Mathf.RoundToInt(px + c * dx + s * dy) - cacheOrigin.X;
                     int tz = Mathf.RoundToInt(pz - s * dx + c * dy) - cacheOrigin.Z;
@@ -148,8 +151,11 @@ namespace Epacenur.Runtime
             float nx = -Mathf.Sin(yaw), ny = Mathf.Cos(yaw);
             float rad = r.width / 2f - 9f;
             var at = new Rect(r.center.x + nx * rad - 8f, r.center.y - ny * rad - 9f, 16f, 18f);
-            Gui.Fill(new Rect(at.x + 2f, at.y + 2f, 12f, 14f), new Color(0.15f, 0.12f, 0.08f, 0.9f));
-            Gui.Shadowed(at, "<b><color=#ff4040>N</color></b>", Gui.Centered);
+            var badge = new Rect(at.x + 1f, at.y + 2f, 14f, 14f);
+            Gui.Fill(badge, Gui.Edge);
+            Gui.Fill(new Rect(badge.x + 1f, badge.y + 1f, badge.width - 2f, badge.height - 2f), Gui.HeaderBg);
+            Gui.Outline(new Rect(badge.x + 1f, badge.y + 1f, badge.width - 2f, badge.height - 2f), Gui.TrimDim);
+            Gui.Shadowed(at, "<b><color=#ff5a48>N</color></b>", Gui.Centered);
         }
     }
 }

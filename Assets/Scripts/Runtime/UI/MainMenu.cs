@@ -52,48 +52,72 @@ namespace Epacenur.Runtime
 
         void OnGUI()
         {
-            Gui.MakeStyles();
+            Gui.Begin();
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
-            Gui.Fill(new Rect(0f, 0f, W, H), new Color(0.13f, 0.11f, 0.08f, 1f));
-            // A strip of grass and sky for a backdrop.
-            Gui.Fill(new Rect(0f, 0f, W, H * 0.3f), new Color(0.38f, 0.55f, 0.72f, 1f));
-            Gui.Fill(new Rect(0f, H * 0.3f, W, 6f), new Color(0.3f, 0.48f, 0.22f, 1f));
+            DrawBackdrop();
 
-            var title = new Rect(0f, 30f, W, 60f);
-            Gui.Shadowed(title, "<size=46><b><color=#ffd966>Epacenur</color></b></size>", Gui.Centered);
+            var title = new Rect(0f, 26f, W, 60f);
+            Gui.Shadowed(title, "<size=48><b><color=" + Gui.GoldHex + ">Epacenur</color></b></size>", Gui.Centered);
+            Gui.Shadowed(new Rect(0f, 80f, W, 20f), "<color=#f4ead2>Choose a character and a world</color>", Gui.Centered);
 
             float panelW = Mathf.Min(380f, (W - 60f) / 2f), panelH = Mathf.Min(430f, H - 260f);
             float left = W / 2f - panelW - 10f, top = H * 0.3f + 30f;
             DrawCharacters(new Rect(left, top, panelW, panelH));
             DrawWorlds(new Rect(W / 2f + 10f, top, panelW, panelH));
 
-            var play = new Rect(W / 2f - 110f, top + panelH + 20f, 220f, 44f);
+            var play = new Rect(W / 2f - 120f, top + panelH + 20f, 240f, 46f);
             GUI.enabled = character != null && world != null;
             if (GUI.Button(play, "<size=20><b>Play</b></size>"))
                 Play();
             GUI.enabled = true;
-            string who = character == null ? "Make a character to play." : world == null ? "Pick a world." : character.name + " in " + world.name;
+            string who = character == null ? "Make a character to play." : world == null ? "Pick a world."
+                : "<color=" + Gui.GoldHex + ">" + character.name + "</color> in <color=" + Gui.GoldHex + ">" + world.name + "</color>";
             Gui.Shadowed(new Rect(0f, play.yMax + 6f, W, 20f), who, Gui.Centered);
             if (message != null)
-                Gui.Shadowed(new Rect(0f, play.yMax + 26f, W, 20f), "<color=#ff8060>" + message + "</color>", Gui.Centered);
+                Gui.Shadowed(new Rect(0f, play.yMax + 26f, W, 20f), "<color=" + Gui.BadHex + ">" + message + "</color>", Gui.Centered);
         }
 
-        static void Panel(Rect r, string heading)
+        /// Sky fading down to the horizon, two rows of hills, and dark ground for the panels to sit on.
+        void DrawBackdrop()
         {
-            Gui.Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
-            Gui.Fill(new Rect(r.x, r.y, r.width, 30f), new Color(0.16f, 0.13f, 0.09f, 1f));
-            Gui.Shadowed(new Rect(r.x + 10f, r.y + 5f, r.width, 22f), "<b>" + heading + "</b>", Gui.Title);
+            float horizon = H * 0.34f;
+            var skyTop = new Color(0.22f, 0.36f, 0.56f);
+            var skyLow = new Color(0.62f, 0.72f, 0.8f);
+            const int bands = 24;
+            for (int i = 0; i < bands; i++)
+            {
+                float t = i / (bands - 1f);
+                Gui.Fill(new Rect(0f, horizon * i / bands, W, horizon / bands + 1f),
+                    new Color(skyTop.r + (skyLow.r - skyTop.r) * t, skyTop.g + (skyLow.g - skyTop.g) * t, skyTop.b + (skyLow.b - skyTop.b) * t));
+            }
+            Hills(horizon, 46f, 0.011f, 1.3f, new Color(0.3f, 0.42f, 0.36f));   // far, hazy
+            Hills(horizon + 10f, 30f, 0.019f, 4.1f, new Color(0.2f, 0.34f, 0.17f)); // near
+            Gui.Fill(new Rect(0f, horizon + 10f, W, H - horizon - 10f), new Color(0.11f, 0.095f, 0.075f));
+            Gui.Fill(new Rect(0f, horizon + 10f, W, 2f), new Color(0.07f, 0.06f, 0.045f));
         }
+
+        /// A rolling line of hills down to `baseY`, drawn in thin columns.
+        void Hills(float baseY, float height, float freq, float phase, Color c)
+        {
+            const float step = 4f;
+            for (float x = 0f; x < W; x += step)
+            {
+                float h = height * (0.55f + 0.3f * Mathf.Sin(x * freq + phase) + 0.15f * Mathf.Sin(x * freq * 2.7f + phase * 2f));
+                Gui.Fill(new Rect(x, baseY - h, step, h + 1f), c);
+            }
+        }
+
+        static void Panel(Rect r, string heading) => Gui.TitledPanel(r, heading);
 
         /// A row in a list: selected rows are highlighted. Returns true when clicked.
         static bool Row(Rect r, bool selected, string text, string detail)
         {
-            Gui.Bevel(r);
-            if (selected)
-                Gui.Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, r.height - 2f), new Color(1f, 0.85f, 0.35f, 0.25f));
-            Gui.Shadowed(new Rect(r.x + 8f, r.y + 3f, r.width - 16f, 20f), "<b>" + text + "</b>", Gui.Label);
-            GUI.Label(new Rect(r.x + 8f, r.y + 21f, r.width - 16f, 18f), detail, Gui.Small);
             var e = Event.current;
+            Gui.Bevel(r);
+            if (selected || r.Contains(e.mousePosition))
+                Gui.Highlight(r, selected);
+            Gui.Shadowed(new Rect(r.x + 8f, r.y + 3f, r.width - 16f, 20f), "<b>" + (selected ? "<color=" + Gui.GoldHex + ">" + text + "</color>" : text) + "</b>", Gui.Label);
+            GUI.Label(new Rect(r.x + 8f, r.y + 21f, r.width - 16f, 18f), "<color=" + Gui.MutedHex + ">" + detail + "</color>", Gui.Small);
             if (e.type == EventType.MouseDown && r.Contains(e.mousePosition))
             {
                 e.Use();
@@ -131,7 +155,7 @@ namespace Epacenur.Runtime
                 }
             }
             if (list.Count == 0)
-                GUI.Label(new Rect(4f, 4f, content.width - 8f, 60f), "No characters yet. Give your first one a name below.", Gui.Rich);
+                GUI.Label(new Rect(4f, 4f, content.width - 8f, 60f), "<color=" + Gui.MutedHex + ">No characters yet. Give your first one a name below.</color>", Gui.Rich);
             GUI.EndScrollView();
 
             float y = r.yMax - 84f;

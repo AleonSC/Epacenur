@@ -16,7 +16,7 @@ namespace Epacenur.Runtime
             var bank = G.Bank;
             var e = Event.current;
             Frame(hud, r, "Bank of Epacenur");
-            Gui.Shadowed(new Rect(r.x + r.width - 140f, r.y + 7f, 100f, 20f), bank.UsedSlots + " / " + Bank.Size, Gui.RightSmall);
+            Gui.Shadowed(new Rect(r.x + r.width - 140f, r.y + 8f, 100f, 20f), "<color=" + Gui.MutedHex + ">" + bank.UsedSlots + " / " + Bank.Size + "</color>", Gui.RightSmall);
 
             var view = new Rect(r.x + Gui.Pad, r.y + 38f, r.width - Gui.Pad * 2, r.height - 38f - 84f);
             int rows = Mathf.Max(1, (bank.UsedSlots + Columns - 1) / Columns);
@@ -29,7 +29,9 @@ namespace Epacenur.Runtime
             {
                 var slot = new Rect((i % Columns) * (Gui.Slot + Gui.Gap), (i / Columns) * (Gui.Slot + Gui.Gap), Gui.Slot, Gui.Slot);
                 var s = bank[i];
-                Gui.Fill(slot, new Color(0f, 0f, 0f, 0.25f));
+                Gui.EmptySlot(slot);
+                if (slot.Contains(e.mousePosition))
+                    Gui.Highlight(slot, false);
                 Gui.DrawItemIcon(slot, s.Def);
                 Gui.Shadowed(new Rect(slot.x + 2f, slot.y - 1f, slot.width, 16f), Gui.Count(s.Count), Gui.Small);
                 if (slot.Contains(e.mousePosition))
@@ -47,13 +49,14 @@ namespace Epacenur.Runtime
                 }
             }
             if (bank.UsedSlots == 0)
-                GUI.Label(new Rect(0f, 8f, content.width, 40f), "The bank is empty. Click items in your inventory to deposit them.", Gui.Rich);
+                GUI.Label(new Rect(0f, 8f, content.width, 40f), "<color=" + Gui.MutedHex + ">The bank is empty. Click items in your inventory to deposit them.</color>", Gui.Rich);
             GUI.EndScrollView();
             if (withdrawSlot >= 0 && bank.Withdraw(G.Inventory, withdrawSlot, withdrawAmount) == 0 && G.Inventory.IsFull)
                 GameLog.Add("You don't have enough inventory space.");
 
             // Amount buttons and deposit-all.
             float y = r.yMax - 76f;
+            Divider(r, y - 8f);
             GUI.Label(new Rect(r.x + Gui.Pad, y, 140f, 22f), "Withdraw / deposit:", Gui.Small);
             for (int i = 0; i < Amounts.Length; i++)
             {
@@ -66,7 +69,7 @@ namespace Epacenur.Runtime
             if (GUI.Button(new Rect(r.x + Gui.Pad, y + 51f, 150f, 22f), "Deposit money pouch"))
                 bank.DepositPouch(G.Inventory);
             GUI.Label(new Rect(r.x + Gui.Pad + 160f, y + 26f, r.width - Gui.Pad * 2 - 160f, 50f),
-                "Click: withdraw / deposit that many\nShift-click: all of it. Right-click: options", Gui.Small);
+                "<color=" + Gui.MutedHex + ">Click: withdraw / deposit that many\nShift-click: all of it. Right-click: options</color>", Gui.Small);
 
             if (tooltip != null && view.Contains(e.mousePosition))
                 Gui.Tooltip(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 260f, 20f), tooltip, Gui.Small);

@@ -12,7 +12,7 @@ namespace Epacenur.Runtime
         public override void Draw(Hud hud, Rect body)
         {
             var e = Event.current;
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>TOOL BELT</b>", Gui.Small);
+            Gui.Heading(body, "TOOL BELT");
             float top = body.y + 20f;
             string tooltip = null;
             int i = 0;
@@ -24,9 +24,10 @@ namespace Epacenur.Runtime
                 Gui.Bevel(slot);
                 Gui.DrawItemIcon(slot, def);
                 if (!has)
-                    Gui.Fill(new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f), new Color(0.12f, 0.11f, 0.09f, 0.7f));
+                    Gui.Fill(new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f), Gui.Locked);
                 if (!slot.Contains(e.mousePosition))
                     continue;
+                Gui.Highlight(slot, false);
                 tooltip = def.Name + (has ? " (on your belt)" : ": not on your belt yet");
                 if (e.type == EventType.MouseDown)
                 {
@@ -38,9 +39,9 @@ namespace Epacenur.Runtime
             }
             int rows = (i + 3) / 4;
             GUI.Label(new Rect(body.x, top + rows * (Gui.Slot + Gui.Gap) + 4f, body.width, 80f),
-                G.ToolBelt.Owned.GetEnumerator().MoveNext()
+                "<color=" + Gui.MutedHex + ">" + (G.ToolBelt.Owned.GetEnumerator().MoveNext()
                     ? "Tools here are used automatically, as if they were in your backpack. They stay on the belt for good."
-                    : "Right-click a tool in your backpack and choose Add to tool belt. It's then used from here and frees the slot.",
+                    : "Right-click a tool in your backpack and choose Add to tool belt. It's then used from here and frees the slot.") + "</color>",
                 Gui.Rich);
             if (tooltip != null)
                 Gui.Tooltip(new Rect(e.mousePosition.x - 210f, e.mousePosition.y + 16f, 210f, 20f), tooltip, Gui.RightSmall);

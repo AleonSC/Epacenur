@@ -104,14 +104,14 @@ namespace Epacenur.Runtime
                 bool levelOk = G.Skills.GetLevel(recipe.Skill) >= recipe.Level;
                 int canMake = Making.CanMake(recipe, G.Inventory);
                 if (row.Contains(e.mousePosition))
-                    Gui.Fill(new Rect(row.x + 1f, row.y + 1f, row.width - 2f, row.height - 2f), new Color(1f, 1f, 1f, 0.07f));
+                    Gui.Highlight(row, false);
                 Gui.DrawItemIcon(new Rect(row.x + 4f, row.y + 4f, Gui.Slot, Gui.Slot), product);
                 Gui.Shadowed(new Rect(row.x + Gui.Slot + 12f, row.y + 4f, 260f, 20f), "<b>" + recipe.Name + "</b>"
-                    + (canMake > 0 && levelOk ? "  <color=#a0ffa0>(" + canMake + ")</color>" : ""), Gui.Label);
+                    + (canMake > 0 && levelOk ? "  <color=" + Gui.GoodHex + ">(" + canMake + ")</color>" : ""), Gui.Label);
                 GUI.Label(new Rect(row.x + Gui.Slot + 12f, row.y + 22f, row.width - Gui.Slot - 16f, 18f),
-                    (canMake > 0 ? "<color=#a0ffa0>" : "<color=#ff6060>") + Making.Needs(recipe) + "</color>   "
-                    + (levelOk ? "<color=#a0ffa0>" : "<color=#ff6060>") + db.Skill(recipe.Skill).Name + " " + recipe.Level + "</color>"
-                    + "   " + recipe.Xp + " xp", Gui.Small);
+                    "<color=" + (canMake > 0 ? Gui.GoodHex : Gui.BadHex) + ">" + Making.Needs(recipe) + "</color>   "
+                    + "<color=" + (levelOk ? Gui.GoodHex : Gui.BadHex) + ">" + db.Skill(recipe.Skill).Name + " " + recipe.Level + "</color>"
+                    + "   <color=" + Gui.MutedHex + ">" + recipe.Xp + " xp</color>", Gui.Small);
                 if (e.type == EventType.MouseDown && row.Contains(e.mousePosition))
                 {
                     if (e.button == 1)
@@ -139,7 +139,10 @@ namespace Epacenur.Runtime
             if (clicked != null)
                 Make(hud, clicked);
             if (Help != null)
-                GUI.Label(new Rect(r.x + Gui.Pad, r.yMax - 46f, r.width - Gui.Pad * 2, 40f), Help, Gui.Rich);
+            {
+                Divider(r, r.yMax - 50f);
+                GUI.Label(new Rect(r.x + Gui.Pad, r.yMax - 46f, r.width - Gui.Pad * 2, 40f), "<color=" + Gui.MutedHex + ">" + Help + "</color>", Gui.Rich);
+            }
         }
 
         void Make(Hud hud, RecipeDef recipe) => MakeCount(hud, recipe, Count);

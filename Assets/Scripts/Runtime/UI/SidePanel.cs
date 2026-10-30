@@ -37,11 +37,12 @@ namespace Epacenur.Runtime
 
         public void Draw(Hud hud, Rect r)
         {
-            Gui.Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
+            Gui.PanelBox(r);
             float tabW = (r.width - Gui.Pad * 2 - 3f * (Tabs.Length - 1)) / Tabs.Length;
             for (int i = 0; i < Tabs.Length; i++)
                 if (GUI.Toggle(new Rect(r.x + Gui.Pad + i * (tabW + 3f), r.y + Gui.Pad, tabW, TabH), current == i, Tabs[i].Name, Gui.TabStyle))
                     current = i;
+            Gui.Fill(new Rect(r.x + Gui.Pad, r.y + Gui.Pad + TabH + 2f, r.width - Gui.Pad * 2, 1f), Gui.TrimDim);
             var body = new Rect(r.x + Gui.Pad, r.y + Gui.Pad + TabH + 6f, r.width - Gui.Pad * 2, r.height - Gui.Pad * 2 - TabH - 6f);
             Tabs[current].Draw(hud, body);
         }

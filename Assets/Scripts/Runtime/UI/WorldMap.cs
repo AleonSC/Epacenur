@@ -56,18 +56,17 @@ namespace Epacenur.Runtime
                 return;
             var r = RectFor(hud);
             var e = Event.current;
-            Gui.Fill(r, new Color(0.16f, 0.13f, 0.09f, 0.98f));
             string title = G.World.Map == MapId.DevPlot ? "Dev plot" : "World map: " + G.WorldInfo.name;
-            Gui.Shadowed(new Rect(r.x + 10f, r.y + 5f, 400f, 22f), "<b>" + title + "</b>", Gui.Title);
-            if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
+            if (Gui.TitledPanel(r, title, true))
             {
                 Close();
                 return;
             }
-            if (GUI.Button(new Rect(r.xMax - 150f, r.y + 4f, 112f, 22f), "Center on me"))
+            if (GUI.Button(new Rect(r.xMax - 146f, r.y + 6f, 112f, 20f), "Center on me"))
                 CenterOnPlayer();
 
-            var view = new Rect(r.x + 8f, r.y + 32f, r.width - 16f, r.height - 60f);
+            var view = new Rect(r.x + 8f, r.y + Gui.TitleH + 4f, r.width - 16f, r.height - Gui.TitleH - 32f);
+            Gui.Fill(new Rect(view.x - 1f, view.y - 1f, view.width + 2f, view.height + 2f), Gui.Edge);
             Gui.Fill(view, new Color(0.05f, 0.05f, 0.05f, 1f));
             GUI.BeginGroup(view);  // clips the map to the view
             var local = new Rect(0f, 0f, view.width, view.height);
@@ -80,8 +79,8 @@ namespace Epacenur.Runtime
             HandleInput(local, e);
             GUI.EndGroup();
 
-            Gui.Shadowed(new Rect(r.x + 10f, r.yMax - 25f, r.width - 20f, 20f),
-                hover ?? "Drag to move round the map, scroll to zoom. Shaded areas haven't been seen yet.", Gui.Small);
+            Gui.Shadowed(new Rect(r.x + 10f, r.yMax - 24f, r.width - 20f, 20f),
+                hover ?? "<color=" + Gui.MutedHex + ">Drag to move round the map, scroll to zoom. Shaded areas haven't been seen yet.</color>", Gui.Small);
         }
 
         // ---- Overworld ----

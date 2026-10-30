@@ -24,12 +24,12 @@ namespace Epacenur.Runtime
             var e = Event.current;
             const float rowH = 46f, slotSize = Gui.Slot;
             float colGap = (body.width - slotSize * 3) / 2f;
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>Worn Equipment</b>", Gui.Small);
+            Gui.Heading(body, "WORN EQUIPMENT");
             float top = body.y + 18f;
 
             // Connecting lines: down the middle column, across the rows with side slots,
             // and from the weapon and shield down to the gloves and ring.
-            var line = new Color(0.1f, 0.08f, 0.06f, 0.9f);
+            var line = Gui.TrimDim;
             float cx = body.x + slotSize + colGap + slotSize / 2f;
             Gui.Fill(new Rect(cx - 1f, top + slotSize, 2f, rowH * 4 - slotSize), line);
             foreach (int row in new[] { 1, 2, 4 })
@@ -45,18 +45,20 @@ namespace Epacenur.Runtime
             {
                 var slot = Slots[i];
                 var r = new Rect(body.x + Cols[i] * (slotSize + colGap), top + Rows[i] * rowH, slotSize, slotSize);
-                Gui.Fill(r, new Color(0.12f, 0.1f, 0.07f, 1f));
-                Gui.Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, r.height - 2f), new Color(0.3f, 0.26f, 0.2f, 1f));
+                Gui.Bevel(r);
                 var worn = eq[slot];
                 if (worn.IsEmpty)
                 {
                     // An empty slot shows what goes there, faintly.
-                    Gui.Tinted(r, "<size=9>" + slot + "</size>", Gui.Centered, new Color(1f, 1f, 1f, 0.25f));
+                    Gui.Tinted(r, "<size=9>" + slot + "</size>", Gui.Centered, new Color(Gui.Text.r, Gui.Text.g, Gui.Text.b, 0.28f));
                     continue;
                 }
                 Gui.DrawItemIcon(r, worn.Def);
                 if (r.Contains(e.mousePosition))
+                {
+                    Gui.Highlight(r, false);
                     tooltip = "Remove " + worn.Def.Name;
+                }
                 if (e.type == EventType.MouseDown && r.Contains(e.mousePosition))
                 {
                     if (e.button == 1)
@@ -74,7 +76,7 @@ namespace Epacenur.Runtime
             float[] cols = { body.x + 46f, body.x + 72f, body.x + 98f, body.x + 124f, body.x + 150f };
             string[] heads = { "Stab", "Slsh", "Crsh", "Rng", "Mag" };
             for (int i = 0; i < 5; i++)
-                GUI.Label(new Rect(cols[i], y0, 40f, 16f), "<color=#c8c0a8>" + heads[i] + "</color>", Gui.Small);
+                GUI.Label(new Rect(cols[i], y0, 40f, 16f), "<color=" + Gui.MutedHex + ">" + heads[i] + "</color>", Gui.Small);
             GUI.Label(new Rect(body.x, y0 + 13f, 50f, 16f), "Attack", Gui.Small);
             GUI.Label(new Rect(body.x, y0 + 26f, 50f, 16f), "Defence", Gui.Small);
             int[] att = { b.StabAttack, b.SlashAttack, b.CrushAttack, b.RangedAttack, b.MagicAttack };
@@ -84,8 +86,9 @@ namespace Epacenur.Runtime
                 GUI.Label(new Rect(cols[i], y0 + 13f, 40f, 16f), Bonus(att[i]), Gui.Small);
                 GUI.Label(new Rect(cols[i], y0 + 26f, 40f, 16f), Bonus(def[i]), Gui.Small);
             }
-            GUI.Label(new Rect(body.x, y0 + 39f, body.width, 16f), "Str " + Bonus(b.Strength) + "  Ranged str " + Bonus(b.RangedStrength) + "  <color=#ffff00>"
+            GUI.Label(new Rect(body.x, y0 + 39f, body.width, 16f), "Str " + Bonus(b.Strength) + "  Ranged str " + Bonus(b.RangedStrength) + "  <color=" + Gui.BlueHex + ">"
                 + (eq.AttackTicks * GameTime.TickSeconds).ToString("0.0") + " s</color>", Gui.Small);
+            Gui.Fill(new Rect(body.x, y0 - 4f, body.width, 1f), Gui.TrimDim);
             var kind = ContentDb.Current.WeaponKind(eq.WeaponKind);
             var current = G.CurrentStyle;
             float bw = (body.width - 3f * (kind.Styles.Length - 1)) / kind.Styles.Length;
@@ -104,7 +107,7 @@ namespace Epacenur.Runtime
         }
 
         /// "+4" in yellow, "-2" in red.
-        static string Bonus(int n) => (n < 0 ? "<color=#ff6060>" : "<color=#ffff00>+") + n + "</color>";
+        static string Bonus(int n) => (n < 0 ? "<color=" + Gui.BadHex + ">" : "<color=" + Gui.GoldHex + ">+") + n + "</color>";
 
         static List<MenuOption> Options(EquipSlot slot, ItemDef def)
         {
