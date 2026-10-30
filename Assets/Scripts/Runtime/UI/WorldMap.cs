@@ -139,7 +139,7 @@ namespace Epacenur.Runtime
                     if (!explored.Contains(key))
                         Gui.Fill(rect, new Color(0.03f, 0.03f, 0.05f, 0.6f));
                 }
-            // Names of the towns and camps you've seen.
+            // Names of the towns, camps, shrines and quarries you've seen.
             for (int rx = rx0; rx <= rx1; rx++)
                 for (int rz = rz0; rz <= rz1; rz++)
                 {
@@ -150,7 +150,7 @@ namespace Epacenur.Runtime
                     if (name == null)
                         continue;
                     var p = ToView(v, plan.Center.X, plan.Center.Z);
-                    string colour = plan.Kind == RegionKind.Town ? "#ffd966" : "#ff9a80";
+                    string colour = plan.Kind == RegionKind.Town ? "#ffd966" : plan.Kind == RegionKind.Quarry ? "#d8d4c8" : "#ff9a80";
                     Gui.Shadowed(new Rect(p.x - 100f, p.y - 30f, 200f, 20f), "<b><color=" + colour + ">" + name + "</color></b>", Gui.Centered);
                 }
         }
