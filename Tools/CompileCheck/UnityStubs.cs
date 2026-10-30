@@ -13,9 +13,9 @@ namespace UnityEngine
     public class Behaviour : Component { public bool enabled; }
     public class MonoBehaviour : Behaviour { }
     public sealed class GameObject : Object { public GameObject() { } public GameObject(string n) { } public Transform transform; public int layer; public string tag;
-        public static GameObject CreatePrimitive(PrimitiveType t) => null; public T AddComponent<T>() where T : Component => null; public T GetComponent<T>() => default(T); public void SetActive(bool v) { } }
+        public static GameObject CreatePrimitive(PrimitiveType t) => null; public T AddComponent<T>() where T : Component => null; public T GetComponent<T>() => default(T); public void SetActive(bool v) { } public bool activeSelf; }
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
-    public class Transform : Component { public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
+    public class Transform : Component { public Matrix4x4 worldToLocalMatrix, localToWorldMatrix; public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
         public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { }
         public int childCount => 0; public Transform GetChild(int i) => null; }
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
@@ -34,7 +34,7 @@ namespace UnityEngine
     public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); public static Matrix4x4 identity; public static Matrix4x4 TRS(Vector3 p, Quaternion q, Vector3 s) => default(Matrix4x4); public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b) => a; }
-    public struct CombineInstance { public Mesh mesh; public Matrix4x4 transform; }
+    public struct CombineInstance { public Mesh mesh; public int subMeshIndex; public Matrix4x4 transform; }
     public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Vector2 center => default(Vector2); public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
     public struct Vector2Int { public int x, y; public Vector2Int(int x, int y) { this.x = x; this.y = y; } }
     public struct RectInt { public Vector2 center => default(Vector2);  public bool Contains(Vector2Int p) => true; public int x, y, width, height; public int xMax => 0; public int yMax => 0; public RectInt(int x, int y, int w, int h) { this.x = x; this.y = y; width = w; height = h; } }
@@ -81,7 +81,7 @@ namespace UnityEngine
     public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
     public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
-    public sealed class Mesh : Object { public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector2[] uv; public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
+    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector2[] uv; public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
     public sealed class MeshFilter : Component { public Mesh sharedMesh; }
     public sealed class MeshRenderer : Renderer { }
     public sealed class MeshCollider : Collider { public Mesh sharedMesh; }
@@ -114,6 +114,7 @@ namespace UnityEngine.Rendering
 {
     public enum AmbientMode { Skybox, Trilight, Flat }
     public enum ShadowCastingMode { Off, On, TwoSided, ShadowsOnly }
+    public enum IndexFormat { UInt16, UInt32 }
 }
 namespace UnityEditor
 {

@@ -685,6 +685,7 @@ namespace Epacenur.Runtime
             var def = ContentDb.Current.Node(nodeId);
             var owner = OwnerAt(tile);
             var node = Own(NodeObject.Create(def, tile, owner.Root, random, shore), owner);
+            node.JoinBatch(ChunkBatch.On(owner.Root));  // drawn as part of its chunk's one merged mesh
             if (def.Blocks)
                 Grid.SetBlocked(tile, true);
             Nodes.Add(node);
