@@ -67,7 +67,7 @@ namespace Epacenur.Runtime
                 StopBuilding();
                 return;
             }
-            if (Input.GetKeyDown(KeyCode.R))
+            if (Input.GetKeyDown(KeyCode.R) && !Hud.Typing)
             {
                 bool back = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 buildAngle = (buildAngle + (back ? -15f : 15f) + 360f) % 360f;
@@ -267,6 +267,7 @@ namespace Epacenur.Runtime
             {
                 if (BuildProblem != null)
                     GameLog.Add(BuildProblem);
+                Sfx.Play(Sound.Error, 0.6f);
                 return;
             }
             var def = Building;
@@ -292,6 +293,7 @@ namespace Epacenur.Runtime
                 G.Inventory.Remove(input.ItemId, input.Count);
             G.Skills.AddXp(ConstructionModule.Skill, def.Xp);
             SwingT = 1f;
+            Sfx.Play(Sound.Build);
             G.World.BaseChanged(s);
             // Standing where a floor now is: step up onto it.
             if (def.Kind == PieceKind.Foundation)
@@ -350,6 +352,7 @@ namespace Epacenur.Runtime
                     G.World.SpawnGroundItem(input.ItemId, back - kept, CurrentTile);
             }
             SwingT = 1f;
+            Sfx.Play(Sound.Remove);
             GameLog.Add("You take down the " + part.Def.Name.ToLowerInvariant() + ".");
             G.World.BaseChanged(s);
         }

@@ -125,6 +125,8 @@ namespace Epacenur.Runtime
                 return false;
             }
             node.Shake();
+            if (def.Look == NodeLook.Tree || def.Look == NodeLook.Rock)
+                Sfx.PlayAt(def.Look == NodeLook.Tree ? Sound.Chop : Sound.Mine, node.transform.position + Vector3.up * 0.8f);
             var tool = FindTool(def);
             var got = Gathering.Roll(def, level, G.Rng, tool != null ? tool.ToolTier : 1);
             if (got == null || !G.Inventory.HasRoomFor(got.ItemId))
@@ -134,6 +136,10 @@ namespace Epacenur.Runtime
             G.Inventory.Add(got.ItemId);
             G.Skills.AddXp(def.Skill, got.Xp);
             GameLog.Add(got.Message);
+            if (def.Look == NodeLook.FishingSpot)
+                Sfx.PlayAt(Sound.Splash, node.transform.position);
+            else if (def.Look == NodeLook.Plant || def.Look == NodeLook.Stall)
+                Sfx.PlayAt(Sound.Pick, node.transform.position + Vector3.up * 0.5f);
             if (node.TakeLife())
                 return false;
             if (!HasRoom(def, level))
@@ -264,6 +270,10 @@ namespace Epacenur.Runtime
                 if (r.SuccessMessage != null)
                     GameLog.Add(r.SuccessMessage);
             }
+            // At an anvil, the hammer; a furnace or a fire, the flames; an altar, magic; otherwise the work of your hands.
+            var kind = station == null ? Sound.Craft : station.Def.Id == SmithingModule.Anvil ? Sound.Smith
+                : station.Def.Kind == StationKind.Craft ? Sound.Spell : station is Fire || station.Def.Id == SmithingModule.Furnace ? Sound.Fire : Sound.Craft;
+            Sfx.Play(failed ? Sound.Error : kind, 0.8f);
             left--;
             if (left <= 0)
                 return false;
@@ -299,6 +309,7 @@ namespace Epacenur.Runtime
             G.World.RemoveGroundItem(logs);
             G.World.AddFire(tile, Random.Range(burn.MinBurnSeconds, burn.MaxBurnSeconds));
             G.Skills.AddXp(FiremakingModule.Skill, burn.Xp);
+            Sfx.PlayAt(Sound.Fire, World.TileCenter(tile));
             GameLog.Add("The fire catches and the logs begin to burn.");
             p.StepOffFire(tile);
             return false;

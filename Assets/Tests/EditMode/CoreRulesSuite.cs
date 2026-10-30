@@ -929,6 +929,52 @@ public static class CoreRulesSuite
         foreach (var t in new[] { new Tile(1, 2), new Tile(3, 2), new Tile(2, 1), new Tile(2, 3) }) boxed.SetBlocked(t, true);
         Check(Pathfinder.PathToInteract(boxed, new Tile(0, 0), new Tile(2, 2)) == null, "a surrounded tree can't be reached");
 
+        info("Sound effects");
+        bool allSound = true;
+        string worst = "";
+        foreach (Sound snd in Enum.GetValues(typeof(Sound)))
+        {
+            var samples = Synth.Make(snd);
+            float loudest = 0;
+            bool finite = true;
+            foreach (var v in samples) { loudest = Math.Max(loudest, Math.Abs(v)); if (float.IsNaN(v) || float.IsInfinity(v)) finite = false; }
+            double seconds = (double)samples.Length / Synth.Rate;
+            if (!finite || Math.Abs(loudest - Synth.Peak) > 1e-3 || seconds < 0.02 || seconds > 1.5 || Math.Abs(samples[samples.Length - 1]) > 1e-3)
+            {
+                allSound = false;
+                worst = snd.ToString();
+            }
+        }
+        var chop1 = Synth.Make(Sound.Chop);
+        var chop2 = Synth.Make(Sound.Chop);
+        bool alike = chop1.Length == chop2.Length;
+        for (int i = 0; alike && i < chop1.Length; i++) if (chop1[i] != chop2[i]) alike = false;
+        Check(allSound && alike, Enum.GetValues(typeof(Sound)).Length + " sound effects, each made the same every time, short, as loud as the rest and ending in silence" + (worst.Length > 0 ? " (not " + worst + ")" : ""));
+
+        info("Encyclopedia");
+        var enc = Encyclopedia.Build(db, Guides.All);
+        bool everything = db.Items.TrueForAll(i => enc.Get(Encyclopedia.ItemId(i.Id)) != null) && db.Skills.TrueForAll(k => enc.Get(Encyclopedia.SkillId(k.Id)) != null)
+            && db.Npcs.TrueForAll(n => enc.Get("npc:" + n.Id) != null) && db.Pieces.TrueForAll(pc => enc.Get("piece:" + pc.Id) != null);
+        bool linksResolve = true, noneEmpty = true;
+        foreach (var page in enc.Entries)
+        {
+            if (page.Lines.Count == 0) noneEmpty = false;
+            foreach (var link in page.Links) if (enc.Get(link) == null) { linksResolve = false; info("  broken link " + page.Id + " -> " + link); }
+        }
+        Check(everything && linksResolve && noneEmpty, enc.Entries.Count + " pages: every item, skill, monster and building piece, each with something to say, and every link leads somewhere");
+        var barHits = enc.Search("bronze bar");
+        var hide = enc.Search("cowhide");
+        var wolf = enc.Search("wolf");
+        Check(barHits.Count > 0 && barHits[0].Entry.Id == Encyclopedia.ItemId(SmithingModule.BronzeBar) && wolf.Count > 0 && wolf[0].Entry.Id == "npc:" + CombatModule.Wolf,
+            "a page's own title comes first (bronze bar, wolf)");
+        Check(hide.Exists(h => h.Entry.Id == "npc:" + CombatModule.Cow) && hide.Exists(h => h.Entry.Id == Encyclopedia.ItemId(CraftingModule.Leather))
+            && hide.Exists(h => h.Snippet.ToLowerInvariant().Contains("cowhide")), "searching finds every page that mentions a word (cowhide: the cow that drops it, the leather made from it)");
+        var smithing = enc.Get(Encyclopedia.SkillId(SmithingModule.Skill));
+        var leather = enc.Get(Encyclopedia.ItemId(CraftingModule.Leather));
+        Check(smithing.Lines.Exists(l => l.StartsWith("Level 1:")) && leather.Lines.Contains("## Made by") && leather.Lines.Contains("## Used to make")
+            && enc.Search("deep wilderness").Exists(h => h.Entry.Id == "guide:The wilderness") && enc.Search("").Count == 0 && enc.Search("zzqqxx").Count == 0,
+            "skills list what each level unlocks; items say what they're made from and into; the guides are searchable too");
+
         info("Construction");
         Check(db.Piece("wooden_wall").Kind == PieceKind.Wall && db.Piece("stone_foundation").Level == 20 && db.Recipe("saw_plank").ToolType == "saw"
             && db.Piece(ConstructionModule.Chest).Use == FurnitureUse.Chest && db.Piece("build_furnace").Station == SmithingModule.Furnace,

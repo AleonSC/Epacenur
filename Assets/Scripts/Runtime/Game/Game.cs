@@ -217,6 +217,7 @@ namespace Epacenur.Runtime
         {
             string name = ContentDb.Current.Skill(id).Name;
             GameLog.Add("Congratulations, you just advanced a " + name + " level. Your " + name + " level is now " + level + ".");
+            Sfx.Play(Sound.LevelUp, 1f, 0f);
             Hud.ShowLevelUp(id, level);
         }
 
@@ -237,6 +238,7 @@ namespace Epacenur.Runtime
             string problem = Prayer.Toggle(id, Skills.GetLevel(SkillIds.Prayer));
             if (problem != null)
                 GameLog.Add(problem);
+            Sfx.Play(problem != null ? Sound.Error : Prayer.IsActive(id) ? Sound.Prayer : Sound.Click, 0.7f);
         }
 
         /// Hurts the player; at 0 you die and wake up at spawn with full health.
@@ -286,6 +288,7 @@ namespace Epacenur.Runtime
             var kept = new List<ItemStack>();
             var lost = new List<ItemStack>();
             Death.Split(Inventory, Equipment, Death.KeptItems, kept, lost);
+            Sfx.Play(Sound.Death, 1f, 0f);
             foreach (var k in kept)
                 Inventory.Add(k.ItemId, k.Count);
             GameLog.Add("Oh dear, you are dead!");

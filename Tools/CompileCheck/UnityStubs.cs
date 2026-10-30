@@ -44,7 +44,7 @@ namespace UnityEngine
     public static class Mathf { public const float Rad2Deg = 57.29578f; public static float Atan(float f) => 0f; public static int FloorToInt(float f) => 0; public static int Abs(int i) => i; public static float MoveTowards(float a, float b, float d) => a; public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
-        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
+        public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Ceil(float f) => f; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
     public static class Random { public static float value; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
     public static class Time { public static float time, deltaTime; public static int frameCount; }
     public static class Screen { public static int width, height; }
@@ -52,7 +52,7 @@ namespace UnityEngine
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return, Space, KeypadEnter, M, B, C, G, R }
+    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return, Space, KeypadEnter, M, B, C, G, R, J }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }
@@ -61,6 +61,10 @@ namespace UnityEngine
     public sealed class Camera : Behaviour { public static Camera main; public Ray ScreenPointToRay(Vector3 p) => default(Ray); public Vector3 WorldToScreenPoint(Vector3 p) => p;
         public float fieldOfView, nearClipPlane, farClipPlane; public CameraClearFlags clearFlags; public Color backgroundColor; }
     public sealed class AudioListener : Behaviour { }
+    public enum AudioRolloffMode { Logarithmic, Linear, Custom }
+    public sealed class AudioClip : Object { public static AudioClip Create(string n, int samples, int channels, int rate, bool stream) => null; public bool SetData(float[] d, int offset) => true; }
+    public sealed class AudioSource : Behaviour { public AudioClip clip; public float volume, pitch, spatialBlend, minDistance, maxDistance, dopplerLevel; public bool playOnAwake;
+        public AudioRolloffMode rolloffMode; public void Play() { } public void Stop() { } }
     public enum LightType { Spot, Directional, Point }
     public enum LightShadows { None, Hard, Soft }
     public sealed class Light : Behaviour { public LightType type; public float intensity, range; public Color color; public LightShadows shadows; }
@@ -91,12 +95,12 @@ namespace UnityEngine
     public class GUIStyleState { public Color textColor; public Texture2D background; }
     public class RectOffset { public RectOffset(int l, int r, int t, int b) { } }
     public class GUIContent { public GUIContent(string s) { } }
-    public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding, border, margin; public GUIStyleState hover, active, focused, onNormal, onHover, onActive, onFocused; public float fixedWidth, fixedHeight; public Vector2 CalcSize(GUIContent c) => default(Vector2); public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
+    public class GUIStyle { public GUIStyle(GUIStyle o) { } public RectOffset padding, border, margin; public GUIStyleState hover, active, focused, onNormal, onHover, onActive, onFocused; public float fixedWidth, fixedHeight; public Vector2 CalcSize(GUIContent c) => default(Vector2); public float CalcHeight(GUIContent c, float w) => 0f; public int fontSize; public bool richText, wordWrap; public FontStyle fontStyle; public TextAnchor alignment; public GUIStyleState normal; }
     public class ScriptableObject : Object { }
     public class GUISkin : ScriptableObject { public GUIStyle label, button, toggle, textField, window, box, verticalScrollbar, verticalScrollbarThumb, horizontalScrollbar, horizontalScrollbarThumb; }
     public delegate void WindowFunction(int id);
     public static class GUI { public static void BeginGroup(Rect r) { } public static void EndGroup() { } public static Matrix4x4 matrix; public static bool enabled; public static string TextField(Rect r, string t, int max) => t; public static Color color; public static GUISkin skin; public static void DrawTexture(Rect r, Texture t) { }
-        public static void Label(Rect r, string s, GUIStyle st) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static void DragWindow() { }
+        public static void Label(Rect r, string s, GUIStyle st) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static void DragWindow() { } public static void SetNextControlName(string n) { } public static void FocusControl(string n) { }
         public static bool Button(Rect r, string s) => false; public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
     public static class GUIUtility { public static int keyboardControl; public static void RotateAroundPivot(float a, Vector2 p) { } }

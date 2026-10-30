@@ -50,6 +50,8 @@ The game opens on the main menu:
 | Show / hide the chat box | **C** (or the button over it) | **C** |
 | Show / hide the inventory panel | **B** (or the button over it) | **B** |
 | Build (with a hammer) | **G** (or **Build** under the minimap), pick a piece, click where it goes | The same, aiming with the crosshair |
+| Encyclopedia | **J** (or **Encyclopedia** left of the minimap); right-click anything and **Look up** | The same |
+| Sound volume | **Sound** left of the minimap: full, half, a quarter, off | The same |
 
 - **Right-click menu**: right-click anything for RuneScape's "Choose Option" menu, listing every option for
   what's under the cursor, e.g. *Attack Goblin (level-2)*, *Take Coins (12)*, *Walk here*, *Examine Goblin*, *Cancel*.
@@ -394,6 +396,30 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
   the world's tiles at the base's open edges. The world's tiles under a base can't be walked on. (`Core/World/Bases.cs`; the Unity
   side is `BaseObject` and `PlayerBuild`.)
 
+## Encyclopedia
+
+- **J**, or **Encyclopedia** left of the minimap, opens it. **Type anything** in the search box: every page that mentions every
+  word you type is listed, the best first (a page titled what you typed, then titles that start with it or contain it, then pages
+  that mention it most), with a line from each that mentions it. Click one to read it, with what you searched for picked out in
+  gold. With nothing typed, browse by category. **See also** buttons go to the pages a page mentions; **Back** goes back.
+- **Look up** is in the right-click menu of every item (in your inventory or on the ground), monster and object: it opens the
+  encyclopedia on that thing.
+- There are about 350 pages, made from the game's content itself so they're always up to date: every **item** (what it's worth,
+  its bonuses and requirements, what it's made from and into, where it's gathered, which monsters drop it, which shops sell it,
+  what's built from it, which spells use it), every **skill** (everything each level unlocks), **monster** (stats, drops, where it
+  lives), **thing to gather** (where it grows, by wilderness level and biome), **station**, **spell**, **prayer**, **ability**,
+  **building piece**, **agility course** and **shop**; and **guides** to how things work (the wilderness, biomes, quarries,
+  building, death, the bank, and more). (`Core/Content/Encyclopedia.cs`; the guides are in `Content/Common/Guides.cs`.)
+
+## Sound
+
+- Every sound is **made by the game as it runs**: there are no sound files. Each of 27 effects is built from tones, sweeps and
+  filtered noise (`Core/Common/Synth.cs`): chopping, mining, fishing splashes, picking, hits and misses, getting hurt, a kill,
+  a level-up jingle, picking up and dropping, eating, burying, fire, the anvil, making things, building and taking down, coins,
+  spells, arrows, prayers, teleporting, dying, menu clicks and errors.
+- Sounds out in the world (a tree being chopped, a monster being hit) come from where they happen, fainter further away.
+- **Sound** (left of the minimap) steps the volume down: full, half, a quarter, off. It's remembered.
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and
@@ -570,9 +596,9 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency (assembly `Epacenur.Core`): the content registry and definitions (`Content`), xp and skills, items, inventory, bank, tool belt, equipment, shops, combat, abilities, prayer, the gathering and making rules (`Skilling`), the overworld generator, bases (`Bases.cs`), tile grids and A* pathfinding (`World`) |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency (assembly `Epacenur.Core`): the content registry and definitions (`Content`), xp and skills, the encyclopedia (`Content/Encyclopedia.cs`), sound effects (`Common/Synth.cs`), items, inventory, bank, tool belt, equipment, shops, combat, abilities, prayer, the gathering and making rules (`Skilling`), the overworld generator, bases (`Bases.cs`), tile grids and A* pathfinding (`World`) |
 | `Assets/Scripts/Content` | Everything in the game as data (`Epacenur.Content`), one module per skill: its items (icons and models too), trees, rocks or fishing spots, recipes, stations, monsters. `Modules.cs` lists them |
-| `Assets/Scripts/Runtime` | The Unity side (`Epacenur.Runtime`): `Game` (startup and the 0.6 s game tick), `World` (maps, chunk streaming, floating origin) with `OverworldBuilder`, `DevArea` and `BaseObject` (built bases), the things in the world (`NodeObject`, `StationObject`, `Fire`, `ShopKeeper`, `Npc`, `GroundItem`), the player (`PlayerController`, `PlayerCombat`, `PlayerBuild`, `PlayerModel`, and `Activities`: gathering, making, lighting fires), `ItemActions` (what you can do with an item), `ModelBuilder` (models from content), `CameraRig`, `SaveGame`, and the HUD (`UI`: `Hud`, the side panel `Tabs`, the bank / shop / making / build `Windows`, overlays, action bar, dev tools) |
+| `Assets/Scripts/Runtime` | The Unity side (`Epacenur.Runtime`): `Game` (startup and the 0.6 s game tick), `World` (maps, chunk streaming, floating origin) with `OverworldBuilder`, `DevArea` and `BaseObject` (built bases), the things in the world (`NodeObject`, `StationObject`, `Fire`, `ShopKeeper`, `Npc`, `GroundItem`), the player (`PlayerController`, `PlayerCombat`, `PlayerBuild`, `PlayerModel`, and `Activities`: gathering, making, lighting fires), `ItemActions` (what you can do with an item), `Sfx` (plays the sound effects), `ModelBuilder` (models from content), `CameraRig`, `SaveGame`, and the HUD (`UI`: `Hud`, the side panel `Tabs`, the bank / shop / making / build / encyclopedia `Windows`, overlays, action bar, dev tools) |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
 | `Assets/Tests/EditMode` | The rules suite, run by Unity's Test Runner (and by `Tools/Tests/run.sh`) |
 | `Tools/Tests` | `run.sh`: runs the rules suite without Unity (content checks, xp table, skills, inventory, bank, shop, equipment, combat, skilling, world generation, pathfinding) |

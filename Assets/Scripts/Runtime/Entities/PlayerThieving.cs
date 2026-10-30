@@ -90,6 +90,7 @@ namespace Epacenur.Runtime
                 if (pp.Loot.Roll(G.Rng, out string item, out int count) && item != null)
                     G.Inventory.Add(item, count);
                 G.Skills.AddXp(ThievingModule.Skill, pp.Xp);
+                Sfx.Play(Sound.Coins, 0.7f);
                 GameLog.Add("You pick " + who + "'s pocket.");
                 return true;
             }

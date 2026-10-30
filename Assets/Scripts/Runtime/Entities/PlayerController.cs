@@ -123,11 +123,11 @@ namespace Epacenur.Runtime
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.V))
+            if (Input.GetKeyDown(KeyCode.V) && !Hud.Typing)
                 SetMode(Mode == ViewMode.Tile ? ViewMode.FirstPerson : ViewMode.Tile);
 
             for (int i = 0; i < Abilities.All.Length; i++)
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) && !Hud.Typing)
                     UseAbility(Abilities.All[i].Id);
             UpdateBleeds();
             UpdateMagic(dt);
@@ -189,6 +189,8 @@ namespace Epacenur.Runtime
         /// WASD relative to where the camera faces, length 0..1.
         Vector3 ReadWasd()
         {
+            if (Hud.Typing)
+                return Vector3.zero;
             float x = 0f, z = 0f;
             if (Input.GetKey(KeyCode.W)) z += 1f;
             if (Input.GetKey(KeyCode.S)) z -= 1f;
@@ -350,6 +352,7 @@ namespace Epacenur.Runtime
                 if (part != null && HasHammer)
                     examines.Add(new MenuOption("Remove", name, () => RemovePiece(part)));
                 examines.Add(new MenuOption("Examine", name, () => GameLog.Add(obj.Examine)));
+                LookUp(obj.DisplayName, name, examines);
             }
             else if (thing is Npc npc)
             {
@@ -360,6 +363,7 @@ namespace Epacenur.Runtime
                     options.Add(new MenuOption("Pickpocket", name, () => StartPickpocket(npc, firstPerson)));
                 options.Add(new MenuOption("Attack", name, () => { if (firstPerson) FirstPersonAttack(npc); else StartAttack(npc); }));
                 examines.Add(new MenuOption("Examine", MenuOption.Npc(npc.Def.Name), () => GameLog.Add(npc.Def.Examine)));
+                LookUp(npc.Def.Name, MenuOption.Npc(npc.Def.Name), examines);
             }
             else if (thing is GroundItem item)
             {
@@ -368,8 +372,12 @@ namespace Epacenur.Runtime
                 if (ContentDb.Current.Burnable(item.ItemId) != null && ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox", G.Skills) != null)
                     options.Add(new MenuOption(Verbs.Light, name, () => LightGroundItem(item)));
                 examines.Add(new MenuOption("Examine", MenuOption.Item(item.Def.Name), () => GameLog.Add(item.Def.Examine)));
+                LookUp(item.Def.Name, MenuOption.Item(item.Def.Name), examines);
             }
         }
+
+        /// "Look up": opens the encyclopedia on the thing's name.
+        void LookUp(string title, string shown, List<MenuOption> options) => options.Add(new MenuOption("Look up", shown, () => G.Hud.OpenEncyclopedia(title)));
 
         static Tile TileOf(Component thing)
         {
@@ -477,6 +485,7 @@ namespace Epacenur.Runtime
             }
             G.Inventory.Add(item.ItemId, item.Count);
             G.World.RemoveGroundItem(item);
+            Sfx.Play(Sound.Pickup, 0.7f);
         }
 
         /// Where a new path starts: the tile you're stepping into if you're walking (so clicking somewhere
@@ -747,6 +756,7 @@ namespace Epacenur.Runtime
             nextAttackAt = Mathf.Max(nextAttackAt, Time.time) + delay;
             swingCooldown = Mathf.Max(swingCooldown, delay);
             GameLog.Add("You eat the " + stack.Def.Name.ToLowerInvariant() + "." + (healed > 0 ? " It heals some health." : ""));
+            Sfx.Play(Sound.Eat);
         }
 
         /// Buries bones from an inventory slot for Prayer xp (one every 2 ticks).
@@ -759,6 +769,7 @@ namespace Epacenur.Runtime
             G.Inventory.RemoveAt(slot);
             G.Skills.AddXp(SkillIds.Prayer, stack.Def.BuryXp);
             Kneel(0.6f);
+            Sfx.Play(Sound.Bury);
             GameLog.Add("You dig a hole in the ground... You bury the bones.");
         }
 
@@ -770,6 +781,7 @@ namespace Epacenur.Runtime
                 return;
             G.Inventory.RemoveAt(slot);
             G.World.SpawnGroundItem(stack.ItemId, stack.Count, CurrentTile);
+            Sfx.Play(Sound.Drop, 0.7f);
         }
     }
 }

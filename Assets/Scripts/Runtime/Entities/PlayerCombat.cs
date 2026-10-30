@@ -157,6 +157,7 @@ namespace Epacenur.Runtime
                 }
                 Magic.UseRunes(spell, G.Inventory, G.Equipment);
                 Projectile.Spell(transform.position + Vector3.up * 1.3f + transform.forward * 0.4f, npc.transform, npc.Def.Height * 0.55f, spell.Colour);
+                Sfx.Play(Sound.Spell, 0.8f);
             }
             else if (ranged)
             {
@@ -171,6 +172,7 @@ namespace Epacenur.Runtime
                 string ammo = G.Equipment[EquipSlot.Ammo].ItemId;
                 G.Equipment.UseAmmo();
                 Projectile.Fire(transform.position + Vector3.up * 1.3f + transform.forward * 0.4f, npc, ammo);
+                Sfx.Play(Sound.Arrow, 0.8f);
                 if (G.Rng.NextDouble() < 0.8)
                     G.World.SpawnGroundItem(ammo, 1, npc.Tile);
             }
@@ -215,6 +217,7 @@ namespace Epacenur.Runtime
         {
             LastHurtTime = Time.time;
             Hitsplats.Add(new Npc.Hitsplat { Damage = damage, Time = Time.time });
+            Sfx.Play(damage > 0 ? Sound.Hurt : Sound.Miss, 0.8f);
         }
 
         // ---- Abilities (action bar, keys 1-9) ----

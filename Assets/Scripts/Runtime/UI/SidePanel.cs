@@ -1,3 +1,4 @@
+using Epacenur.Core;
 using UnityEngine;
 
 namespace Epacenur.Runtime
@@ -41,7 +42,11 @@ namespace Epacenur.Runtime
             float tabW = (r.width - Gui.Pad * 2 - 3f * (Tabs.Length - 1)) / Tabs.Length;
             for (int i = 0; i < Tabs.Length; i++)
                 if (GUI.Toggle(new Rect(r.x + Gui.Pad + i * (tabW + 3f), r.y + Gui.Pad, tabW, TabH), current == i, Tabs[i].Name, Gui.TabStyle))
+                {
+                    if (current != i)
+                        Sfx.Play(Sound.Click, 0.5f);
                     current = i;
+                }
             Gui.Fill(new Rect(r.x + Gui.Pad, r.y + Gui.Pad + TabH + 2f, r.width - Gui.Pad * 2, 1f), Gui.TrimDim);
             var body = new Rect(r.x + Gui.Pad, r.y + Gui.Pad + TabH + 6f, r.width - Gui.Pad * 2, r.height - Gui.Pad * 2 - TabH - 6f);
             Tabs[current].Draw(hud, body);

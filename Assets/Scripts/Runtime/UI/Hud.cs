@@ -64,8 +64,10 @@ namespace Epacenur.Runtime
             UpdateZone();
             if (Input.GetKeyDown(KeyCode.F1))
                 devTools.Toggle();
-            if (Input.GetKeyDown(KeyCode.H))
+            if (Input.GetKeyDown(KeyCode.H) && !Typing)
                 showHelp = !showHelp;
+            if (Input.GetKeyDown(KeyCode.J) && !Typing)
+                ToggleEncyclopedia();
             if (Window != null)
             {
                 // Like RuneScape, the bank or shop closes when you walk away.
@@ -131,6 +133,7 @@ namespace Epacenur.Runtime
 
         public void OpenWindow(Window window, Interactable at)
         {
+            Sfx.Play(Sound.Open, 0.7f);
             window.At = at;
             Window = window;
             PanelOpen = true;  // the bank, shop and make windows work with your inventory
@@ -138,7 +141,11 @@ namespace Epacenur.Runtime
             G.Rig.LockCursor(false);  // first person: free the mouse to use the window
         }
 
-        public void CloseWindow() => Window = null;
+        public void CloseWindow()
+        {
+            Window = null;
+            GUIUtility.keyboardControl = 0;  // a text box in it lets go of the keyboard
+        }
 
         /// Opens the right-click menu at the mouse (or mid-screen in first person, where relock is true).
         /// (It opens on the next OnGUI: laying it out needs Unity's GUI, which only works there, and the
@@ -162,13 +169,30 @@ namespace Epacenur.Runtime
             var m = MouseGui;
             return (menu.IsOpen && menu.Rect.Contains(m)) || (PanelOpen && PanelRect.Contains(m)) || (ChatOpen && ChatRect.Contains(m))
                 || ChatToggleRect.Contains(m) || PanelToggleRect.Contains(m) || BarRect.Contains(m)
-                || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || BuildButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
-                || (worldMap.IsOpen && worldMap.RectFor(this).Contains(m)) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
+                || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || BuildButtonRect.Contains(m) || SoundButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
+                || (worldMap.IsOpen && worldMap.RectFor(this).Contains(m)) || devTools.Contains(m) || EncyclopediaButtonRect.Contains(m) || (Window != null && Window.Place(this).Contains(m));
         }
 
         Rect LogOutRect => new Rect(W - 90f, Minimap.RectFor(this).yMax + 4f, 80f, 24f);
         Rect MapButtonRect => new Rect(W - 180f, Minimap.RectFor(this).yMax + 4f, 86f, 24f);
         Rect BuildButtonRect => new Rect(W - 250f, Minimap.RectFor(this).yMax + 4f, 66f, 24f);
+        /// Left of the minimap: the volume, and the encyclopedia.
+        Rect SoundButtonRect => new Rect(Minimap.RectFor(this).x - 112f, 8f, 104f, 22f);
+        Rect EncyclopediaButtonRect => new Rect(Minimap.RectFor(this).x - 112f, 34f, 104f, 22f);
+
+        /// Whether a text box has the keyboard (the encyclopedia's search, Make-X): keys then type, not play.
+        public static bool Typing => GUIUtility.keyboardControl != 0;
+
+        /// The encyclopedia (J), opened on a search (or its start page).
+        public void OpenEncyclopedia(string search = null) => OpenWindow(new EncyclopediaWindow(search), null);
+
+        public void ToggleEncyclopedia()
+        {
+            if (Window is EncyclopediaWindow)
+                CloseWindow();
+            else
+                OpenEncyclopedia();
+        }
 
         /// While placing a piece: what it is, what's wrong with where it would go, and the keys.
         void DrawBuilding()
@@ -296,7 +320,7 @@ namespace Epacenur.Runtime
                 ChatOpen = !ChatOpen;
             if (GUI.Button(PanelToggleRect, PanelOpen ? "Hide panel" : "Inventory"))
                 TogglePanel();
-            Window?.Draw(this, WindowRect);
+            Window?.Draw(this, Window.Place(this));
             if (G.Player.Mode == ViewMode.FirstPerson)
                 overlays.DrawCrosshair(this);
             minimap.Draw(this);
@@ -307,6 +331,13 @@ namespace Epacenur.Runtime
                 worldMap.Toggle();
             if (GUI.Button(BuildButtonRect, "Build"))
                 ToggleBuildMenu();
+            if (GUI.Button(EncyclopediaButtonRect, "Encyclopedia"))
+                ToggleEncyclopedia();
+            if (GUI.Button(SoundButtonRect, Sfx.VolumeLabel))
+            {
+                Sfx.CycleVolume();
+                Sfx.Play(Sound.Click);
+            }
             DrawBuilding();
             worldMap.Draw(this);
             devTools.Draw(this);
@@ -325,6 +356,9 @@ namespace Epacenur.Runtime
         protected Vector2 scroll;
 
         public abstract void Draw(Hud hud, Rect r);
+
+        /// Where it goes on screen (most share the HUD's window space; the encyclopedia is bigger).
+        public virtual Rect Place(Hud hud) => hud.WindowRect;
 
         /// A left-click on an inventory item while the window is open; true if the window handled it.
         public virtual bool InventoryClick(Hud hud, int slot, bool shift) => false;

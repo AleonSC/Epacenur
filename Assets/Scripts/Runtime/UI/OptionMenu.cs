@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Epacenur.Core;
 using UnityEngine;
 
 namespace Epacenur.Runtime
@@ -96,6 +97,8 @@ namespace Epacenur.Runtime
                 return;  // clicked the header
             var chosen = row >= 0 ? options[row] : null;
             Close();
+            if (chosen?.Run != null)
+                Sfx.Play(Sound.Click, 0.5f);
             chosen?.Run?.Invoke();
         }
 

@@ -54,8 +54,13 @@ namespace Epacenur.Runtime
                 }
             }
             GUI.EndScrollView();
-            if (buyIndex >= 0 && shop.Buy(G.Inventory, buyIndex, buyAmount, out string problem) < buyAmount && problem != null)
-                GameLog.Add(problem);
+            if (buyIndex >= 0)
+            {
+                int bought = shop.Buy(G.Inventory, buyIndex, buyAmount, out string problem);
+                if (bought < buyAmount && problem != null)
+                    GameLog.Add(problem);
+                Sfx.Play(bought > 0 ? Sound.Coins : Sound.Error, 0.7f);
+            }
 
             float y = r.yMax - 76f;
             Divider(r, y - 8f);
@@ -103,8 +108,10 @@ namespace Epacenur.Runtime
                 GameLog.Add(shop.CanSell(def) ? def.Name + ": shop will buy for " + shop.SellPrice(def) + " coins." : "You can't sell this item to this shop.");
                 return;
             }
-            if (shop.Sell(G.Inventory, def.Id, n, out string problem) == 0 && problem != null)
+            int sold = shop.Sell(G.Inventory, def.Id, n, out string problem);
+            if (sold == 0 && problem != null)
                 GameLog.Add(problem);
+            Sfx.Play(sold > 0 ? Sound.Coins : Sound.Error, 0.7f);
         }
 
         public override bool InventoryClick(Hud hud, int slot, bool shift)

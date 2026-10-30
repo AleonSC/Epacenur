@@ -157,6 +157,7 @@ namespace Epacenur.Runtime
             o.Add(new MenuOption(Verbs.Use, name, guard(s => G.Player.BeginUse(s))));
             o.Add(new MenuOption(Verbs.Drop, name, guard(drop)));
             o.Add(new MenuOption(Verbs.Examine, name, () => GameLog.Add(def.Examine)));
+            o.Add(new MenuOption("Look up", name, () => G.Hud.OpenEncyclopedia(def.Name)));
             return o;
         }
     }

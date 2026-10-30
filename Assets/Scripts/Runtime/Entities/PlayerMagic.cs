@@ -75,6 +75,7 @@ namespace Epacenur.Runtime
             castCooldown = AlchTicks * GameTime.TickSeconds;
             attackAnim = 0.4f;
             Projectile.Spell(transform.position + Vector3.up * 1.2f + transform.forward * 0.4f, transform, 2.2f, spell.Colour);
+            Sfx.Play(Sound.Spell, 0.8f);
             GameLog.Add("The " + name.ToLowerInvariant() + " turns into " + coins + " coin" + (coins == 1 ? "" : "s") + ".");
             G.Hud.Panel.ShowMagic();
         }
@@ -88,6 +89,7 @@ namespace Epacenur.Runtime
         /// Off you go (from the dev plot too: back to the overworld).
         void TeleportTo(SpellDef spell, Tile tile)
         {
+            Sfx.Play(Sound.Teleport);
             G.World.Travel(MapId.Overworld, tile);
             GameLog.Add("You teleport to " + (spell.Kind == SpellKind.HomeTeleport ? "Epacenur" : "the town") + ".");
         }

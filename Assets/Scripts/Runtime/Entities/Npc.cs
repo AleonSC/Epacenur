@@ -111,8 +111,10 @@ namespace Epacenur.Runtime
                 nextAttack = Mathf.Max(nextAttack, Time.time + 2f * GameTime.TickSeconds);
             }
             Hitsplats.Add(new Hitsplat { Damage = damage, Time = Time.time });
+            Sfx.PlayAt(damage > 0 ? Sound.Hit : Sound.Miss, transform.position + Vector3.up);
             if (Hitpoints > 0)
                 return false;
+            Sfx.PlayAt(Sound.Kill, transform.position + Vector3.up, 0.8f);
             Die();
             return true;
         }
@@ -201,6 +203,7 @@ namespace Epacenur.Runtime
                     nextAttack = Time.time + Def.AttackTicks * GameTime.TickSeconds;
                     attackAnim = 0.4f;
                     if (Def.AttackType == AttackType.Magic)
+                        Sfx.PlayAt(Sound.Spell, transform.position + Vector3.up, 0.7f);
                         Projectile.Spell(transform.position + Vector3.up * Def.Height * 0.7f + transform.forward * 0.3f, player.transform, 1.2f,
                             new Rgb(0.7f, 0.3f, 0.9f));
                     player.TakeMonsterHit(this);
