@@ -121,10 +121,21 @@ outlines), ponds, forests, highlands (tan).*
   moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
   shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
   everything: the tests check that nothing walkable is shut in, on several seeds.
-- **Hills**: the ground rises and falls in rolling hills (up to about 10 units high, higher in some stretches of country than
-  others, with small bumps on top). Towns, camps, shrines, quarries and ponds sit on level ground that blends into the hills
-  round them, and ponds only form in low country. The slopes are gentle enough to walk anywhere the tile grid lets you; the minimap and
-  world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
+- **Hills and mountains**: under everything lies a slow **base** of broad valleys and uplands (up to 10 units). On it, **rolling
+  hills** (several layers of noise, twisted so they wind into valleys and spurs rather than round lumps), and in some stretches
+  of country **mountain ranges** with ridged crests rising 16 more. The **biome** shapes the land: marshes lie almost flat,
+  meadows roll gently, and the deep wilderness is broken by crags. Highlands are where the land rises high.
+- **Levelled at its own height**: each town, camp, shrine, quarry and agility course is levelled at the height the land had at
+  its middle (a town can sit on a hilltop or down in a valley), blending into the hills over 20 tiles round it.
+- **Water at its own level**: ponds and rivers lie in beds in the valley floors, their surface at the base height there, so
+  lakes are found high and low. No ponds form on or right next to levelled ground.
+- **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 16) to **rock**, and the peaks (over 23) to
+  **snow**, on the ground and on the maps. Levelled ground stays green.
+- **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 24 tiles).
+  They narrow and end before reaching towns, camps and the like. **Wooden bridges** cross them every 32 tiles (two tiles wide, with
+  rails), so a river never cuts any land off: the tests walk 700 × 700 tiles on three seeds to check. Rivers have fishing spots too.
+- The slopes are steep in places (up to about 2.3 units between neighbouring tiles) but you can walk anywhere the tile grid lets
+  you; the minimap and world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
   Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. Saves remember which map

@@ -777,22 +777,36 @@ public static class CoreRulesSuite
         var hw = new Overworld(31);
         double highest = 0, steepest = 0;
         bool levelWhereBuilt = true, waterLevel = true;
-        for (int x = -200; x < 200; x += 1)
-            for (int z = -200; z < 200; z += 2)
+        int riverTiles = 0, bridges = 0, snowOrRock = 0;
+        var levels = new System.Collections.Generic.HashSet<int>();
+        for (int x = -300; x < 300; x += 1)
+            for (int z = -300; z < 300; z += 2)
             {
                 var t = new Tile(x, z);
                 double e = hw.Elevation(t);
                 highest = Math.Max(highest, e);
                 steepest = Math.Max(steepest, Math.Abs(hw.Elevation(x + 1, z) - e));
                 var terr = hw.At(t);
-                if ((terr == Terrain.Floor || terr == Terrain.Wall || terr == Terrain.Path || terr == Terrain.Camp || terr == Terrain.Stone) && e > 1e-6) levelWhereBuilt = false;
-                if (terr == Terrain.Water && e > 0.05) waterLevel = false;
+                var plan = hw.PlanAt(t);
+                if (terr == Terrain.Floor || terr == Terrain.Wall || terr == Terrain.Path || terr == Terrain.Camp || terr == Terrain.Stone)
+                {
+                    if (Math.Abs(e - hw.LevelHeight(plan)) > 1e-6) levelWhereBuilt = false;
+                    levels.Add((int)Math.Round(hw.LevelHeight(plan)));
+                }
+                if (terr == Terrain.Water && (e > hw.WaterSurface(x, z) || Math.Abs(hw.SurfaceHeight(t) - hw.WaterSurface(x, z)) > 1e-9)) waterLevel = false;
+                if (terr == Terrain.Water && plan.Kind == RegionKind.Wild && hw.RiverDistance(x, z, out double rstrength) < Overworld.RiverWidth * rstrength) riverTiles++;
+                if (terr == Terrain.Bridge) bridges++;
+                if (x % 4 == 0 && z % 4 == 0 && hw.GroundAt(t) != Ground.Grass) snowOrRock++;
             }
-        info("  hills: highest " + highest.ToString("0.0") + ", steepest step between tiles " + steepest.ToString("0.00"));
-        Check(highest > 4 && hw.Elevation(hw.Spawn) == 0, "there are hills, and the town you start in is level");
-        Check(levelWhereBuilt && waterLevel, "towns, camps and shrines are flat, and ponds lie level");
-        Check(steepest < 2, "no cliffs: neighbouring tiles are less than 2 apart");
-                var far = new Overworld(5);
+        info("  hills: highest " + highest.ToString("0.0") + ", steepest step between tiles " + steepest.ToString("0.00") + "; " + riverTiles + " river tiles, "
+            + bridges + " bridge tiles, " + snowOrRock + " bare (earth, rock or snow) samples; levelled places at heights " + string.Join(", ", levels));
+        Check(highest > 12 && Math.Abs(hw.Elevation(hw.Spawn) - hw.LevelHeight(hw.Plan(0, 0))) < 1e-9, "there are hills and mountains, and the town you start in is level");
+        Check(levelWhereBuilt && levels.Count > 2, "towns, camps and shrines are flat, each at its own height");
+        Check(waterLevel, "ponds and rivers lie in their beds, the water level over them");
+        Check(steepest < 2.5, "no cliffs: neighbouring tiles are less than 2.5 apart");
+        Check(riverTiles > 200 && bridges > 10, "rivers wind through the wilds, with bridges over them");
+        Check(snowOrRock > 0, "steep and high ground is bare earth, rock or snow");
+        var far = new Overworld(5);
         Check(far.At(new Tile(-1000000, 2000000)) == far.At(new Tile(-1000000, 2000000)) && far.Plan(-15625, 31250) != null, "it goes on for ever (a million tiles out works)");
         var cg = new ChunkedGrid(16);
         cg.Load(-1, 0, t => t.X == -3);

@@ -36,8 +36,11 @@ namespace Epacenur.Runtime
             Strips(terrain, Terrain.Rock, x0, z0, root, Gravel, 0.012f, 0.02f, 0f, t => ow.PlanAt(t).Kind == RegionKind.Quarry);
             Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
-            Strips(terrain, Terrain.Water, x0, z0, root, Sand, 0.008f, 0.016f, 0.35f);
-            Strips(terrain, Terrain.Water, x0, z0, root, Water, 0.025f, 0.03f, 0f);
+            // Water lies at its own level (it fills the valley floors), over a sandy edge that follows the banks;
+            // bridges carry you over rivers.
+            Sheet(ow, terrain, x0, z0, root, Sand, 0.35f, 0.02f, false, k => k == Terrain.Water || k == Terrain.Bridge);
+            Sheet(ow, terrain, x0, z0, root, Water, 0f, 0f, true, k => k == Terrain.Water || k == Terrain.Bridge);
+            Bridges(ow, terrain, x0, z0, root);
 
             // Trees and rocks. Each chunk has its own random numbers, so it looks the same every time.
             var rng = new System.Random((int)(ow.Hash(cx, cz, 11) * int.MaxValue));
@@ -69,6 +72,8 @@ namespace Epacenur.Runtime
             }
         }
 
+        const int BareKey = 1000;  // ground parts from here on are bare ground (earth, rock, snow), not a biome's
+
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
         static void Ground(World world, int x0, int z0, int size, Transform root)
@@ -91,7 +96,10 @@ namespace Epacenur.Runtime
                 for (int j = 0; j < size; j++)
                 {
                     var tile = new Tile(x0 + i, z0 + j);
-                    int key = (int)ow.BiomeAt(tile) * World.DangerBands + World.DangerBand(ow.Danger(tile));
+                    int a0 = i * n + j;
+                    // Bare earth, rock or snow where it's steep or high; otherwise the biome's ground.
+                    var bare = ow.GroundAt(tile, verts[a0].y, verts[a0 + n].y, verts[a0 + 1].y, verts[a0 + n + 1].y);
+                    int key = bare != Core.Ground.Grass ? BareKey + (int)bare : (int)ow.BiomeAt(tile) * World.DangerBands + World.DangerBand(ow.Danger(tile));
                     if (!parts.TryGetValue(key, out var tris))
                         parts[key] = tris = new List<int>();
                     int a = i * n + j, b = a + 1, c = a + n, d = c + 1;
@@ -107,7 +115,8 @@ namespace Epacenur.Runtime
             foreach (var kv in parts)
             {
                 mesh.SetTriangles(kv.Value, part);
-                mats[part++] = world.GroundMaterial((Biome)(kv.Key / World.DangerBands), kv.Key % World.DangerBands);
+                mats[part++] = kv.Key >= BareKey ? world.BareMaterial((Core.Ground)(kv.Key - BareKey))
+                    : world.GroundMaterial((Biome)(kv.Key / World.DangerBands), kv.Key % World.DangerBands);
             }
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -117,6 +126,71 @@ namespace Epacenur.Runtime
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
             go.AddComponent<OwnedMesh>().Mesh = mesh;
+        }
+
+        /// A sheet of quads, one per tile that `which` picks (grown by `grow` each side): at the water's surface
+        /// (`water`), or just over the ground, following it.
+        static void Sheet(Overworld ow, Terrain[,] terrain, int x0, int z0, Transform root, Color colour, float grow, float lift, bool water,
+            System.Func<Terrain, bool> which)
+        {
+            int size = terrain.GetLength(0);
+            var verts = new List<Vector3>();
+            var tris = new List<int>();
+            for (int x = 0; x < size; x++)
+                for (int z = 0; z < size; z++)
+                {
+                    if (!which(terrain[x, z]))
+                        continue;
+                    float cx = x0 + x, cz = z0 + z, r = 0.5f + grow;
+                    int start = verts.Count;
+                    foreach (var c in new[] { new Vector2(-r, -r), new Vector2(-r, r), new Vector2(r, -r), new Vector2(r, r) })
+                    {
+                        float px = cx + c.x, pz = cz + c.y;
+                        double y = water ? ow.WaterSurface(px, pz) : ow.Elevation(px, pz) + lift;
+                        verts.Add(new Vector3(px, (float)y, pz));
+                    }
+                    tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
+                    tris.Add(start + 2); tris.Add(start + 1); tris.Add(start + 3);
+                }
+            if (verts.Count == 0)
+                return;
+            var mesh = new Mesh { name = water ? "Water" : "Shore" };
+            mesh.vertices = verts.ToArray();
+            mesh.triangles = tris.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var go = new GameObject(mesh.name);
+            go.transform.SetParent(root, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = Visuals.Mat(colour);
+            go.AddComponent<OwnedMesh>().Mesh = mesh;
+        }
+
+        /// A plank deck over each bridge tile (you walk on it), with a post at each corner of the bridge's sides.
+        static void Bridges(Overworld ow, Terrain[,] terrain, int x0, int z0, Transform root)
+        {
+            int size = terrain.GetLength(0);
+            for (int x = 0; x < size; x++)
+                for (int z = 0; z < size; z++)
+                {
+                    if (terrain[x, z] != Terrain.Bridge)
+                        continue;
+                    var t = new Tile(x0 + x, z0 + z);
+                    float deck = (float)ow.SurfaceHeight(t);
+                    Visuals.Prim(PrimitiveType.Cube, root, new Vector3(t.X, deck - 0.06f, t.Z), new Vector3(1.02f, 0.12f, 1.02f), Planks, true);
+                    // Rails along the sides that aren't more bridge (or land you step off onto).
+                    var n = new[] { new Tile(t.X + 1, t.Z), new Tile(t.X - 1, t.Z), new Tile(t.X, t.Z + 1), new Tile(t.X, t.Z - 1) };
+                    for (int i = 0; i < 4; i++)
+                    {
+                        if (ow.At(n[i]) != Terrain.Water)
+                            continue;
+                        bool alongX = i >= 2;  // a neighbour north or south: the rail runs along x
+                        float ox = i == 0 ? 0.45f : i == 1 ? -0.45f : 0f, oz = i == 2 ? 0.45f : i == 3 ? -0.45f : 0f;
+                        Visuals.Prim(PrimitiveType.Cube, root, new Vector3(t.X + ox, deck + 0.35f, t.Z + oz),
+                            alongX ? new Vector3(1f, 0.08f, 0.08f) : new Vector3(0.08f, 0.08f, 1f), Planks * 0.8f);
+                        Visuals.Prim(PrimitiveType.Cube, root, new Vector3(t.X + ox, deck + 0.18f, t.Z + oz), new Vector3(0.1f, 0.42f, 0.1f), Planks * 0.75f);
+                    }
+                }
         }
 
         /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges);

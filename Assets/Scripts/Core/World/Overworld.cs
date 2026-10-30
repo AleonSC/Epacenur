@@ -8,6 +8,9 @@ namespace Epacenur.Core
     /// The kind of country a tile is in: what grows there, how wet it is, the colour of the ground.
     public enum Biome { Meadow, Woodland, Marsh, Highlands, Wasteland }
 
+    /// What covers the ground on a tile, besides its biome's own grass: earth and rock on steep slopes and high up, snow on the peaks.
+    public enum Ground { Grass, Earth, Rock, Snow }
+
     /// A town or city, and the safe ground round it. Further out than SafeRadius, the wilderness begins.
     public sealed class Settlement
     {
@@ -32,7 +35,8 @@ namespace Epacenur.Core
         public readonly List<Tile> Lamps = new List<Tile>();  // towns: lamp posts
         public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar; quarries: the pit
         public readonly List<Tile> Tents = new List<Tile>();
-        public Area Level;                                   // towns, camps, shrines, quarries, courses: kept flat (hills rise beyond it)
+        public Area Level;
+        public double LevelHeight; public bool HasLevelHeight;  // the height it's levelled at (Overworld.LevelHeight)                                   // towns, camps, shrines, quarries, courses: kept flat (hills rise beyond it)
         public Tile Altar;                                   // shrines: where the altar stands
         public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
         public Tile CourseCorner;                            // agility courses: the south-west corner of the loop
@@ -91,11 +95,11 @@ namespace Epacenur.Core
         public const int MaxDanger = 60;
         public const int DeepWilderness = 24;                            // from this level the land is wasteland
         public readonly int Seed;
-        readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge;
+        readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge, ridges, basin, rivers;
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
         readonly Dictionary<long, Settlement> settlements = new Dictionary<long, Settlement>();
         // Slow-changing fields are worked out on a coarse lattice and blended between its points.
-        readonly CoarseField moistureField, dangerField;
+        readonly CoarseField moistureField, dangerField, baseField, riverField;
         readonly Dictionary<long, double> pondCorners = new Dictionary<long, double>();
 
         public Overworld(int seed)
@@ -110,8 +114,13 @@ namespace Epacenur.Core
             moisture = new ValueNoise(seed + 707);
             warp = new ValueNoise(seed + 808);
             edge = new ValueNoise(seed + 909);
+            ridges = new ValueNoise(seed + 1010);
+            basin = new ValueNoise(seed + 1111);
+            rivers = new ValueNoise(seed + 1212);
             moistureField = new CoarseField(8, ExactMoisture);
             dangerField = new CoarseField(4, ExactDanger);
+            baseField = new CoarseField(8, ExactBase);
+            riverField = new CoarseField(4, ExactRiver);
         }
 
         /// The town square you start in.
@@ -382,7 +391,7 @@ namespace Epacenur.Core
         {
             if (danger >= DeepWilderness && wet < 0.62)
                 return Biome.Wasteland;
-            if (height > 3.2)
+            if (height > 6)
                 return Biome.Highlands;
             if (wet > 0.64)
                 return Biome.Marsh;
@@ -396,40 +405,106 @@ namespace Epacenur.Core
 
         // ---- Elevation ----
 
-        public const double HillHeight = 6, BumpHeight = 0.8;
-        const double LevelBlend = 12;  // tiles from flat ground to the full height of the hills
+        public const double MountainHeight = 16, RollingHeight = 7, BaseHeight = 10, BumpHeight = 0.8;
+        public const double WaterDepth = 0.4;     // how far a pond or river's bed lies under its surface
+        public const double SnowLine = 23, RockLine = 16;
+        const double LevelBlend = 20;              // tiles from levelled ground to the full lie of the land
 
         /// How high the ground is (world units) at a point in tile coordinates (a tile's centre is a whole
-        /// number). Rolling hills, higher where a very slow noise (ranges) is high, with small bumps on top;
-        /// flat at 0 in and round towns, camps, shrines, quarries and ponds, so buildings, paving and water sit level.
+        /// number): the slow base (broad valleys and uplands), with hills and mountains on top (Hills), carved
+        /// down along rivers and under ponds. Towns, camps, shrines, quarries and courses are levelled at the
+        /// height the land had at their middle, blending into the hills round them.
         public double Elevation(double x, double z)
         {
-            double flat = Flatness(x, z);
+            Levelling(x, z, out double flat, out double nearest, out double levelAt);
             if (flat >= 1)
-                return 0;
-            // Down to the water: nothing near a pond is raised (ponds form where their noise passes PondLevel;
-            // the hills hold it down, so there are none up in them).
-            double h = Hills(x, z);
-            double dry = Smooth((PondLevel(x, z) - 0.02 - PondNoise(x, z)) / 0.7);
-            return h * (1 - flat) * dry;
+                return levelAt;
+            double natural = Natural(x, z, nearest, out double depth);
+            return (natural - depth) * (1 - flat) + levelAt * flat;
         }
-
-        /// The hills before anything is levelled.
-        double Hills(double x, double z)
-        {
-            double n = (hills.Sample(x / 48.0, z / 48.0) - 0.42) / 0.58;
-            double h = n <= 0 ? 0 : n * n * (3 - 2 * n) * HillHeight * (0.6 + 1.2 * ranges.Sample(x / 220.0, z / 220.0));
-            return h + bumps.Sample(x / 10.0, z / 10.0) * BumpHeight;
-        }
-
 
         public double Elevation(Tile t) => Elevation(t.X, t.Z);
 
-        /// 1 in a town, camp, shrine or quarry (and a little way round it), falling smoothly to 0 away from them.
-        double Flatness(double x, double z)
+        /// The height things stand at on a tile: the water's surface on a pond or river (fishing spots float on
+        /// it), the deck of a bridge, otherwise the ground.
+        public double SurfaceHeight(Tile t)
+        {
+            var k = At(t);
+            if (k == Terrain.Water)
+                return WaterSurface(t.X, t.Z);
+            if (k == Terrain.Bridge)
+                return WaterSurface(t.X, t.Z) + BridgeDeck;
+            return Elevation(t);
+        }
+
+        public const double BridgeDeck = 0.22;
+
+        /// Where a pond's or river's surface lies: the slow base height (water fills the valley floors).
+        public double WaterSurface(double x, double z) => Base(x, z) + 0.04;
+
+        /// The lie of the land before anything is levelled, and how far below it a pond or river's bed is.
+        double Natural(double x, double z, double nearestLevel, out double depth)
+        {
+            double h = Hills(x, z);
+            // Ponds: nothing near one is raised (ponds form where their noise passes PondLevel; the hills hold it
+            // down, so there are few up in them).
+            double margin = PondLevel(x, z) - PondNoise(x, z);
+            double dry = Smooth((margin - 0.02) / 0.7);
+            // Rivers carve valleys: the hills fall away to nothing at the water's edge. (No rivers near levelled ground.)
+            double dist = RiverDistance(x, z, out double strength);
+            double river = RiverPresence(nearestLevel) * strength;
+            double width = RiverWidth * river;
+            double valley = 1 - Smooth(river / 0.3) * (1 - Smooth((dist - width) / RiverValley));
+            double wetPond = 1 - Smooth((margin + 0.05) / 0.1);
+            double wetRiver = river * (1 - Smooth(dist / (width + 0.5)));
+            depth = WaterDepth * Math.Max(wetPond, wetRiver);
+            return Base(x, z) + h * dry * valley;
+        }
+
+        /// Broad valleys and uplands: a very slow noise, so lakes and rivers on it are all but level.
+        double Base(double x, double z) => baseField.At(x, z);
+
+        double ExactBase(double x, double z) => basin.Fractal(x / 520.0, z / 520.0, 2) * BaseHeight;
+
+        /// The hills and mountains before anything is levelled or carved: rolling hills everywhere (layered and
+        /// warped, so they wind), ridged mountain ranges where a very slow noise is high, small bumps on top.
+        /// The biome shapes them: marshes almost flat, meadows gentle, the deep wilderness craggy.
+        public double Hills(double x, double z)
+        {
+            Warp(x, z, 160.0, 60.0, out double wx, out double wz);
+            double rolling = Smooth((hills.Fractal(wx / 70.0, wz / 70.0, 4) - 0.36) / 0.5) * RollingHeight;
+            double rangeMask = Smooth((ranges.Fractal(x / 300.0, z / 300.0, 2) - 0.5) / 0.2);
+            double mountains = 0;
+            if (rangeMask > 0)
+            {
+                double r = 1 - Math.Abs(2 * ridges.Fractal(wx / 160.0, wz / 160.0, 3) - 1);
+                mountains = rangeMask * r * r * MountainHeight;
+            }
+            double wet = Moisture(x, z);
+            double calm = (1 - 0.8 * Smooth((wet - 0.56) / 0.12)) * (0.65 + 0.35 * Smooth((wet - 0.3) / 0.2));
+            double h = (rolling + mountains) * calm;
+            double danger = DangerAt(x, z);
+            if (danger > 18)
+                h += Smooth((danger - 18) / 12) * Math.Max(0, bumps.Fractal(x / 13.0, z / 13.0, 2) - 0.45) * 4;  // crags
+            return h + bumps.Sample(x / 10.0, z / 10.0) * BumpHeight;
+        }
+
+        /// How fully rivers run here (0..1), from how far the nearest levelled ground is: none within LevelBlend
+        /// of it, narrowing to nothing (and their valleys flattening out) as they near it.
+        static double RiverPresence(double nearest) => Smooth((nearest - LevelBlend) / 24);
+
+        /// The levelled place (town, camp...) that most holds a point flat, and how much (1 on it, falling to 0 away).
+        RegionPlan Levelling(double x, double z, out double flat) => Levelling(x, z, out flat, out _, out _);
+
+        /// ...how far it is to the nearest levelled ground (in tiles; 0 on it), and the height to level to here:
+        /// where two places' levelling overlaps, a blend of their heights weighted by how much each holds it.
+        RegionPlan Levelling(double x, double z, out double flat, out double nearest, out double height)
         {
             int rx = RegionOf((int)Math.Round(x)), rz = RegionOf((int)Math.Round(z));
-            double best = 0;
+            RegionPlan best = null;
+            flat = 0;
+            nearest = double.MaxValue;
+            double weights = 0, sum = 0;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dz = -1; dz <= 1; dz++)
                 {
@@ -439,12 +514,112 @@ namespace Epacenur.Core
                     var a = plan.Level;
                     double ox = Math.Max(0, Math.Max(a.X - 0.5 - x, x - (a.XMax - 0.5)));
                     double oz = Math.Max(0, Math.Max(a.Z - 0.5 - z, z - (a.ZMax - 0.5)));
-                    double f = 1 - Smooth(Math.Sqrt(ox * ox + oz * oz) / LevelBlend);
-                    if (f > best)
-                        best = f;
+                    double dist = Math.Sqrt(ox * ox + oz * oz);
+                    nearest = Math.Min(nearest, dist);
+                    double f = 1 - Smooth(dist / LevelBlend);
+                    if (f > 0)
+                    {
+                        // On a place's own ground its weight dwarfs any other's, so it's level at its own height.
+                        double w = f * f / (1.000001 - f);
+                        weights += w;
+                        sum += w * LevelHeight(plan);
+                    }
+                    if (f > flat)
+                    {
+                        flat = f;
+                        best = plan;
+                    }
                 }
+            height = flat >= 1 ? LevelHeight(best) : weights > 0 ? sum / weights : 0;
             return best;
         }
+
+        /// The height a town, camp, shrine, quarry or course is levelled at: the land's own height at its middle.
+        public double LevelHeight(RegionPlan plan)
+        {
+            if (!plan.HasLevelHeight)
+            {
+                var c = plan.Level;
+                double cx = c.X + c.Width / 2.0, cz = c.Z + c.Height / 2.0;
+                plan.LevelHeight = Natural(cx, cz, 0, out _);
+                plan.HasLevelHeight = true;
+            }
+            return plan.LevelHeight;
+        }
+
+        /// What covers the ground: grass (or the biome's ground), bare earth on steep slopes, rock on steeper
+        /// ones and high up, snow on the peaks. `slope`: the most the height changes across the tile.
+        public static Ground GroundFor(double height, double slope, double jitter)
+        {
+            if (height > SnowLine + jitter * 3)
+                return Ground.Snow;
+            if (slope > 1.15 || height > RockLine + jitter * 3)
+                return Ground.Rock;
+            if (slope > 0.7)
+                return Ground.Earth;
+            return Ground.Grass;
+        }
+
+        /// The ground on a tile, worked out from its corners' heights.
+        public Ground GroundAt(Tile t) => GroundAt(t, Elevation(t.X - 0.5, t.Z - 0.5), Elevation(t.X + 0.5, t.Z - 0.5),
+            Elevation(t.X - 0.5, t.Z + 0.5), Elevation(t.X + 0.5, t.Z + 0.5));
+
+        /// The ground on a tile whose corners are at these heights. Levelled ground (towns, camps...) stays grass.
+        public Ground GroundAt(Tile t, double a, double b, double c, double d)
+        {
+            var k = At(t);
+            if (k != Terrain.Grass && k != Terrain.Tree && k != Terrain.Flax)
+                return Ground.Grass;
+            Levelling(t.X, t.Z, out double flat);
+            if (flat > 0.5)
+                return Ground.Grass;
+            double lo = Math.Min(Math.Min(a, b), Math.Min(c, d)), hi = Math.Max(Math.Max(a, b), Math.Max(c, d));
+            return GroundFor((a + b + c + d) / 4, hi - lo, Hash(t.X, t.Z, 90));
+        }
+
+        // ---- Rivers ----
+
+        public const double RiverWidth = 1.7;      // half the width of a river, in tiles (about 3-4 wide)
+        const double RiverValley = 24;             // tiles from a river's bank to the full height of the hills
+        public const int BridgeSpacing = 32;       // a bridge where a river crosses each line of this lattice
+
+        /// Rivers wind along where a slow, warped noise passes one value: long lines that never end, so they
+        /// run on for ever, through valleys they carve. Returns how far a point is from the nearest river's
+        /// middle (in tiles, roughly), and how strong the river is there (0..1: none where the noise is nearly
+        /// flat, round its peaks and dips, so no river loops round tightly; it fades out smoothly instead).
+        public double RiverDistance(double x, double z, out double strength)
+        {
+            double v = riverField.At(x, z) - 0.5;
+            double gx = (riverField.At(x + 2, z) - riverField.At(x - 2, z)) / 4, gz = (riverField.At(x, z + 2) - riverField.At(x, z - 2)) / 4;
+            double g = Math.Sqrt(gx * gx + gz * gz);
+            strength = Smooth((g - 0.0008) / 0.0008);
+            return Math.Abs(v) / Math.Max(g, 0.0004);
+        }
+
+        double ExactRiver(double x, double z)
+        {
+            Warp(x, z, 180.0, 90.0, out double wx, out double wz);
+            return rivers.Fractal(wx / 240.0, wz / 240.0, 2);
+        }
+
+        /// Whether a tile is part of a river (not near levelled ground, not in a pond).
+        bool IsRiver(Tile t)
+        {
+            var plan = PlanAt(t);
+            if (plan.KeepsClear(t) || plan.At(t) != Terrain.Grass)
+                return false;
+            Levelling(t.X, t.Z, out _, out double nearest, out _);
+            double dist = RiverDistance(t.X, t.Z, out double strength);
+            double presence = RiverPresence(nearest) * strength;
+            if (presence < 0.3)
+                return false;  // too narrow to be a river
+            return dist < RiverWidth * presence;
+        }
+
+        /// Bridges cross rivers along the lines of a lattice, two tiles wide, so a river never cuts off any land.
+        static bool OnBridgeLine(Tile t) => FloorMod(t.X, BridgeSpacing) < 2 || FloorMod(t.Z, BridgeSpacing) < 2;
+
+        static int FloorMod(int a, int b) => ((a % b) + b) % b;
 
         /// 0 below 0, 1 above 1, smooth between.
         static double Smooth(double t)
@@ -488,6 +663,8 @@ namespace Epacenur.Core
                 return planned;
             if (IsPond(t))
                 return Terrain.Water;
+            if (IsRiver(t))
+                return OnBridgeLine(t) ? Terrain.Bridge : Terrain.Water;
             return Growth(t, plan);
         }
 
@@ -500,6 +677,10 @@ namespace Epacenur.Core
         {
             var plan = PlanAt(t);
             if (plan.KeepsClear(t) || plan.At(t) != Terrain.Grass)
+                return false;
+            // None on or near levelled ground (its water would sit at the wrong height).
+            Levelling(t.X, t.Z, out double flat);
+            if (flat > 0)
                 return false;
             // Roads stay dry with a margin (a road can run diagonally, which water either side would cut).
             for (int dx = -1; dx <= 1; dx++)
@@ -555,7 +736,7 @@ namespace Epacenur.Core
             return pondCorners[key] = Math.Max(PondPoint(i, j), lowest);
         }
 
-        double PondPoint(int i, int j) => ponds.At(i, j) - 0.4 * Math.Max(0, Hills(i * PondScale, j * PondScale) - 1.0);
+        double PondPoint(int i, int j) => ponds.At(i, j) - 0.4 * Math.Max(0, Hills(i * PondScale, j * PondScale) - 2.0) / 2.0;
 
         /// Trees and rocks stand on a loose lattice (at most one in each 3 x 3 cell, at one of its four
         /// lower-left tiles), so no two ever touch, even diagonally: you can always walk between them.
@@ -573,7 +754,7 @@ namespace Epacenur.Core
                     bool near = Math.Abs(dx) <= 1 && Math.Abs(dz) <= 1;
                     var np = PlanAt(n);
                     var nt = np.At(n);
-                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Camp || IsPond(n))))
+                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Camp || IsPond(n) || IsRiver(n))))
                         return Terrain.Grass;
                     if (near && np.KeepsClear(n))
                         return Terrain.Grass;
