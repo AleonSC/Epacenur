@@ -33,7 +33,7 @@ namespace Epacenur.Core
         public TownLayout Town;                              // towns: the built-up tiles (local to Bounds)
         public readonly List<Building> Buildings = new List<Building>();
         public readonly List<Tile> Lamps = new List<Tile>();  // towns: lamp posts
-        public readonly List<Tile> Patches = new List<Tile>();  // towns: farming patches (even: herb, odd: allotment)
+        public readonly List<Tile> Patches = new List<Tile>();  // towns: the farm's farming patches (even: herb, odd: allotment)
         public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar; quarries: the pit
         public readonly List<Tile> Tents = new List<Tile>();
         public Area Level;
@@ -809,7 +809,7 @@ namespace Epacenur.Core
                     bool near = Math.Abs(dx) <= 1 && Math.Abs(dz) <= 1;
                     var np = PlanAt(n);
                     var nt = np.At(n);
-                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Camp || IsWet(n))))
+                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Fence || nt == Terrain.Camp || IsWet(n))))
                         return Terrain.Grass;
                     if (near && np.KeepsClear(n))
                         return Terrain.Grass;

@@ -2,14 +2,15 @@ using Epacenur.Core;
 
 namespace Epacenur.Content
 {
-    /// Farming: every town has four patches by its roads, two for herbs and two allotments. Use a seed on an
-    /// empty patch to plant it; it grows in real time, even while you're logged out, and once grown you pick
-    /// the herbs (grimy, for Herblore) or dig up the crop with a spade, several times over. OSRS levels and xp.
+    /// Farming: every town has a farm, its fenced field holding six patches, three for herbs and three allotments.
+    /// They're the farmer's: rent one from him (once, for coins) and it's yours. Use a seed on an empty patch you
+    /// rent to plant it; it grows in real time, even while you're logged out, and once grown you pick the herbs
+    /// (grimy, for Herblore) or dig up the crop with a spade, several times over. OSRS levels and xp.
     /// Seeds come from the general store (potatoes), farmers' pockets, seed stalls and monsters' drops.
     public sealed class FarmingModule : IContentModule
     {
         public const string Skill = Farming.Skill, Spade = "spade", PotatoSeed = "potato_seed", GuamSeed = "guam_seed",
-            HerbPatch = "herb_patch", Allotment = "allotment", SeedStall = "seed_stall";
+            HerbPatch = "herb_patch", Allotment = "allotment", SeedStall = "seed_stall", PatchFarmer = "patch_farmer";
 
         static readonly Rgb SeedBrown = new Rgb(0.55f, 0.42f, 0.25f);
 
@@ -26,6 +27,18 @@ namespace Epacenur.Content
             spade.Icon = new Icon().Turned(18.5f, 4f, 3f, 22f, Rgb.Wood, 30f).Turned(10f, 23f, 10f, 12f, steel, 30f);
             spade.HeldModel = new Model().Cube(0f, 0f, 0.3f, 0.04f, 0.04f, 0.7f, Rgb.Wood).Cube(0f, 0f, 0.72f, 0.2f, 0.02f, 0.24f, steel);
             spade.GroundModel = Looks.OnGround(spade.HeldModel);
+
+            // The farmer in every town's farmhouse, who rents out its patches.
+            db.Add(new StationDef
+            {
+                Id = PatchFarmer, Name = "Farmer", Action = "Talk-to", Kind = StationKind.Farmer,
+                Examine = "He farms the field by his house, and rents out its patches. Right-click him to rent one.",
+                Label = "Farmer", LabelHeight = 2.3f,
+                Model = Bodies.Humanoid(new Rgb(0.82f, 0.62f, 0.46f), new Rgb(0.55f, 0.42f, 0.25f), new Rgb(0.3f, 0.36f, 0.5f), new Rgb(0.35f, 0.25f, 0.15f))
+                    .Cylinder(0f, 1.86f, 0f, 0.62f, 0.02f, 0.62f, new Rgb(0.85f, 0.75f, 0.4f))   // a straw hat
+                    .Cylinder(0f, 1.94f, 0f, 0.32f, 0.08f, 0.32f, new Rgb(0.85f, 0.75f, 0.4f))
+                    .Cube(0.42f, 0.9f, 0.15f, 0.04f, 1.3f, 0.04f, Rgb.Wood),                    // a pitchfork
+            });
 
             // Herbs (their grimy herbs come from Herblore).
             Herb(db, "guam", "Guam", 9, 11, 12.5, new Rgb(0.35f, 0.65f, 0.25f));

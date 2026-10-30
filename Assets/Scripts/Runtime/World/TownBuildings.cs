@@ -1,3 +1,4 @@
+using System;
 using Epacenur.Core;
 using UnityEngine;
 
@@ -124,6 +125,8 @@ namespace Epacenur.Runtime
             }
             top.gameObject.AddComponent<RoofHider>().Footprint = a;
             TownInteriors.Build(root, b, y0);
+            if (b.Kind == BuildingKind.Farm)
+                Fence(root, b, y0);
         }
 
         // ---- Walls ----
@@ -366,6 +369,59 @@ namespace Epacenur.Runtime
                     Visuals.Prim(PrimitiveType.Cube, top, new Vector3(end * (length / 2f + Thick / 2f + 0.01f), (eaves + ridge) / 2f, 0f), new Vector3(0.03f, ridge - eaves, 0.12f), Beam);
             }
             return ridge;
+        }
+
+        // ---- A farm's field ----
+
+        static readonly Color FenceWood = new Color(0.5f, 0.38f, 0.24f);
+
+        /// The fence round a farm's field: a post on every fence tile, two rails between neighbours, and at each
+        /// gap a gate swung open against the fence. Solid (a collider on each fence tile).
+        static void Fence(Transform root, Building b, float y0)
+        {
+            var f = b.Field;
+            var fence = new GameObject("Farm fence").transform;
+            fence.SetParent(root, false);
+            Func<int, int, bool> isFence = (x, z) => (x == f.X || z == f.Z || x == f.XMax - 1 || z == f.ZMax - 1)
+                && x >= f.X && x < f.XMax && z >= f.Z && z < f.ZMax && !b.Gates.Contains(new Tile(x, z));
+            for (int x = f.X; x < f.XMax; x++)
+                for (int z = f.Z; z < f.ZMax; z++)
+                {
+                    if (!isFence(x, z))
+                        continue;
+                    var post = new GameObject("Fence post").transform;
+                    post.SetParent(fence, false);
+                    post.localPosition = new Vector3(x, y0, z);
+                    Visuals.Prim(PrimitiveType.Cube, post, new Vector3(0f, 0.5f, 0f), new Vector3(0.14f, 1f, 0.14f), FenceWood * 0.85f);
+                    Visuals.Prim(PrimitiveType.Cube, post, new Vector3(0f, 1.02f, 0f), new Vector3(0.18f, 0.05f, 0.18f), FenceWood * 0.7f);
+                    var box = post.gameObject.AddComponent<BoxCollider>();
+                    box.center = new Vector3(0f, 0.5f, 0f);
+                    box.size = new Vector3(1f, 1f, 1f);
+                    // Rails to the next post along +x and +z (so each pair gets one set).
+                    if (isFence(x + 1, z))
+                        foreach (float y in new[] { 0.4f, 0.8f })
+                            Visuals.Prim(PrimitiveType.Cube, post, new Vector3(0.5f, y, 0f), new Vector3(1f, 0.08f, 0.05f), FenceWood);
+                    if (isFence(x, z + 1))
+                        foreach (float y in new[] { 0.4f, 0.8f })
+                            Visuals.Prim(PrimitiveType.Cube, post, new Vector3(0f, y, 0.5f), new Vector3(0.05f, 0.08f, 1f), FenceWood);
+                }
+            foreach (var gate in b.Gates)
+            {
+                // Swung open into the field, hinged on one side of the gap.
+                bool across = gate.X == f.X || gate.X == f.XMax - 1;  // the gap is in a fence running along z
+                var inward = gate.X == f.X ? Vector3.right : gate.X == f.XMax - 1 ? Vector3.left : gate.Z == f.Z ? Vector3.forward : Vector3.back;
+                var hinge = new GameObject("Gate").transform;
+                hinge.SetParent(fence, false);
+                hinge.localPosition = new Vector3(gate.X, y0, gate.Z) + (across ? new Vector3(0f, 0f, -0.45f) : new Vector3(-0.45f, 0f, 0f));
+                hinge.localRotation = Quaternion.LookRotation(inward);
+                // The leaf lies along local +z (into the field), against the fence beside it.
+                foreach (float y in new[] { 0.3f, 0.6f, 0.9f })
+                    Visuals.Prim(PrimitiveType.Cube, hinge, new Vector3(0f, y, 0.45f), new Vector3(0.05f, 0.07f, 0.85f), FenceWood * 1.1f);
+                foreach (float z in new[] { 0.05f, 0.85f })
+                    Visuals.Prim(PrimitiveType.Cube, hinge, new Vector3(0f, 0.6f, z), new Vector3(0.06f, 0.75f, 0.07f), FenceWood);
+                Visuals.Prim(PrimitiveType.Cube, hinge, new Vector3(0f, 0.6f, 0.45f), new Vector3(0.04f, 0.06f, 1.05f), FenceWood * 0.8f)
+                    .transform.localRotation = Quaternion.Euler(-34f, 0f, 0f);
+            }
         }
 
         /// A stone chimney rising from the floor through the roof (local roof frame), capped; a smithy's glows.

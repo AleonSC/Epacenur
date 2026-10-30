@@ -157,13 +157,13 @@ namespace Epacenur.Runtime
             return p;
         }
 
-        /// The patches with something growing in them, to save.
-        public IEnumerable<PatchState> PlantedPatches
+        /// The patches you rent or have something growing in, to save.
+        public IEnumerable<PatchState> SavedPatches
         {
             get
             {
                 foreach (var p in patches.Values)
-                    if (p.seed != null)
+                    if (p.seed != null || p.rented)
                         yield return p;
             }
         }
@@ -853,7 +853,8 @@ namespace Epacenur.Runtime
                 case Terrain.Stone: return MapStone;
                 case Terrain.Essence: return MapEssence;
                 case Terrain.Quarry: return MapQuarry;
-                case Terrain.Stall: return MapWall;
+                case Terrain.Stall: case Terrain.Fence: return MapWall;
+                case Terrain.Field: return MapPath;
                 case Terrain.Bridge: return MapFloor;
                 default: return MapGrass;
             }

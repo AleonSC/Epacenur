@@ -21,9 +21,11 @@ namespace Epacenur.Core
         Quarry, // the gravel floor of a quarry
         Bridge, // a wooden bridge over a river
         Stall,  // a market stall in a town square (which one: Spawning, by distance)
+        Fence,  // round a farm's field
+        Field,  // the tilled ground of a farm's field (its patches stand on it)
     }
 
-    public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop }
+    public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop, Farm }
 
     /// A rectangle of tiles: lower-left corner and size.
     public struct Area
@@ -44,10 +46,25 @@ namespace Epacenur.Core
         public BuildingKind Kind;
         public Area Footprint;  // walls run round its edge
         public Tile Door;       // a gap in the wall, facing the town square
-        public Tile Feature;    // inside, against the back wall: the bank booth, shop keeper or altar (houses: a table)
+        public Tile Feature;    // inside, against the back wall: the bank booth, shop keeper or altar (houses: a table; a farm: its farmer)
         public bool HasFeature2;
         public Tile Feature2;   // a smithy's anvil (next to its furnace), a workshop's tanning rack (next to its spinning wheel)
         public List<FurniturePiece> Furniture = new List<FurniturePiece>();  // what else is inside (Furnisher)
+        public Area Field;      // a farm: its fenced field beside the farmhouse (fence round the edge)
+        public List<Tile> Gates = new List<Tile>();    // a farm: the gaps in the field's fence
+        public List<Tile> Patches = new List<Tile>();  // a farm: its farming patches, in the field (even: herb, odd: allotment)
+
+        /// What the building takes up: its walls, and a farm's field too.
+        public Area Extent
+        {
+            get
+            {
+                if (Kind != BuildingKind.Farm)
+                    return Footprint;
+                int x0 = Math.Min(Footprint.X, Field.X), z0 = Math.Min(Footprint.Z, Field.Z);
+                return new Area(x0, z0, Math.Max(Footprint.XMax, Field.XMax) - x0, Math.Max(Footprint.ZMax, Field.ZMax) - z0);
+            }
+        }
 
         /// The same building moved by (dx, dz) tiles.
         public Building Moved(int dx, int dz) => new Building
@@ -56,6 +73,9 @@ namespace Epacenur.Core
             Door = new Tile(Door.X + dx, Door.Z + dz), Feature = new Tile(Feature.X + dx, Feature.Z + dz),
             HasFeature2 = HasFeature2, Feature2 = new Tile(Feature2.X + dx, Feature2.Z + dz),
             Furniture = Furniture.ConvertAll(f => f.Moved(dx, dz)),
+            Field = new Area(Field.X + dx, Field.Z + dz, Field.Width, Field.Height),
+            Gates = Gates.ConvertAll(t => new Tile(t.X + dx, t.Z + dz)),
+            Patches = Patches.ConvertAll(t => new Tile(t.X + dx, t.Z + dz)),
         };
     }
 
@@ -68,10 +88,10 @@ namespace Epacenur.Core
         public Tile Spawn;                      // the town square
         public readonly List<Building> Buildings = new List<Building>();
         public readonly List<Tile> Lamps = new List<Tile>();  // lamp posts along the roads (they light up at night)
-        public readonly List<Tile> Patches = new List<Tile>();  // farming patches beside the roads: herb, allotment, herb, allotment
+        public readonly List<Tile> Patches = new List<Tile>();  // the farm's farming patches (even: herb, odd: allotment)
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
-        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry || t == Terrain.Bridge;
+        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry || t == Terrain.Bridge || t == Terrain.Field;
     }
 
     /// Builds towns from a seed: a square in the middle with a bank, general store, chapel and houses
@@ -96,7 +116,8 @@ namespace Epacenur.Core
                     stalls++;
                 }
             PlaceLamps(w);
-            PlacePatches(w);
+            foreach (var b in w.Buildings)
+                w.Patches.AddRange(b.Patches);
             foreach (var b in w.Buildings)
                 b.Furniture = Furnisher.Furnish(b, seed);
             return w;
@@ -122,28 +143,8 @@ namespace Epacenur.Core
             }
         }
 
-        public const int PatchesPerTown = 4;
-
-        /// Farming patches: on the grass by the roads a little way out from the square, clear of lamps and of each other.
-        static void PlacePatches(TownLayout w)
-        {
-            foreach (var s in RoadsideSpots(w))
-            {
-                if (w.Patches.Count >= PatchesPerTown)
-                    break;
-                if (s.StepsTo(w.Spawn) < 8)
-                    continue;
-                bool clear = true;
-                foreach (var l in w.Lamps)
-                    if (l.StepsTo(s) < 2)
-                        clear = false;
-                foreach (var p in w.Patches)
-                    if (p.StepsTo(s) < 3)
-                        clear = false;
-                if (clear)
-                    w.Patches.Add(s);
-            }
-        }
+        /// A farm's field: Field x FieldDepth tiles inside its fence, patches in two rows with a path between.
+        public const int FieldLength = 5, FieldDepth = 3, PatchesPerTown = 6;
 
         /// Grass tiles straight beside a road and not against a building, nearest the square first.
         static List<Tile> RoadsideSpots(TownLayout w)
@@ -159,7 +160,7 @@ namespace Epacenur.Core
                         for (int dz = -1; dz <= 1; dz++)
                         {
                             var n = w.Map[x + dx, z + dz];
-                            if (n == Terrain.Wall || n == Terrain.Door || n == Terrain.Floor || n == Terrain.Stall)
+                            if (n == Terrain.Wall || n == Terrain.Door || n == Terrain.Floor || n == Terrain.Stall || n == Terrain.Fence)
                                 byBuilding = true;
                             if (n == Terrain.Path && (dx == 0 || dz == 0))
                                 byRoad = true;
@@ -179,7 +180,7 @@ namespace Epacenur.Core
 
         static void PlaceBuildings(TownLayout w, Random rng, bool city)
         {
-            var kinds = new List<BuildingKind> { BuildingKind.Bank, BuildingKind.Shop, BuildingKind.Chapel, BuildingKind.Smithy, BuildingKind.Workshop };
+            var kinds = new List<BuildingKind> { BuildingKind.Bank, BuildingKind.Shop, BuildingKind.Chapel, BuildingKind.Smithy, BuildingKind.Workshop, BuildingKind.Farm };
             int houses = city ? 8 + rng.Next(4) : 3 + rng.Next(3);
             for (int i = 0; i < houses; i++)
                 kinds.Add(BuildingKind.House);
@@ -189,10 +190,12 @@ namespace Epacenur.Core
             {
                 for (int tries = 0; tries < 400; tries++)
                 {
-                    int bw = kind == BuildingKind.Chapel ? 7 : kind == BuildingKind.House ? 5 + rng.Next(3) : 7;
-                    int bh = kind == BuildingKind.Chapel ? 8 : kind == BuildingKind.House ? 5 + rng.Next(2) : 6;
+                    int bw = kind == BuildingKind.Chapel ? 7 : kind == BuildingKind.House || kind == BuildingKind.Farm ? 5 + rng.Next(3) : 7;
+                    int bh = kind == BuildingKind.Chapel ? 8 : kind == BuildingKind.House || kind == BuildingKind.Farm ? 5 + rng.Next(2) : 6;
                     double angle = rng.NextDouble() * Math.PI * 2;
-                    double dist = 7 + rng.NextDouble() * (kind == BuildingKind.House ? (city ? 19 : 14) : 8);
+                    // The farm stands out on the edge of town, where there's room for its field.
+                    double dist = kind == BuildingKind.Farm ? 15 + rng.NextDouble() * (city ? 10 : 6)
+                        : 7 + rng.NextDouble() * (kind == BuildingKind.House ? (city ? 19 : 14) : 8);
                     int cx = w.Spawn.X + (int)Math.Round(Math.Cos(angle) * dist);
                     int cz = w.Spawn.Z + (int)Math.Round(Math.Sin(angle) * dist);
                     var area = new Area(cx - bw / 2, cz - bh / 2, bw, bh);
@@ -202,14 +205,88 @@ namespace Epacenur.Core
                         continue;
                     bool clash = false;
                     foreach (var other in w.Buildings)
-                        if (area.Overlaps(other.Footprint, 3))
+                        if (area.Overlaps(other.Extent, 3))
                             clash = true;
                     if (clash)
                         continue;
-                    w.Buildings.Add(MakeBuilding(w, kind, area));
+                    var field = default(Area);
+                    if (kind == BuildingKind.Farm && !FieldFor(w, area, square, rng, out field))
+                        continue;
+                    var b = MakeBuilding(w, kind, area);
+                    if (kind == BuildingKind.Farm)
+                        MakeField(w, b, field);
+                    w.Buildings.Add(b);
                     break;
                 }
             }
+        }
+
+        /// Where a farm's field can go: beside the farmhouse (a tile's gap between), not on the side facing the
+        /// square (its door and road are there), clear of the square and the other buildings and their fields.
+        static bool FieldFor(TownLayout w, Area house, Area square, Random rng, out Area field)
+        {
+            int outerLong = FieldLength + 2, outerDeep = FieldDepth + 2;
+            var c = house.Center;
+            var sides = new List<Area>
+            {
+                new Area(c.X - outerLong / 2, house.Z - 1 - outerDeep, outerLong, outerDeep),
+                new Area(c.X - outerLong / 2, house.ZMax + 1, outerLong, outerDeep),
+                new Area(house.X - 1 - outerDeep, c.Z - outerLong / 2, outerDeep, outerLong),
+                new Area(house.XMax + 1, c.Z - outerLong / 2, outerDeep, outerLong),
+            };
+            for (int i = sides.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                var t = sides[i];
+                sides[i] = sides[j];
+                sides[j] = t;
+            }
+            int dx = w.Spawn.X - c.X, dz = w.Spawn.Z - c.Z;
+            foreach (var f in sides)
+            {
+                // Not between the house and the square.
+                int fx = f.Center.X - c.X, fz = f.Center.Z - c.Z;
+                if (fx * dx + fz * dz > 0)
+                    continue;
+                if (f.X < 3 || f.Z < 3 || f.XMax > w.Width - 3 || f.ZMax > w.Height - 3 || f.Overlaps(square, 2))
+                    continue;
+                bool clash = false;
+                foreach (var other in w.Buildings)
+                    if (f.Overlaps(other.Extent, 3))
+                        clash = true;
+                if (clash)
+                    continue;
+                field = f;
+                return true;
+            }
+            field = default(Area);
+            return false;
+        }
+
+        /// Marks out a farm's field: a fence round it with a gate at each end of the path down its middle, and
+        /// two rows of patches either side of the path (alternately herb patches and allotments).
+        static void MakeField(TownLayout w, Building b, Area f)
+        {
+            b.Field = f;
+            bool alongX = f.Width > f.Height;
+            for (int x = f.X; x < f.XMax; x++)
+                for (int z = f.Z; z < f.ZMax; z++)
+                {
+                    bool edge = x == f.X || z == f.Z || x == f.XMax - 1 || z == f.ZMax - 1;
+                    w.Map[x, z] = edge ? Terrain.Fence : Terrain.Field;
+                }
+            // The field's own frame: `i` along its length (0..FieldLength-1), `j` across it (0..FieldDepth-1).
+            Func<int, int, Tile> at = (i, j) => alongX ? new Tile(f.X + 1 + i, f.Z + 1 + j) : new Tile(f.X + 1 + j, f.Z + 1 + i);
+            int mid = FieldDepth / 2;
+            foreach (var gate in new[] { alongX ? new Tile(f.X, f.Z + 1 + mid) : new Tile(f.X + 1 + mid, f.Z),
+                alongX ? new Tile(f.XMax - 1, f.Z + 1 + mid) : new Tile(f.X + 1 + mid, f.ZMax - 1) })
+            {
+                w.Map[gate.X, gate.Z] = Terrain.Field;
+                b.Gates.Add(gate);
+            }
+            for (int i = 0; i < FieldLength; i += 2)
+                foreach (int j in new[] { 0, FieldDepth - 1 })
+                    b.Patches.Add(at(i, j));
         }
 
         /// Walls round the edge, a door on the side facing the town square, and the feature
@@ -282,7 +359,7 @@ namespace Epacenur.Core
                 for (int z = 0; z < w.Height; z++)
                 {
                     var t = w.Map[x, z];
-                    g.SetBlocked(new Tile(x, z), t == Terrain.Wall || t == Terrain.Floor || t == Terrain.Door);
+                    g.SetBlocked(new Tile(x, z), t == Terrain.Wall || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Fence || t == Terrain.Field);
                 }
             g.SetBlocked(from, false);
             g.SetBlocked(to, false);
