@@ -47,7 +47,8 @@ namespace Epacenur.Runtime
                     if (stack.Def.Stackable && stack.Count > 1)
                         Gui.Shadowed(new Rect(slot.x + 2f, slot.y, slot.width, 16f), "<color=#ffff00>" + stack.Count + "</color>", Gui.Small);
                     if (slot.Contains(e.mousePosition))
-                        tooltip = player.IsUsing && !picked ? "Use " + player.UsingDef.Name + " -> " + stack.Def.Name : stack.Def.Name;
+                        tooltip = player.SelectedSpell != null ? "Cast " + player.SelectedSpell.Name + " -> " + stack.Def.Name
+                            : player.IsUsing && !picked ? "Use " + player.UsingDef.Name + " -> " + stack.Def.Name : stack.Def.Name;
                 }
                 if (picked)
                 {
@@ -109,6 +110,11 @@ namespace Epacenur.Runtime
         void Click(Hud hud, int i, bool shift)
         {
             var player = G.Player;
+            if (player.SelectedSpell != null)
+            {
+                player.CastOnSlot(i);
+                return;
+            }
             if (player.IsUsing)
             {
                 player.UseOnSlot(i);

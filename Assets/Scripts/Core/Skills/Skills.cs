@@ -7,7 +7,7 @@ namespace Epacenur.Core
     /// Ids of the skills the core rules use (combat). Every other skill's id lives in its content module.
     public static class SkillIds
     {
-        public const string Attack = "attack", Strength = "strength", Defence = "defence", Hitpoints = "hitpoints", Prayer = "prayer", Ranged = "ranged";
+        public const string Attack = "attack", Strength = "strength", Defence = "defence", Hitpoints = "hitpoints", Prayer = "prayer", Ranged = "ranged", Magic = "magic";
     }
 
     /// A player's experience in every skill (the skills in ContentDb.Current), by skill id.

@@ -120,6 +120,7 @@ namespace Epacenur.Runtime
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i))
                     UseAbility(Abilities.All[i].Id);
             UpdateBleeds();
+            UpdateMagic(dt);
 
             Vector3 move = Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
 
@@ -319,7 +320,7 @@ namespace Epacenur.Runtime
         }
 
         /// First person: close enough to use, or with a bow, to shoot at a monster.
-        bool InReach(Component thing) => FlatDistance(thing) <= (thing is Npc && UsingRanged ? AttackRange + 0.5f : FirstPersonReach);
+        bool InReach(Component thing) => FlatDistance(thing) <= (thing is Npc && AttacksFromRange ? AttackRange + 0.5f : FirstPersonReach);
 
         public float FlatDistance(Component c)
         {

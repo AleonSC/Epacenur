@@ -31,6 +31,9 @@ namespace Epacenur.Runtime
                     g.Prayer.Recharge();
                     GameLog.Add("You pray at the altar... You recharge your Prayer points.");
                     break;
+                case StationKind.Craft:
+                    g.Player.StartMaking(this, null, int.MaxValue);
+                    break;
                 default:
                     g.Hud.OpenMaking(this, null);
                     break;

@@ -20,14 +20,17 @@ namespace Epacenur.Runtime
         {
             if (G.Inventory[slot].IsEmpty)
                 return;
+            SelectedSpell = null;
             UsingSlot = slot;
             usingItem = G.Inventory[slot].ItemId;
         }
 
+        /// Puts down the picked item, or picked spell (right-click, Escape, walking off).
         public void CancelUse()
         {
             UsingSlot = -1;
             usingItem = null;
+            SelectedSpell = null;
         }
 
         /// The picked item on another inventory item.
@@ -93,6 +96,13 @@ namespace Epacenur.Runtime
                         if (def.BuryXp > 0)
                         {
                             OfferBones(slot);
+                            return;
+                        }
+                        break;
+                    case StationKind.Craft:
+                        if (ContentDb.Current.RecipeUsing(station.Def.Id, itemId) != null)
+                        {
+                            StartMaking(station, null, int.MaxValue);
                             return;
                         }
                         break;

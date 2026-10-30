@@ -52,6 +52,8 @@ namespace Epacenur.Runtime
         public PrayerBook Prayer { get; private set; }
         /// The chosen attack style, by its place in the weapon's list (the first is used if a new weapon has fewer).
         public int StyleIndex;
+        /// The combat spell your attacks cast (picked in the Magic tab), or null to fight with your weapon.
+        public SpellDef Autocast;
 
         /// The attack style in use with the wielded weapon (or unarmed).
         public WeaponStyle CurrentStyle

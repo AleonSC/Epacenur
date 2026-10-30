@@ -14,6 +14,12 @@ public static class CoreRulesSuite
 
     static void Check(bool ok, string what) => check(ok, what);
     static ItemDef Item(string id) => ContentDb.Current.Item(id);
+    static int SlotOf(Inventory inv, string id)
+    {
+        for (int i = 0; i < Inventory.Size; i++)
+            if (!inv[i].IsEmpty && inv[i].ItemId == id) return i;
+        return -1;
+    }
     const string Logs = WoodcuttingModule.Logs, Coins = ItemIds.Coins, Sword = CombatModule.BronzeSword, Shield = CombatModule.WoodenShield;
 
     /// `check(ok, description)` is called for every check, `info` for section headings and notes.
@@ -24,7 +30,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 14 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "14 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 16 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "16 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -94,7 +100,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 17 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 20 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -104,9 +110,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 18 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 21 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 17 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 20 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -459,13 +465,13 @@ public static class CoreRulesSuite
             {
                 var t = new Tile(x, z);
                 var rock = Spawning.NodeAt(sow, t, Terrain.Rock);
-                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
+                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && rock.Id != RunecraftingModule.EssenceRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
                 if (Spawning.NodeAt(sow, t, Terrain.Tree).Id == WoodcuttingModule.Oak) nearHasOak = true;
                 var farTile = new Tile(x + 1100, z);
                 if (Spawning.NodeAt(sow, farTile, Terrain.Rock).Id == MiningModule.AdamantiteRock) farHasAdamant = true;
                 if (Spawning.NodeAt(sow, farTile, Terrain.Tree).Id == WoodcuttingModule.Yew) farHasYew = true;
             }
-        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper and tin near the start, adamantite and yews far out");
+        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper, tin and essence near the start, adamantite and yews far out");
         var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
         Check(homeGroups.Count == 1 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
         int campCount = 0, goblinCamps = 0, wildFar = 0, dangerous = 0;
@@ -489,7 +495,73 @@ public static class CoreRulesSuite
             + dangerous + " of " + wildFar + " far-out wild regions have aggressive monsters");
         Check(db.Npc(CombatModule.HillGiant).AlwaysDrops[0] == PrayerModule.BigBones && db.Item(PrayerModule.BigBones).BuryXp == 15, "hill giants drop big bones (15 xp)");
 
-        info("Crafting");
+        info("Magic and runecrafting");
+        var wind = db.Spell("wind_strike");
+        var ms = new SkillSet();
+        var minv = new Inventory();
+        var meq = new Equipment();
+        Check(db.Spells.Count == 12 && wind.Level == 1 && wind.MaxHit == 2 && db.Spell("fire_bolt").Level == 35, "12 spells; Wind Strike at level 1 hits up to 2; Fire Bolt at 35");
+        Check(Magic.Problem(wind, ms, minv, meq) == "You do not have enough Air runes to cast this spell.", "no runes, no spell");
+        minv.Add(RunecraftingModule.Air, 3);
+        minv.Add(RunecraftingModule.Mind, 3);
+        Check(Magic.Problem(wind, ms, minv, meq) == null, "an air and a mind rune cast Wind Strike");
+        Magic.UseRunes(wind, minv, meq);
+        Check(minv.Count(RunecraftingModule.Air) == 2 && minv.Count(RunecraftingModule.Mind) == 2, "casting uses the runes up");
+        minv.Add(MagicModule.StaffOfAir);
+        meq.Equip(minv, SlotOf(minv, MagicModule.StaffOfAir));
+        minv.Remove(RunecraftingModule.Air, 2);
+        Check(Magic.Problem(wind, ms, minv, meq) == null, "a staff of air stands in for air runes");
+        Magic.UseRunes(wind, minv, meq);
+        Check(minv.Count(RunecraftingModule.Mind) == 1 && meq.Bonuses.MagicAttack == 10, "...only the mind rune is used; the staff gives +10 magic attack");
+        Check(Magic.Problem(db.Spell("fire_bolt"), ms, minv, meq).StartsWith("You need a Magic level of 35"), "Fire Bolt needs Magic 35");
+        Check(CombatRules.MagicHitChance(1, 10, 1, 0) > CombatRules.MagicHitChance(1, 0, 1, 0), "magic attack bonus makes spells hit more often");
+        BigInteger before = ms.GetXpTenths(SkillIds.Magic);
+        CombatRules.AwardMagicXp(ms, wind, 2);
+        Check(ms.GetXpTenths(SkillIds.Magic) - before == 95, "Wind Strike gives 5.5 xp plus 2 per damage");
+        var mfresh = new SkillSet();
+        mfresh.SetLevel(SkillIds.Magic, 99);
+        Check(CombatRules.CombatLevel(mfresh) == 50, "99 Magic alone is combat level 50");
+
+        var highAlch = db.Spell(MagicModule.HighAlchemy);
+        ms.SetLevel(SkillIds.Magic, 55);
+        var ainv = new Inventory();
+        ainv.Add(RunecraftingModule.Fire, 5);
+        ainv.Add(RunecraftingModule.Nature, 1);
+        ainv.Add("mithril_platebody");
+        int plateValue = db.Item("mithril_platebody").Value;
+        int alched = Magic.Alch(highAlch, ms, ainv, new Equipment(), SlotOf(ainv, "mithril_platebody"), out string aw);
+        Check(alched == (int)System.Math.Floor(plateValue * 0.6) && ainv.Count(ItemIds.Coins) == alched && ainv.Count("mithril_platebody") == 0
+            && ainv.Count(RunecraftingModule.Fire) == 0 && ainv.Count(RunecraftingModule.Nature) == 0, "High Alchemy turns a platebody into 60% of its value");
+        ainv.Add(RunecraftingModule.Nature, 1);
+        Check(Magic.Alch(highAlch, ms, ainv, new Equipment(), SlotOf(ainv, RunecraftingModule.Nature), out aw) == -1 && ainv.Count(RunecraftingModule.Nature) == 1,
+            "the last nature rune can't alch itself (and is given back)");
+
+        var air = db.Recipe("craft_air_rune");
+        var essInv = new Inventory();
+        essInv.Add(RunecraftingModule.Essence, 10);
+        var rc = new SkillSet();
+        Check(Making.Make(air, essInv, 1, new Random(1), out bool rf, out int rtimes) == RunecraftingModule.Air && rtimes == 10 && essInv.Count(RunecraftingModule.Air) == 10
+            && essInv.Count(RunecraftingModule.Essence) == 0, "the air altar crafts all the essence at once");
+        Check(db.Recipe("craft_law_rune").Level == 54 && db.Station("air_altar").Kind == StationKind.Craft, "law runes need Runecrafting 54; altars craft straight away");
+        Check(Gathering.RollLives(db.Node(RunecraftingModule.EssenceRock), new Random(1)) == 0, "rune essence never runs out");
+        var rw = new Overworld(77);
+        Check(rw.Plan(1, 0).Kind == RegionKind.Shrine && Spawning.ShrineAltar(rw, rw.Plan(1, 0)).Id == "air_altar" && !rw.IsBlocked(new Tile(rw.Plan(1, 0).Altar.X, rw.Plan(1, 0).Altar.Z - 1)),
+            "just east of the start there's always an air altar, and you can walk up to it");
+        bool nearFire = false, farLaw = false;
+        for (int rx = -25; rx <= 25; rx++)
+            for (int rz = -25; rz <= 25; rz++)
+            {
+                var plan = rw.Plan(rx, rz);
+                if (plan.Kind != RegionKind.Shrine) continue;
+                var altarDef = Spawning.ShrineAltar(rw, plan);
+                if (altarDef.Id == "fire_altar" && Spawning.Distance(rw, plan.Center) < 300) nearFire = true;
+                if (altarDef.Id == "law_altar") farLaw = true;
+            }
+        Check(!nearFire && farLaw, "better altars lie further out");
+        Check(db.Npc(MagicModule.DarkWizard).AttackType == AttackType.Magic && new Bonuses { MagicDefence = 3 }.Defence(AttackType.Magic) == 3,
+            "dark wizards cast spells, which magic defence blocks");
+
+                info("Crafting");
         var cinv3 = new Inventory();
         cinv3.Add(CombatModule.Cowhide, 3);
         cinv3.Add(Coins, 2);

@@ -12,7 +12,7 @@ namespace Epacenur.Runtime
         static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f);
         static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
         static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f), Timber = new Color(0.55f, 0.4f, 0.25f), Trim = new Color(0.35f, 0.25f, 0.16f);
-        static readonly Color Gold = new Color(1f, 0.85f, 0.3f);
+        static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f);
 
         // ---- Chunks ----
 
@@ -36,6 +36,7 @@ namespace Epacenur.Runtime
             // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
             Strips(terrain, Terrain.Path, x0, z0, root, Dirt, 0.012f, 0.02f, 0f);
             Strips(terrain, Terrain.Camp, x0, z0, root, CampDirt, 0.012f, 0.02f, 0f);
+            Strips(terrain, Terrain.Stone, x0, z0, root, Paving, 0.014f, 0.025f, 0f);
             Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Water, x0, z0, root, Sand, 0.008f, 0.016f, 0.35f);
@@ -108,6 +109,15 @@ namespace Epacenur.Runtime
                     Tent(world, tent);
                 world.AddLabel(World.Local(plan.Camp.Center) + Vector3.up * 0.4f, RegionName(world.Overworld, plan), new Color(1f, 0.6f, 0.5f));
             }
+            else if (plan.Kind == RegionKind.Shrine)
+            {
+                // A ring of standing stones round a runecrafting altar (which altar: Spawning, by distance).
+                var altar = Spawning.ShrineAltar(world.Overworld, plan);
+                if (altar != null)
+                    world.AddStation(altar.Id, plan.Altar);
+                foreach (var stone in plan.Stones)
+                    StandingStone(world, stone, (int)(world.Overworld.Hash(stone.X, stone.Z, 7) * 4));
+            }
             SpawnMonsters(world, plan);
         }
 
@@ -163,6 +173,11 @@ namespace Epacenur.Runtime
         {
             if (plan.Kind == RegionKind.Town)
                 return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
+            if (plan.Kind == RegionKind.Shrine)
+            {
+                var altar = Spawning.ShrineAltar(ow, plan);
+                return altar != null ? altar.Name : null;
+            }
             if (plan.Kind != RegionKind.Camp)
                 return null;
             var groups = Spawning.GroupsIn(ow, plan);
@@ -284,6 +299,20 @@ namespace Epacenur.Runtime
         }
 
         /// A goblin tent: a sloping hide roof on poles (its tile is blocked by the plan).
+        /// A tall grey stone, leaning a little (`look`: which of four shapes).
+        static void StandingStone(World world, Tile tile, int look)
+        {
+            var t = new GameObject("Standing stone").transform;
+            t.SetParent(world.BuildRoot, false);
+            t.localPosition = World.Local(tile);
+            float h = 1.6f + look * 0.25f;
+            var stone = Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0f, h / 2f, 0f), new Vector3(0.55f, h, 0.4f), Stone * (0.85f + look * 0.05f));
+            stone.transform.localRotation = Quaternion.Euler(look * 2f - 3f, look * 40f, look % 2 == 0 ? 3f : -2f);
+            var box = t.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, h / 2f, 0f);
+            box.size = new Vector3(0.7f, h, 0.7f);
+        }
+
         static void Tent(World world, Tile tile)
         {
             var t = new GameObject("Tent").transform;

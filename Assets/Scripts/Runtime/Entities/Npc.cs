@@ -174,7 +174,8 @@ namespace Epacenur.Runtime
 
             Vector3 offTile = transform.position - World.TileCenter(Tile);
             offTile.y = 0f;
-            bool inRange = Tile.IsCardinalNeighbour(playerTile) && offTile.sqrMagnitude < 0.02f;
+            bool inRange = (Def.AttackRange > 1 ? Tile.StepsTo(playerTile) <= Def.AttackRange && Tile != playerTile : Tile.IsCardinalNeighbour(playerTile))
+                && offTile.sqrMagnitude < 0.02f;
             if (inRange)
             {
                 path.Clear();
@@ -184,13 +185,16 @@ namespace Epacenur.Runtime
                 {
                     nextAttack = Time.time + Def.AttackTicks * GameTime.TickSeconds;
                     attackAnim = 0.4f;
+                    if (Def.AttackType == AttackType.Magic)
+                        Projectile.Spell(transform.position + Vector3.up * Def.Height * 0.7f + transform.forward * 0.3f, player.transform, 1.2f,
+                            new Rgb(0.7f, 0.3f, 0.9f));
                     player.TakeMonsterHit(this);
                 }
                 return;
             }
 
             // The player is walking up to fight it: wait for them rather than dancing around.
-            if (player.AttackTarget == this && player.Mode == ViewMode.Tile && !player.UsingRanged)
+            if (player.AttackTarget == this && player.Mode == ViewMode.Tile && !player.AttacksFromRange)
                 return;
             if (pathIndex >= path.Count || !path[path.Count - 1].IsCardinalNeighbour(playerTile))
             {

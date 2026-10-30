@@ -35,29 +35,31 @@ namespace Epacenur.Core
     }
 
     /// How a melee attack lands. Armour defends against each differently, as in RuneScape.
-    public enum AttackType { Stab, Slash, Crush, Ranged }
+    public enum AttackType { Stab, Slash, Crush, Ranged, Magic }
 
     /// An item's (or a monster's) combat bonuses: accuracy and defence against each attack type, and
     /// melee strength (max hit). Worn items' bonuses add up.
     public struct Bonuses
     {
-        public int StabAttack, SlashAttack, CrushAttack, RangedAttack;
-        public int StabDefence, SlashDefence, CrushDefence, RangedDefence;
+        public int StabAttack, SlashAttack, CrushAttack, RangedAttack, MagicAttack;
+        public int StabDefence, SlashDefence, CrushDefence, RangedDefence, MagicDefence;
         public int Strength;        // melee: max hit
         public int RangedStrength;  // arrows: max hit with a bow
 
-        public int Attack(AttackType t) => t == AttackType.Stab ? StabAttack : t == AttackType.Slash ? SlashAttack : t == AttackType.Crush ? CrushAttack : RangedAttack;
-        public int Defence(AttackType t) => t == AttackType.Stab ? StabDefence : t == AttackType.Slash ? SlashDefence : t == AttackType.Crush ? CrushDefence : RangedDefence;
+        public int Attack(AttackType t) => t == AttackType.Stab ? StabAttack : t == AttackType.Slash ? SlashAttack : t == AttackType.Crush ? CrushAttack
+            : t == AttackType.Ranged ? RangedAttack : MagicAttack;
+        public int Defence(AttackType t) => t == AttackType.Stab ? StabDefence : t == AttackType.Slash ? SlashDefence : t == AttackType.Crush ? CrushDefence
+            : t == AttackType.Ranged ? RangedDefence : MagicDefence;
 
         /// The same defence against every attack type (most armour is close to even).
-        public static Bonuses AllDefence(int d) => new Bonuses { StabDefence = d, SlashDefence = d, CrushDefence = d, RangedDefence = d };
+        public static Bonuses AllDefence(int d) => new Bonuses { StabDefence = d, SlashDefence = d, CrushDefence = d, RangedDefence = d, MagicDefence = d };
 
         public static Bonuses operator +(Bonuses a, Bonuses b) => new Bonuses
         {
             StabAttack = a.StabAttack + b.StabAttack, SlashAttack = a.SlashAttack + b.SlashAttack, CrushAttack = a.CrushAttack + b.CrushAttack,
-            RangedAttack = a.RangedAttack + b.RangedAttack,
+            RangedAttack = a.RangedAttack + b.RangedAttack, MagicAttack = a.MagicAttack + b.MagicAttack,
             StabDefence = a.StabDefence + b.StabDefence, SlashDefence = a.SlashDefence + b.SlashDefence, CrushDefence = a.CrushDefence + b.CrushDefence,
-            RangedDefence = a.RangedDefence + b.RangedDefence,
+            RangedDefence = a.RangedDefence + b.RangedDefence, MagicDefence = a.MagicDefence + b.MagicDefence,
             Strength = a.Strength + b.Strength, RangedStrength = a.RangedStrength + b.RangedStrength,
         };
     }
@@ -126,6 +128,7 @@ namespace Epacenur.Core
         public int Range;            // ranged weapons: how far they shoot, in tiles
         public string AmmoType;      // ranged weapons: what they fire ("arrow"); ammo: what it is
         public int AmmoTier;         // bows: the best arrows they can fire; arrows: their tier
+        public string InfiniteRune;  // staffs: the rune they stand in for, as many as you need (staff of air: air runes)
         public readonly List<WornPart> Worn = new List<WornPart>();  // armour: what shows on the body
 
         // Uses
@@ -239,6 +242,15 @@ namespace Epacenur.Core
         Make,         // opens the make window: choose what and how many (furnace, anvil, fire)
         Bank,         // opens the bank
         Altar,        // recharges Prayer points
+        Craft,        // makes its one recipe straight away, as many as you can (runecrafting altars)
+    }
+
+    /// Where the overworld puts a station in a shrine region (runecrafting altars), by distance from the start.
+    public sealed class StationSpawnRule
+    {
+        public int MinDistance, MaxDistance = int.MaxValue;
+        public double Weight = 1;
+        public bool Starter;  // the shrine just east of the start always has this one
     }
 
     /// A fixed object you use: bank booth, altar, furnace, anvil (fires are stations too, lit by players).
@@ -252,6 +264,32 @@ namespace Epacenur.Core
         public string Label;                      // the name floating over it, e.g. "Bank" (null: none)
         public float LabelHeight = 2f;            // how high it floats
         public string Help;                       // Make: a hint at the bottom of the make window
+        public readonly List<StationSpawnRule> Spawns = new List<StationSpawnRule>();  // shrines the overworld builds round it
+    }
+
+    // ---- Magic ----
+
+    public enum SpellKind
+    {
+        Combat,        // autocast at monsters
+        HomeTeleport,  // to the start, after a long cast you can't move during
+        TownTeleport,  // to the nearest town
+        Alchemy,       // turns an item into coins (Value is the share of its value)
+    }
+
+    /// A spell: its level, runes, xp and what it does.
+    public sealed class SpellDef
+    {
+        public string Id, Name, Description;
+        public SpellKind Kind;
+        public int Level;
+        public double Xp;               // given for casting it (combat spells: also 2 per damage)
+        public Ingredient[] Runes = new Ingredient[0];
+        public int MaxHit;              // combat spells
+        public double Value;            // alchemy: share of the item's value paid in coins
+        public int CastTicks;           // home teleport: how long the cast takes
+        public Rgb Colour;              // its projectile and icon
+        public Icon Icon;               // Size 22
     }
 
     // ---- Shops ----
@@ -326,6 +364,7 @@ namespace Epacenur.Core
         public int AttackLevel, AttackBonus, MaxHit;  // fighting back
         public AttackType AttackType = AttackType.Crush;  // what your armour defends against
         public int AttackTicks = 4;
+        public int AttackRange = 1;                   // tiles it attacks from: 1 is next to you; more casts from afar
         public float RespawnSeconds;
         public float WalkSpeed = 1.6f;                // tiles per second
         public DropTable Drops = new DropTable();

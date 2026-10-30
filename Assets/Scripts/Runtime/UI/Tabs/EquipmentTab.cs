@@ -70,16 +70,16 @@ namespace Epacenur.Runtime
             // Bonuses (attack and defence for stab / slash / crush, strength, speed) and the attack styles.
             float y0 = top + 5 * rowH - 6f;
             var b = eq.Bonuses;
-            // A small table: stab, slash, crush and ranged columns.
-            float[] cols = { body.x + 50f, body.x + 82f, body.x + 116f, body.x + 150f };
-            string[] heads = { "Stab", "Slash", "Crush", "Rngd" };
-            for (int i = 0; i < 4; i++)
+            // A small table: stab, slash, crush, ranged and magic columns.
+            float[] cols = { body.x + 46f, body.x + 72f, body.x + 98f, body.x + 124f, body.x + 150f };
+            string[] heads = { "Stab", "Slsh", "Crsh", "Rng", "Mag" };
+            for (int i = 0; i < 5; i++)
                 GUI.Label(new Rect(cols[i], y0, 40f, 16f), "<color=#c8c0a8>" + heads[i] + "</color>", Gui.Small);
             GUI.Label(new Rect(body.x, y0 + 13f, 50f, 16f), "Attack", Gui.Small);
             GUI.Label(new Rect(body.x, y0 + 26f, 50f, 16f), "Defence", Gui.Small);
-            int[] att = { b.StabAttack, b.SlashAttack, b.CrushAttack, b.RangedAttack };
-            int[] def = { b.StabDefence, b.SlashDefence, b.CrushDefence, b.RangedDefence };
-            for (int i = 0; i < 4; i++)
+            int[] att = { b.StabAttack, b.SlashAttack, b.CrushAttack, b.RangedAttack, b.MagicAttack };
+            int[] def = { b.StabDefence, b.SlashDefence, b.CrushDefence, b.RangedDefence, b.MagicDefence };
+            for (int i = 0; i < 5; i++)
             {
                 GUI.Label(new Rect(cols[i], y0 + 13f, 40f, 16f), Bonus(att[i]), Gui.Small);
                 GUI.Label(new Rect(cols[i], y0 + 26f, 40f, 16f), Bonus(def[i]), Gui.Small);

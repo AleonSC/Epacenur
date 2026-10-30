@@ -33,6 +33,22 @@ namespace Epacenur.Core
             return (int)Math.Floor(0.5 + effective * (rangedStrength + 64) / 640.0);
         }
 
+        /// Chance (0..1) that a spell hits: Magic and magic attack against the monster's Defence and magic defence.
+        public static double MagicHitChance(int magicLevel, int magicAttack, int targetDefence, int targetMagicDefence)
+        {
+            double attackRoll = (magicLevel + 8) * (double)(magicAttack + 64);
+            double defenceRoll = (targetDefence + 9) * (double)(targetMagicDefence + 64);
+            return Accuracy(attackRoll, defenceRoll);
+        }
+
+        /// A combat spell's xp: its own xp even when it splashes, 2 Magic xp per damage, and 1.33 Hitpoints.
+        public static void AwardMagicXp(SkillSet skills, SpellDef spell, int damage)
+        {
+            skills.AddXp(SkillIds.Magic, spell.Xp + 2.0 * damage);
+            if (damage > 0)
+                skills.AddXp(SkillIds.Hitpoints, damage * HitpointsXpPerDamage);
+        }
+
         /// Chance (0..1) that your attack hits a monster at all. `prayer` multiplies Attack first.
         public static double HitChance(int attackLevel, int attackBonus, CombatStyle style, int targetDefence, int targetDefenceBonus, double prayer = 1.0)
         {
@@ -64,13 +80,14 @@ namespace Epacenur.Core
         }
 
         /// RuneScape's (OSRS) combat level: 1/4 of (Defence + Hitpoints + half of Prayer), plus the better of
-        /// melee (0.325 of Attack + Strength) and ranged (0.325 of 1.5 x Ranged). A new player is level 3.
+        /// melee (0.325 of Attack + Strength), ranged and magic (0.325 of 1.5 x the level). A new player is level 3.
         public static int CombatLevel(SkillSet s)
         {
             double basePart = 0.25 * (s.GetLevel(SkillIds.Defence) + s.GetLevel(SkillIds.Hitpoints) + s.GetLevel(SkillIds.Prayer) / 2);
             double melee = 0.325 * (s.GetLevel(SkillIds.Attack) + s.GetLevel(SkillIds.Strength));
             double ranged = 0.325 * (s.GetLevel(SkillIds.Ranged) * 3 / 2);
-            return (int)Math.Floor(basePart + Math.Max(melee, ranged));
+            double magic = 0.325 * (s.GetLevel(SkillIds.Magic) * 3 / 2);
+            return (int)Math.Floor(basePart + Math.Max(melee, Math.Max(ranged, magic)));
         }
 
         /// The skill a melee style trains (ranged styles: see AwardXp).

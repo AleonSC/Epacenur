@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Epacenur.Core
 {
-    public enum RegionKind { Wild, Town, Camp }
+    public enum RegionKind { Wild, Town, Camp, Shrine }
 
     /// What's planned for one region of the overworld: a town, a goblin camp, or just countryside.
     /// Everything is in world tiles.
@@ -15,8 +15,10 @@ namespace Epacenur.Core
         public Tile Center;
         public TownLayout Town;                              // towns: the built-up tiles (local to Bounds)
         public readonly List<Building> Buildings = new List<Building>();
-        public Area Camp;                                    // camps: the trampled ground
+        public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar
         public readonly List<Tile> Tents = new List<Tile>();
+        public Tile Altar;                                   // shrines: where the altar stands
+        public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
 
         /// The planned terrain of a tile in this region, or Grass where nothing's planned.
@@ -26,6 +28,8 @@ namespace Epacenur.Core
                 return Town.Map[t.X - Bounds.X, t.Z - Bounds.Z];
             if (Kind == RegionKind.Camp && Camp.Contains(t))
                 return Terrain.Camp;
+            if (Kind == RegionKind.Shrine && Camp.Contains(t))
+                return Terrain.Stone;
             return Terrain.Grass;
         }
 
@@ -34,7 +38,7 @@ namespace Epacenur.Core
         {
             if (Kind == RegionKind.Town)
                 return t.StepsTo(Center) <= Overworld.TownClearRadius;
-            if (Kind == RegionKind.Camp)
+            if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine)
                 return t.X >= Camp.X - 3 && t.X < Camp.XMax + 3 && t.Z >= Camp.Z - 3 && t.Z < Camp.ZMax + 3;
             return false;
         }
@@ -92,11 +96,15 @@ namespace Epacenur.Core
             plan = new RegionPlan { RX = rx, RZ = rz, Bounds = new Area(rx * RegionSize, rz * RegionSize, RegionSize, RegionSize) };
             plan.Center = new Tile(plan.Bounds.X + RegionSize / 2, plan.Bounds.Z + RegionSize / 2);
             double roll = Hash(rx, rz, 1);
-            plan.Kind = rx == 0 && rz == 0 ? RegionKind.Town : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : RegionKind.Wild;
+            // The start is a town; just east of it, a shrine (an air altar to start runecrafting).
+            plan.Kind = rx == 0 && rz == 0 ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine
+                : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : roll < 0.4 ? RegionKind.Shrine : RegionKind.Wild;
             if (plan.Kind == RegionKind.Town)
                 PlanTown(plan);
             else if (plan.Kind == RegionKind.Camp)
                 PlanCamp(plan);
+            else if (plan.Kind == RegionKind.Shrine)
+                PlanShrine(plan);
             plans[key] = plan;
             return plan;
         }
@@ -125,6 +133,24 @@ namespace Epacenur.Core
                 plan.Tents.Add(tent);
                 plan.Blocked.Add(tent);
             }
+        }
+
+        /// A ring of standing stones on paving, with the altar in the middle.
+        void PlanShrine(RegionPlan plan)
+        {
+            int dx = (int)(Hash(plan.RX, plan.RZ, 5) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 6) * 16) - 8;
+            var c = new Tile(plan.Center.X + dx, plan.Center.Z + dz);
+            plan.Camp = new Area(c.X - 3, c.Z - 3, 7, 7);
+            plan.Altar = c;
+            plan.Blocked.Add(c);
+            for (int x = -3; x <= 3; x += 3)
+                for (int z = -3; z <= 3; z += 3)
+                    if (x != 0 || z != 0)
+                    {
+                        var stone = new Tile(c.X + x, c.Z + z);
+                        plan.Stones.Add(stone);
+                        plan.Blocked.Add(stone);
+                    }
         }
 
         // ---- Tiles ----

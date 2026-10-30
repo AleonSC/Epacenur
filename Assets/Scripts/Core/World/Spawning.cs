@@ -38,6 +38,34 @@ namespace Epacenur.Core
             return null;
         }
 
+        /// The altar a shrine region holds (StationDef.Spawns by distance), or null.
+        public static StationDef ShrineAltar(Overworld ow, RegionPlan plan)
+        {
+            double d = Distance(ow, plan.Center), total = 0;
+            var db = ContentDb.Current;
+            if (plan.RX == 1 && plan.RZ == 0)
+                foreach (var s in db.Stations)
+                    foreach (var r in s.Spawns)
+                        if (r.Starter)
+                            return s;
+            foreach (var s in db.Stations)
+                foreach (var r in s.Spawns)
+                    if (d >= r.MinDistance && d < r.MaxDistance)
+                        total += r.Weight;
+            if (total <= 0)
+                return null;
+            double pick = ow.Hash(plan.RX, plan.RZ, 50) * total;
+            foreach (var s in db.Stations)
+                foreach (var r in s.Spawns)
+                    if (d >= r.MinDistance && d < r.MaxDistance)
+                    {
+                        if (pick < r.Weight)
+                            return s;
+                        pick -= r.Weight;
+                    }
+            return null;
+        }
+
         public struct Group
         {
             public NpcDef Npc;
@@ -49,7 +77,7 @@ namespace Epacenur.Core
         public static List<Group> GroupsIn(Overworld ow, RegionPlan plan)
         {
             var groups = new List<Group>();
-            int count = plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
+            int count = plan.Kind == RegionKind.Shrine ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
             double d = Distance(ow, plan.Center);
             for (int g = 0; g < count; g++)
             {

@@ -32,6 +32,9 @@ namespace Epacenur.Content
                     new ShopStock(FletchingModule.BronzeArrow, 1000),
                     new ShopStock(CraftingModule.Needle, 5),
                     new ShopStock(CraftingModule.Thread, 200),
+                    new ShopStock(MagicModule.Staff, 5),
+                    new ShopStock(RunecraftingModule.Air, 1000),
+                    new ShopStock(RunecraftingModule.Mind, 1000),
                 },
             });
         }

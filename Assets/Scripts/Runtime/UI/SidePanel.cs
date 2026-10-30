@@ -18,12 +18,13 @@ namespace Epacenur.Runtime
         public const float Height = Gui.Pad * 2 + TabH + 6f + Gui.Slot * 7 + Gui.Gap * 6 + Gui.Gap + PouchH;
 
         public readonly InventoryTab Inventory = new InventoryTab();
+        public readonly MagicTab Magic = new MagicTab();
         public readonly PanelTab[] Tabs;
         int current;
 
         public SidePanel()
         {
-            Tabs = new PanelTab[] { Inventory, new EquipmentTab(), new ToolBeltTab(), new PrayerTab(), new SkillsTab() };
+            Tabs = new PanelTab[] { Inventory, new EquipmentTab(), new ToolBeltTab(), new PrayerTab(), Magic, new SkillsTab() };
         }
 
         public void ShowInventory()
@@ -31,6 +32,8 @@ namespace Epacenur.Runtime
             current = 0;
             Inventory.ClearSelection();
         }
+
+        public void ShowMagic() => current = System.Array.IndexOf(Tabs, Magic);
 
         public void Draw(Hud hud, Rect r)
         {

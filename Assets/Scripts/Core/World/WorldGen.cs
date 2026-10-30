@@ -16,6 +16,7 @@ namespace Epacenur.Core
         Camp,   // trampled ground in a goblin camp
         Rock,   // a rock with ore in it
         Flax,   // a plant to pick (fields in the countryside)
+        Stone,  // paving round a shrine's altar
     }
 
     public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop }
@@ -62,7 +63,7 @@ namespace Epacenur.Core
         public readonly List<Building> Buildings = new List<Building>();
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
-        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp;
+        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone;
     }
 
     /// Builds towns from a seed: a square in the middle with a bank, general store, chapel and houses

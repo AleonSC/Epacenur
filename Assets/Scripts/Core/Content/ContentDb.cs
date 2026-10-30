@@ -33,6 +33,9 @@ namespace Epacenur.Core
         readonly Dictionary<string, BurnableDef> burnables = new Dictionary<string, BurnableDef>();
         readonly Dictionary<string, WeaponKindDef> weaponKinds = new Dictionary<string, WeaponKindDef>();
         public readonly List<WeaponKindDef> WeaponKinds = new List<WeaponKindDef>();
+        readonly Dictionary<string, SpellDef> spells = new Dictionary<string, SpellDef>();
+        /// Spells in the spellbook's order.
+        public readonly List<SpellDef> Spells = new List<SpellDef>();
 
         // Registration order is kept: it's the order skills show in the Skills tab, tools on the belt, and so on.
         public readonly List<ItemDef> Items = new List<ItemDef>();
@@ -77,6 +80,7 @@ namespace Epacenur.Core
         public ShopDef Add(ShopDef d) => Add(shops, Shops, d.Id, d, "shop");
         public NpcDef Add(NpcDef d) => Add(npcs, Npcs, d.Id, d, "monster");
         public WeaponKindDef Add(WeaponKindDef d) => Add(weaponKinds, WeaponKinds, d.Id, d, "weapon kind");
+        public SpellDef Add(SpellDef d) => Add(spells, Spells, d.Id, d, "spell");
         public BurnableDef Add(BurnableDef d)
         {
             if (burnables.ContainsKey(d.LogItemId))
@@ -94,6 +98,7 @@ namespace Epacenur.Core
         public StationDef Station(string id) => id != null && stations.TryGetValue(id, out var d) ? d : null;
         public ShopDef Shop(string id) => id != null && shops.TryGetValue(id, out var d) ? d : null;
         public NpcDef Npc(string id) => id != null && npcs.TryGetValue(id, out var d) ? d : null;
+        public SpellDef Spell(string id) => id != null && spells.TryGetValue(id, out var d) ? d : null;
         public WeaponKindDef WeaponKind(string id) => id != null && weaponKinds.TryGetValue(id, out var d) ? d : null;
         public BurnableDef Burnable(string itemId) => itemId != null && burnables.TryGetValue(itemId, out var d) ? d : null;
 
@@ -148,6 +153,10 @@ namespace Epacenur.Core
                 foreach (var r in it.Requires) Skill(r.Skill, "item " + it.Id);
             foreach (var n in Nodes)
                 Item(n.BaitItemId, "node " + n.Id);
+            foreach (var sp in Spells)
+                foreach (var r in sp.Runes) Item(r.ItemId, "spell " + sp.Id);
+            foreach (var it in Items)
+                Item(it.InfiniteRune, "item " + it.Id);
             foreach (var n in Npcs)
             {
                 foreach (var d in n.Drops.Entries) if (d.ItemId != null) Item(d.ItemId, "monster " + n.Id);

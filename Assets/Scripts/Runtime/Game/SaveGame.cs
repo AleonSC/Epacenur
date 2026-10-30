@@ -32,6 +32,7 @@ namespace Epacenur.Runtime
             public string[] equipped;     // by EquipSlot
             public string[] tools;        // on the tool belt
             public int style;
+            public string autocast;       // spell id, or null
             public int pouch;
             public int hp;
             public int prayerPoints;
@@ -87,6 +88,7 @@ namespace Epacenur.Runtime
                 map = (int)game.World.Map,
                 worldVersion = WorldVersion,
                 style = game.StyleIndex,
+                autocast = game.Autocast?.Id,
                 pouch = game.Inventory.PouchCoins,
                 hp = game.Health.Current,
                 prayerPoints = game.Prayer.Points,
@@ -207,6 +209,7 @@ namespace Epacenur.Runtime
                 if (db.Item(d.equipped[i]) != null)
                     game.Equipment.Set((EquipSlot)i, new ItemStack(d.equipped[i], 1));
             game.StyleIndex = System.Math.Max(0, System.Math.Min(d.style, 3));
+            game.Autocast = db.Spell(d.autocast);
             if (d.tools != null)
                 foreach (var id in d.tools)
                     if (db.Item(id) != null)

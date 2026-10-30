@@ -20,6 +20,8 @@ namespace Epacenur.Content
             new SmithingModule(),
             new FletchingModule(),
             new CraftingModule(),
+            new RunecraftingModule(),
+            new MagicModule(),
             new ShopsModule(),
         };
 

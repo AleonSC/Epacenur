@@ -566,7 +566,7 @@ namespace Epacenur.Runtime
         static readonly Color32 MapGrass = new Color32(74, 122, 52, 255), MapTree = new Color32(36, 82, 30, 255),
             MapWater = new Color32(52, 98, 170, 255), MapWall = new Color32(120, 105, 90, 255), MapFloor = new Color32(140, 104, 68, 255),
             MapPath = new Color32(160, 132, 90, 255), MapCamp = new Color32(118, 92, 62, 255), MapRock = new Color32(120, 116, 110, 255),
-            MapFlax = new Color32(110, 140, 175, 255),
+            MapFlax = new Color32(110, 140, 175, 255), MapStone = new Color32(165, 165, 170, 255),
             MapBlocked = new Color32(90, 90, 95, 255);
 
         public static Color32 TerrainColour(Terrain t)
@@ -581,6 +581,7 @@ namespace Epacenur.Runtime
                 case Terrain.Camp: return MapCamp;
                 case Terrain.Rock: return MapRock;
                 case Terrain.Flax: return MapFlax;
+                case Terrain.Stone: return MapStone;
                 default: return MapGrass;
             }
         }

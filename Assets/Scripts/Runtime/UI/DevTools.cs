@@ -96,6 +96,13 @@ namespace Epacenur.Runtime
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Ranged kit")) { Give("maple_shortbow"); Give("adamant_arrow", 300); }
             if (GUILayout.Button("Crafting kit")) { G.ToolBelt.Add(CraftingModule.Needle); Give(CraftingModule.Thread, 50); Give(CraftingModule.Leather, 10); Give(CraftingModule.Flax, 10); Give(CombatModule.Cowhide, 5); }
+            if (GUILayout.Button("Magic kit"))
+            {
+                Give(MagicModule.StaffOfAir); Give(MagicModule.WizardHat); Give(MagicModule.WizardRobe); Give(MagicModule.WizardSkirt);
+                foreach (var r in new[] { RunecraftingModule.Mind, RunecraftingModule.Water, RunecraftingModule.Earth, RunecraftingModule.Fire, RunecraftingModule.Body })
+                    Give(r, 500);
+                Give(RunecraftingModule.Air, 500); Give(RunecraftingModule.Nature, 100); Give(RunecraftingModule.Law, 50);
+            }
             if (GUILayout.Button("Fletching kit")) { G.ToolBelt.Add(FletchingModule.Knife); Give(WoodcuttingModule.Logs, 5); Give(WoodcuttingModule.YewLogs, 5); Give(FletchingModule.Bowstring, 50); Give(FishingModule.Feathers, 150); Give("bronze_arrowtips", 150); }
             GUILayout.EndHorizontal();
 

@@ -42,6 +42,7 @@ namespace Epacenur.Runtime
                 new FishingArea { Plot = new RectInt(32, 26, 13, 16) },
                 new FiremakingArea { Plot = new RectInt(3, 14, 13, 9) },
                 new FlaxArea { Plot = new RectInt(32, 14, 13, 9) },
+                new RunecraftingArea { Plot = new RectInt(17, 16, 14, 8) },
             };
         }
     }
@@ -143,6 +144,26 @@ namespace Epacenur.Runtime
             for (int x = Plot.x + 1; x < Plot.xMax - 1; x += 2)
                 for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 2)
                     world.AddNode(CraftingModule.FlaxPlant, new Tile(x, z), rng);
+        }
+    }
+
+    /// Every runecrafting altar, two rows of four, and essence rocks to mine for them.
+    public sealed class RunecraftingArea : SkillArea
+    {
+        public override string Name => "Runecrafting";
+        public override Color GroundColor => new Color(0.55f, 0.55f, 0.58f);
+
+        public override void Build(World world)
+        {
+            var altars = new List<StationDef>();
+            foreach (var s in ContentDb.Current.Stations)
+                if (s.Kind == StationKind.Craft)
+                    altars.Add(s);
+            for (int i = 0; i < altars.Count; i++)
+                world.AddStation(altars[i].Id, new Tile(Plot.x + 1 + (i % 4) * 3, Plot.y + 2 + (i / 4) * 3));
+            var rng = new System.Random(77);
+            for (int z = Plot.y + 1; z < Plot.yMax - 1; z += 2)
+                world.AddNode(RunecraftingModule.EssenceRock, new Tile(Plot.xMax - 1, z), rng);
         }
     }
 

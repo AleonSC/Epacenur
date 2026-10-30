@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Fighting monsters (both views): melee, or from a distance with a bow; and the melee abilities on the action bar.
+    /// Fighting monsters (both views): melee, or from a distance with a bow or a spell; and the melee abilities on the action bar.
     public sealed partial class PlayerController
     {
         /// The monster you're walking to or fighting in tile mode (monsters wait for you rather than meet you).
@@ -31,12 +31,22 @@ namespace Epacenur.Runtime
         /// Wielding a bow (or another ranged weapon).
         public bool UsingRanged => ContentDb.Current.WeaponKind(G.Equipment.WeaponKind)?.Ranged ?? false;
 
-        /// How far you can attack from, in tiles: next to it for melee; a bow's range (2 more on Longrange).
-        public int AttackRange => UsingRanged
+        /// Autocasting a combat spell (chosen in the Magic tab): attacks cast it instead of using the weapon.
+        public bool UsingMagic => G.Autocast != null;
+
+        /// Attacking from a distance (a bow or a spell) rather than next to the monster.
+        public bool AttacksFromRange => UsingMagic || UsingRanged;
+
+        /// Spells reach this far, in tiles.
+        public const int SpellRange = 10;
+        const int SpellTicks = 5;
+
+        /// How far you can attack from, in tiles: next to it for melee; a bow's range (2 more on Longrange); a spell's.
+        public int AttackRange => UsingMagic ? SpellRange : UsingRanged
             ? G.Equipment[EquipSlot.Weapon].Def.Range + (G.CurrentStyle.Style == CombatStyle.Longrange ? 2 : 0) : 1;
 
         /// Seconds between attacks: the weapon's speed (a tick less on Rapid).
-        float AttackSeconds => (G.Equipment.AttackTicks - (UsingRanged && G.CurrentStyle.Style == CombatStyle.Rapid ? 1 : 0)) * GameTime.TickSeconds;
+        float AttackSeconds => UsingMagic ? SpellTicks * GameTime.TickSeconds : (G.Equipment.AttackTicks - (UsingRanged && G.CurrentStyle.Style == CombatStyle.Rapid ? 1 : 0)) * GameTime.TickSeconds;
 
         /// First person: one attack per click, no faster than the weapon's speed.
         void FirstPersonAttack(Npc npc)
@@ -56,6 +66,12 @@ namespace Epacenur.Runtime
         {
             var style = G.CurrentStyle;
             var b = G.Equipment.Bonuses;
+            if (UsingMagic)
+            {
+                hitChance = CombatRules.MagicHitChance(G.Skills.GetLevel(SkillIds.Magic), b.MagicAttack, npc.Def.DefenceLevel, npc.Def.Bonuses.MagicDefence);
+                maxHit = G.Autocast.MaxHit;
+                return;
+            }
             if (UsingRanged)
             {
                 hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Ranged), b.RangedAttack, style.Style,
@@ -89,10 +105,10 @@ namespace Epacenur.Runtime
             Vector3 flat = transform.position - World.TileCenter(CurrentTile);
             flat.y = 0f;
             bool centred = flat.sqrMagnitude < 0.01f;
-            bool inPlace = UsingRanged
+            bool inPlace = AttacksFromRange
                 ? centred && CurrentTile.StepsTo(npc.Tile) <= AttackRange && CurrentTile != npc.Tile
                 : centred && CurrentTile.IsCardinalNeighbour(npc.Tile);
-            if (inPlace && UsingRanged && pathIndex < path.Count)
+            if (inPlace && AttacksFromRange && pathIndex < path.Count)
             {
                 path.Clear();  // close enough to shoot: stop here
                 pathIndex = 0;
@@ -125,11 +141,24 @@ namespace Epacenur.Runtime
             return Vector3.zero;
         }
 
-        /// One attack (melee, or an arrow from a bow). Returns true when it killed the monster.
+        /// One attack (melee, an arrow from a bow, or a spell). Returns true when it killed the monster.
         bool Attack(Npc npc)
         {
-            bool ranged = UsingRanged;
-            if (ranged)
+            var spell = G.Autocast;
+            bool ranged = spell == null && UsingRanged;
+            if (spell != null)
+            {
+                string problem = Magic.Problem(spell, G.Skills, G.Inventory, G.Equipment);
+                if (problem != null)
+                {
+                    GameLog.Add(problem);
+                    CancelAction();
+                    return false;
+                }
+                Magic.UseRunes(spell, G.Inventory, G.Equipment);
+                Projectile.Spell(transform.position + Vector3.up * 1.3f + transform.forward * 0.4f, npc.transform, npc.Def.Height * 0.55f, spell.Colour);
+            }
+            else if (ranged)
             {
                 string problem = G.Equipment.AmmoProblem();
                 if (problem != null)
@@ -151,7 +180,10 @@ namespace Epacenur.Runtime
             Rolls(npc, out double chance, out int maxHit);
             int damage = Mathf.Min(CombatRules.RollDamage(G.Rng, chance, maxHit), npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
-            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage, ranged);
+            if (spell != null)
+                CombatRules.AwardMagicXp(G.Skills, spell, damage);
+            else
+                CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage, ranged);
             if (killed)
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
             return killed;
@@ -162,7 +194,8 @@ namespace Epacenur.Runtime
         public void TakeMonsterHit(Npc npc)
         {
             int damage = 0;
-            if (!G.Prayer.ProtectsFromMelee)
+            bool melee = npc.Def.AttackType != AttackType.Ranged && npc.Def.AttackType != AttackType.Magic;
+            if (!(melee && G.Prayer.ProtectsFromMelee))
             {
                 double chance = CombatRules.MonsterHitChance(npc.Def, G.Skills.GetLevel(SkillIds.Defence),
                     G.Equipment.Bonuses.Defence(npc.Def.AttackType), G.CurrentStyle.Style, G.Prayer.DefenceMultiplier);
@@ -201,9 +234,10 @@ namespace Epacenur.Runtime
             }
             if (!Cooldowns.IsReady(id, Time.time))
                 return;
-            if (UsingRanged)
+            if (AttacksFromRange)
             {
-                GameLog.Add("You need a melee weapon (or none) to use " + def.Name + ".");
+                GameLog.Add(UsingMagic ? "Turn off autocast (in the Magic tab) to use " + def.Name + "."
+                    : "You need a melee weapon (or none) to use " + def.Name + ".");
                 return;
             }
 

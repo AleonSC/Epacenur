@@ -249,6 +249,31 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
   vambraces, body and chaps add some ranged accuracy as well as defence (and defend best against arrows).
 - The general store sells needles and thread.
 
+## Runecrafting and Magic
+
+- **Rune essence** rocks are big pale boulders out in rocky ground (and on the dev plot's Runecrafting plot). Mine them with
+  any pickaxe (Mining, 5 xp each); they **never run out**.
+- **Altars** stand in rings of standing stones out in the wilds (shrines, on the world map by name). **Craft-rune** at one
+  (or use essence on it) to turn all your essence into its runes at once. OSRS levels and xp: air 1, mind 2, water 5,
+  earth 9, fire 14, body 20, nature 44, law 54. Better altars lie further out. **An air altar is always in the region just
+  east of Epacenur**, so you can start straight away.
+- **Magic** (the new Magic tab): spells use runes, at OSRS levels.
+  - **Combat spells**: Wind, Water, Earth and Fire **Strike** (levels 1-13) and **Bolt** (17-35). Click one to **autocast**
+    it: from then on attacking a monster casts it from up to 10 tiles away, every 3 seconds, using up its runes (click it
+    again to fight with your weapon). Spells roll your Magic and magic attack bonus against the monster's Defence and magic
+    defence, and give their xp even when they miss, plus 2 Magic xp per damage. *One change from OSRS: bolts take a body rune
+    where OSRS takes a chaos rune.*
+  - **Home Teleport**: free, takes 10 seconds, stand still (moving or being hit stops it); not within 10 seconds of a fight.
+  - **Town Teleport** (25; 1 fire, 3 air, 1 law): to the nearest town.
+  - **Low** (21) and **High Level Alchemy** (55): click the spell, then an item: it turns into 40% / 60% of its value in coins.
+- **Staffs**: a **staff of air / water / earth / fire** is an endless supply of its element's runes (and +10 magic attack).
+  The general store sells a plain staff, and air and mind runes.
+- **Wizard robes** (hat, robe top, skirt) add a little magic attack and defence.
+- **Dark wizards** gather in the wilds a little way out and cast spells at you from range (magic defence helps against
+  them). They drop runes, robes and staffs.
+- Magic counts toward your **combat level** like Ranged: 0.325 of 1.5 x your Magic, if it's your best style.
+- Dev tools: a **Magic kit** (staff of air, robes, runes of every kind).
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and
