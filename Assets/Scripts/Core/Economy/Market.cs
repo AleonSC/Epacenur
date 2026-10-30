@@ -129,7 +129,7 @@ namespace Epacenur.Core
             long cost = (long)quantity * price;
             if (cost > inv.Count(ItemIds.Coins))
                 return "You don't have enough coins.";
-            inv.Remove(ItemIds.Coins, (int)cost);
+            inv.Use(ItemIds.Coins, (int)cost);
             s.offers.Add(new MarketOffer { item = def.Id, buying = true, quantity = quantity, price = price, held = cost });
             return null;
         }
