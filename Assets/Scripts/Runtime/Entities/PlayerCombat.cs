@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Fighting monsters (both views) and the melee abilities on the action bar.
+    /// Fighting monsters (both views): melee, or from a distance with a bow; and the melee abilities on the action bar.
     public sealed partial class PlayerController
     {
         /// The monster you're walking to or fighting in tile mode (monsters wait for you rather than meet you).
@@ -28,12 +28,22 @@ namespace Epacenur.Runtime
         sealed class Bleed { public Npc Npc; public int[] Hits; public int Next; public float NextTime; }
         readonly List<Bleed> bleeds = new List<Bleed>();
 
+        /// Wielding a bow (or another ranged weapon).
+        public bool UsingRanged => ContentDb.Current.WeaponKind(G.Equipment.WeaponKind)?.Ranged ?? false;
+
+        /// How far you can attack from, in tiles: next to it for melee; a bow's range (2 more on Longrange).
+        public int AttackRange => UsingRanged
+            ? G.Equipment[EquipSlot.Weapon].Def.Range + (G.CurrentStyle.Style == CombatStyle.Longrange ? 2 : 0) : 1;
+
+        /// Seconds between attacks: the weapon's speed (a tick less on Rapid).
+        float AttackSeconds => (G.Equipment.AttackTicks - (UsingRanged && G.CurrentStyle.Style == CombatStyle.Rapid ? 1 : 0)) * GameTime.TickSeconds;
+
         /// First person: one attack per click, no faster than the weapon's speed.
         void FirstPersonAttack(Npc npc)
         {
             if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead)
                 return;
-            swingCooldown = G.Equipment.AttackTicks * GameTime.TickSeconds;
+            swingCooldown = AttackSeconds;
             SwingT = 1f;
             npc.Engage(transform.position);
             Attack(npc);
@@ -46,6 +56,13 @@ namespace Epacenur.Runtime
         {
             var style = G.CurrentStyle;
             var b = G.Equipment.Bonuses;
+            if (UsingRanged)
+            {
+                hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Ranged), b.RangedAttack, style.Style,
+                    npc.Def.DefenceLevel, npc.Def.Bonuses.RangedDefence);
+                maxHit = CombatRules.RangedMaxHit(G.Skills.GetLevel(SkillIds.Ranged), b.RangedStrength, style.Style);
+                return;
+            }
             hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Attack), b.Attack(style.Type), style.Style,
                 npc.Def.DefenceLevel, npc.Def.Bonuses.Defence(style.Type), G.Prayer.AttackMultiplier);
             maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillIds.Strength), b.Strength, style.Style, G.Prayer.StrengthMultiplier);
@@ -71,7 +88,15 @@ namespace Epacenur.Runtime
             }
             Vector3 flat = transform.position - World.TileCenter(CurrentTile);
             flat.y = 0f;
-            bool inPlace = CurrentTile.IsCardinalNeighbour(npc.Tile) && flat.sqrMagnitude < 0.01f;
+            bool centred = flat.sqrMagnitude < 0.01f;
+            bool inPlace = UsingRanged
+                ? centred && CurrentTile.StepsTo(npc.Tile) <= AttackRange && CurrentTile != npc.Tile
+                : centred && CurrentTile.IsCardinalNeighbour(npc.Tile);
+            if (inPlace && UsingRanged && pathIndex < path.Count)
+            {
+                path.Clear();  // close enough to shoot: stop here
+                pathIndex = 0;
+            }
             if (!inPlace)
             {
                 fighting = false;
@@ -100,16 +125,33 @@ namespace Epacenur.Runtime
             return Vector3.zero;
         }
 
-        /// One melee attack. Returns true when it killed the monster.
+        /// One attack (melee, or an arrow from a bow). Returns true when it killed the monster.
         bool Attack(Npc npc)
         {
+            bool ranged = UsingRanged;
+            if (ranged)
+            {
+                string problem = G.Equipment.AmmoProblem();
+                if (problem != null)
+                {
+                    GameLog.Add(problem);
+                    CancelAction();
+                    return false;
+                }
+                // An arrow flies; most land on the ground under the target, to be picked up again.
+                string ammo = G.Equipment[EquipSlot.Ammo].ItemId;
+                G.Equipment.UseAmmo();
+                Projectile.Fire(transform.position + Vector3.up * 1.3f + transform.forward * 0.4f, npc, ammo);
+                if (G.Rng.NextDouble() < 0.8)
+                    G.World.SpawnGroundItem(ammo, 1, npc.Tile);
+            }
             lastTarget = npc;
-            nextAttackAt = Time.time + G.Equipment.AttackTicks * GameTime.TickSeconds;
+            nextAttackAt = Time.time + AttackSeconds;
             attackAnim = 0.4f;
             Rolls(npc, out double chance, out int maxHit);
             int damage = Mathf.Min(CombatRules.RollDamage(G.Rng, chance, maxHit), npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
-            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage);
+            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage, ranged);
             if (killed)
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
             return killed;
@@ -159,6 +201,11 @@ namespace Epacenur.Runtime
             }
             if (!Cooldowns.IsReady(id, Time.time))
                 return;
+            if (UsingRanged)
+            {
+                GameLog.Add("You need a melee weapon (or none) to use " + def.Name + ".");
+                return;
+            }
 
             Npc target = AbilityTarget(def.Effect == AbilityEffect.Charge);
             if (target == null)
@@ -267,7 +314,7 @@ namespace Epacenur.Runtime
                 return;
             damage = Mathf.Min(damage, npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
-            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage);
+            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage, UsingRanged);
             if (killed)
             {
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");

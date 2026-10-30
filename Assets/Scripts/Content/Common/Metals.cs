@@ -27,9 +27,9 @@ namespace Epacenur.Content
 
         public Bonuses Scale(Bonuses b) => new Bonuses
         {
-            StabAttack = Stat(b.StabAttack), SlashAttack = Stat(b.SlashAttack), CrushAttack = Stat(b.CrushAttack),
-            StabDefence = Stat(b.StabDefence), SlashDefence = Stat(b.SlashDefence), CrushDefence = Stat(b.CrushDefence),
-            Strength = Stat(b.Strength),
+            StabAttack = Stat(b.StabAttack), SlashAttack = Stat(b.SlashAttack), CrushAttack = Stat(b.CrushAttack), RangedAttack = Stat(b.RangedAttack),
+            StabDefence = Stat(b.StabDefence), SlashDefence = Stat(b.SlashDefence), CrushDefence = Stat(b.CrushDefence), RangedDefence = Stat(b.RangedDefence),
+            Strength = Stat(b.Strength), RangedStrength = Stat(b.RangedStrength),
         };
     }
 

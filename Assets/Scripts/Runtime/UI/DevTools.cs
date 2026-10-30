@@ -93,6 +93,10 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Adamant gear")) foreach (var t in new[] { "adamant_scimitar", "adamant_full_helm", "adamant_platebody", "adamant_platelegs" }) Give(t);
             if (GUILayout.Button("5 lobsters")) Give(CookingModule.Lobster, 5);
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Ranged kit")) { Give("maple_shortbow"); Give("adamant_arrow", 300); }
+            if (GUILayout.Button("Fletching kit")) { G.ToolBelt.Add(FletchingModule.Knife); Give(WoodcuttingModule.Logs, 5); Give(WoodcuttingModule.YewLogs, 5); Give(FletchingModule.Bowstring, 50); Give(FishingModule.Feathers, 150); Give("bronze_arrowtips", 150); }
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", Gui.Rich);
             if (GUILayout.Button("Regrow every tree and refill every rock"))

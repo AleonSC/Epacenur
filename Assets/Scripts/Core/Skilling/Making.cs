@@ -6,6 +6,9 @@ namespace Epacenur.Core
     /// The rules for making things from recipes at stations: smelting, smithing, cooking.
     public static class Making
     {
+        /// The "station" of recipes made in your hands from the inventory (knife on logs...).
+        public const string InHand = "inventory";
+
         /// Why a recipe can't be made right now, or null if it can. `hasTool` says whether the
         /// recipe's ToolType (if any) is to hand.
         public static string Problem(RecipeDef r, Inventory inv, int level, bool hasTool)
@@ -32,16 +35,22 @@ namespace Epacenur.Core
 
         /// Uses up the inputs and adds the product (or, for a recipe that can fail and did, the fail product).
         /// Returns the item made, or null (changing nothing) if the inputs aren't there; `failed` says which.
-        /// When the recipe takes a single item, the product goes into that item's slot, so cooked fish stay put.
-        public static string Make(RecipeDef r, Inventory inv, int level, Random rng, out bool failed)
+        /// When the recipe takes a single item and makes one unstackable thing, the product goes into that
+        /// item's slot, so cooked fish stay put.
+        public static string Make(RecipeDef r, Inventory inv, int level, Random rng, out bool failed) => Make(r, inv, level, rng, out failed, out _);
+
+        /// As Make; `made` says how many times (a batch recipe makes up to its Batch at once).
+        public static string Make(RecipeDef r, Inventory inv, int level, Random rng, out bool failed, out int times)
         {
             failed = false;
-            if (CanMake(r, inv) < 1)
+            times = Math.Min(Math.Max(1, r.Batch), CanMake(r, inv));
+            if (times < 1)
                 return null;
             if (r.FailProduct != null)
                 failed = rng.NextDouble() >= SuccessChance(r, level);
             string made = failed ? r.FailProduct : r.Product;
-            if (r.Inputs.Length == 1 && r.Inputs[0].Count == 1)
+            var def = ContentDb.Current.Item(made);
+            if (times == 1 && r.ProductCount == 1 && r.Inputs.Length == 1 && r.Inputs[0].Count == 1 && !def.Stackable)
             {
                 int slot = FindSlot(inv, r.Inputs[0].ItemId);
                 if (slot >= 0)
@@ -51,8 +60,8 @@ namespace Epacenur.Core
                 }
             }
             foreach (var i in r.Inputs)
-                inv.Remove(i.ItemId, i.Count);
-            inv.Add(made);
+                inv.Remove(i.ItemId, i.Count * times);
+            inv.Add(made, r.ProductCount * times);
             return made;
         }
 

@@ -19,10 +19,12 @@ namespace Epacenur.Runtime
         string xText;
         bool typingX;
 
-        public MakeWindow(StationObject station, string prefer)
+        /// At a station, or with station null in your hands, choosing from `only` (fletching from the inventory).
+        public MakeWindow(StationObject station, string prefer, List<RecipeDef> only = null)
         {
             this.station = station;
-            var all = ContentDb.Current.RecipesAt(station.Def.Id);
+            Anywhere = station == null;
+            var all = only ?? ContentDb.Current.RecipesAt(station.Def.Id);
             recipes = new List<RecipeDef>();
             if (prefer != null)
                 recipes.AddRange(all.FindAll(r => System.Array.Exists(r.Inputs, i => i.ItemId == prefer)));
@@ -39,6 +41,7 @@ namespace Epacenur.Runtime
         }
 
         int Count => amount == -1 ? customAmount : amount;
+        string Help => station != null ? station.Def.Help : null;
 
         public override void Draw(Hud hud, Rect r)
         {
@@ -88,7 +91,7 @@ namespace Epacenur.Runtime
 
             // One row per recipe: icon, name, what it needs and the level. Click to make.
             float top = typingX && amount == -1 ? 96f : 68f;
-            var view = new Rect(r.x + Gui.Pad, r.y + top, r.width - Gui.Pad * 2, r.height - top - (station.Def.Help != null ? 50f : 10f));
+            var view = new Rect(r.x + Gui.Pad, r.y + top, r.width - Gui.Pad * 2, r.height - top - (Help != null ? 50f : 10f));
             var content = new Rect(0f, 0f, view.width - 18f, Mathf.Max(view.height - 2f, recipes.Count * (RowH + 6f)));
             scroll = GUI.BeginScrollView(view, scroll, content);
             RecipeDef clicked = null;
@@ -135,8 +138,8 @@ namespace Epacenur.Runtime
             GUI.EndScrollView();
             if (clicked != null)
                 Make(hud, clicked);
-            if (station.Def.Help != null)
-                GUI.Label(new Rect(r.x + Gui.Pad, r.yMax - 46f, r.width - Gui.Pad * 2, 40f), station.Def.Help, Gui.Rich);
+            if (Help != null)
+                GUI.Label(new Rect(r.x + Gui.Pad, r.yMax - 46f, r.width - Gui.Pad * 2, 40f), Help, Gui.Rich);
         }
 
         void Make(Hud hud, RecipeDef recipe) => MakeCount(hud, recipe, Count);

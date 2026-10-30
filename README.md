@@ -219,6 +219,24 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
 - The dev plot's mining area has every kind of rock, its pond every kind of fishing spot, and the dev tools give bars of
   every metal, fishing gear and adamant gear.
 
+## Ranged and Fletching
+
+- **Ranged** is a combat skill: wield a **bow** and wear **arrows** in the ammo slot, then attack from a distance (you walk
+  only until the monster is in range). Shortbows reach 7 tiles and fire every 4 ticks; longbows reach 9 but fire every 6.
+  Styles: **Accurate** (+3 Ranged), **Rapid** (a tick faster) and **Longrange** (2 tiles further; xp split with Defence).
+  Accuracy uses your Ranged level and the bow's ranged attack against the monster's ranged defence; max hit uses Ranged
+  and the arrows' ranged strength. Combat level counts the better of melee and ranged, as in OSRS.
+- Each shot uses an arrow; **80% land on the ground** under the target to pick up again. Bows are two-handed and can only
+  fire arrows up to their tier: a plain bow bronze and iron, oak up to steel, willow mithril, maple and yew adamant.
+  Bows need Ranged 5 (oak), 20 (willow), 30 (maple), 40 (yew); arrows the same as the metal's armour.
+- **Fletching** (all made in your hands: **use** one item on another to open the make window):
+  - a **knife on logs**: arrow shafts (15 from normal logs, up to 75 from yew) or an **unstrung shortbow / longbow**;
+  - a **bowstring on an unstrung bow**: the bow (the same xp again);
+  - **feathers on arrow shafts**: headless arrows, 15 at a time;
+  - **arrowtips on headless arrows**: arrows, 15 at a time. Smith arrowtips at the anvil, 15 from a bar.
+  OSRS levels: shortbow 5, longbow 10, oak 20/25, willow 35/40, maple 50/55, yew 65/70; arrows bronze 1 ... adamant 60.
+- The general store sells knives, bowstrings, shortbows and bronze arrows. The melee abilities need a melee weapon (or none).
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and

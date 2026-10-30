@@ -35,27 +35,30 @@ namespace Epacenur.Core
     }
 
     /// How a melee attack lands. Armour defends against each differently, as in RuneScape.
-    public enum AttackType { Stab, Slash, Crush }
+    public enum AttackType { Stab, Slash, Crush, Ranged }
 
     /// An item's (or a monster's) combat bonuses: accuracy and defence against each attack type, and
     /// melee strength (max hit). Worn items' bonuses add up.
     public struct Bonuses
     {
-        public int StabAttack, SlashAttack, CrushAttack;
-        public int StabDefence, SlashDefence, CrushDefence;
-        public int Strength;
+        public int StabAttack, SlashAttack, CrushAttack, RangedAttack;
+        public int StabDefence, SlashDefence, CrushDefence, RangedDefence;
+        public int Strength;        // melee: max hit
+        public int RangedStrength;  // arrows: max hit with a bow
 
-        public int Attack(AttackType t) => t == AttackType.Stab ? StabAttack : t == AttackType.Slash ? SlashAttack : CrushAttack;
-        public int Defence(AttackType t) => t == AttackType.Stab ? StabDefence : t == AttackType.Slash ? SlashDefence : CrushDefence;
+        public int Attack(AttackType t) => t == AttackType.Stab ? StabAttack : t == AttackType.Slash ? SlashAttack : t == AttackType.Crush ? CrushAttack : RangedAttack;
+        public int Defence(AttackType t) => t == AttackType.Stab ? StabDefence : t == AttackType.Slash ? SlashDefence : t == AttackType.Crush ? CrushDefence : RangedDefence;
 
-        /// The same defence against all three types (most armour is close to even).
-        public static Bonuses AllDefence(int d) => new Bonuses { StabDefence = d, SlashDefence = d, CrushDefence = d };
+        /// The same defence against every attack type (most armour is close to even).
+        public static Bonuses AllDefence(int d) => new Bonuses { StabDefence = d, SlashDefence = d, CrushDefence = d, RangedDefence = d };
 
         public static Bonuses operator +(Bonuses a, Bonuses b) => new Bonuses
         {
             StabAttack = a.StabAttack + b.StabAttack, SlashAttack = a.SlashAttack + b.SlashAttack, CrushAttack = a.CrushAttack + b.CrushAttack,
+            RangedAttack = a.RangedAttack + b.RangedAttack,
             StabDefence = a.StabDefence + b.StabDefence, SlashDefence = a.SlashDefence + b.SlashDefence, CrushDefence = a.CrushDefence + b.CrushDefence,
-            Strength = a.Strength + b.Strength,
+            RangedDefence = a.RangedDefence + b.RangedDefence,
+            Strength = a.Strength + b.Strength, RangedStrength = a.RangedStrength + b.RangedStrength,
         };
     }
 
@@ -69,11 +72,12 @@ namespace Epacenur.Core
         public WeaponStyle(string name, AttackType type, CombatStyle style) { Name = name; Type = type; Style = style; }
     }
 
-    /// A kind of weapon (sword, mace, dagger... or "unarmed"): the attack styles it offers.
+    /// A kind of weapon (sword, mace, dagger, shortbow... or "unarmed"): the attack styles it offers.
     public sealed class WeaponKindDef
     {
         public string Id, Name;
         public WeaponStyle[] Styles;
+        public bool Ranged;  // bows: fire ammo from a distance (ItemDef.Range) and train Ranged
     }
 
     /// A level needed for something, e.g. Attack 20 to wield a mithril sword.
@@ -119,6 +123,9 @@ namespace Epacenur.Core
         public string WeaponKind;    // weapons: "sword", "mace"... (their attack styles)
         public int AttackTicks = 4;  // weapons: game ticks between attacks (a dagger 4, a two-handed sword 7)
         public bool TwoHanded;       // weapons: can't be used with a shield
+        public int Range;            // ranged weapons: how far they shoot, in tiles
+        public string AmmoType;      // ranged weapons: what they fire ("arrow"); ammo: what it is
+        public int AmmoTier;         // bows: the best arrows they can fire; arrows: their tier
         public readonly List<WornPart> Worn = new List<WornPart>();  // armour: what shows on the body
 
         // Uses
@@ -205,7 +212,8 @@ namespace Epacenur.Core
         public Ingredient(string itemId, int count) { ItemId = itemId; Count = count; }
     }
 
-    /// Something made from other items at a station (furnace, anvil, fire).
+    /// Something made from other items at a station (furnace, anvil, fire), or in your hands from the inventory
+    /// (Station = Making.InHand: a knife on logs, a bowstring on a bow).
     public sealed class RecipeDef
     {
         public string Id, Name;          // Name: what's made, "Bronze platebody"
@@ -219,6 +227,8 @@ namespace Epacenur.Core
         public string FailProduct;       // can fail (cooking burns): what you get instead, and no xp
         public int LowChance, HighChance;// success chance out of 256 at level 1 and 99 when it can fail
         public int Ticks = 4;
+        public int ProductCount = 1;     // made each time, e.g. 15 arrow shafts from a log
+        public int Batch = 1;            // made at once (and the xp times this), as many as you can up to this: 15 arrows
         public string SuccessMessage;    // "You successfully cook some shrimps."
         public string FailMessage;       // "You accidentally burn the shrimps."
     }

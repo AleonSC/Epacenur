@@ -70,10 +70,21 @@ namespace Epacenur.Runtime
             // Bonuses (attack and defence for stab / slash / crush, strength, speed) and the attack styles.
             float y0 = top + 5 * rowH - 6f;
             var b = eq.Bonuses;
-            GUI.Label(new Rect(body.x, y0, body.width, 16f), "         <color=#c8c0a8>Stab   Slash   Crush</color>", Gui.Small);
-            GUI.Label(new Rect(body.x, y0 + 13f, body.width, 16f), "Attack   " + Bonus(b.StabAttack) + "   " + Bonus(b.SlashAttack) + "   " + Bonus(b.CrushAttack), Gui.Small);
-            GUI.Label(new Rect(body.x, y0 + 26f, body.width, 16f), "Defence " + Bonus(b.StabDefence) + "   " + Bonus(b.SlashDefence) + "   " + Bonus(b.CrushDefence), Gui.Small);
-            GUI.Label(new Rect(body.x, y0 + 39f, body.width, 16f), "Strength " + Bonus(b.Strength) + "    Speed <color=#ffff00>"
+            // A small table: stab, slash, crush and ranged columns.
+            float[] cols = { body.x + 50f, body.x + 82f, body.x + 116f, body.x + 150f };
+            string[] heads = { "Stab", "Slash", "Crush", "Rngd" };
+            for (int i = 0; i < 4; i++)
+                GUI.Label(new Rect(cols[i], y0, 40f, 16f), "<color=#c8c0a8>" + heads[i] + "</color>", Gui.Small);
+            GUI.Label(new Rect(body.x, y0 + 13f, 50f, 16f), "Attack", Gui.Small);
+            GUI.Label(new Rect(body.x, y0 + 26f, 50f, 16f), "Defence", Gui.Small);
+            int[] att = { b.StabAttack, b.SlashAttack, b.CrushAttack, b.RangedAttack };
+            int[] def = { b.StabDefence, b.SlashDefence, b.CrushDefence, b.RangedDefence };
+            for (int i = 0; i < 4; i++)
+            {
+                GUI.Label(new Rect(cols[i], y0 + 13f, 40f, 16f), Bonus(att[i]), Gui.Small);
+                GUI.Label(new Rect(cols[i], y0 + 26f, 40f, 16f), Bonus(def[i]), Gui.Small);
+            }
+            GUI.Label(new Rect(body.x, y0 + 39f, body.width, 16f), "Str " + Bonus(b.Strength) + "  Ranged str " + Bonus(b.RangedStrength) + "  <color=#ffff00>"
                 + (eq.AttackTicks * GameTime.TickSeconds).ToString("0.0") + " s</color>", Gui.Small);
             var kind = ContentDb.Current.WeaponKind(eq.WeaponKind);
             var current = G.CurrentStyle;
@@ -85,7 +96,8 @@ namespace Epacenur.Runtime
                 if (GUI.Toggle(r, st == current, st.Name, Gui.TabStyle))
                     G.StyleIndex = i;
                 if (r.Contains(e.mousePosition))
-                    tooltip = st.Name + ": " + st.Type.ToString().ToLowerInvariant() + ", trains " + ContentDb.Current.Skill(CombatRules.TrainedSkill(st.Style)).Name;
+                    tooltip = st.Name + ": " + st.Type.ToString().ToLowerInvariant() + ", trains "
+                        + (kind.Ranged ? (st.Style == CombatStyle.Longrange ? "Ranged and Defence" : "Ranged") : ContentDb.Current.Skill(CombatRules.TrainedSkill(st.Style)).Name);
             }
             if (tooltip != null)
                 Gui.Tooltip(new Rect(e.mousePosition.x - 150f, e.mousePosition.y + 16f, 200f, 20f), tooltip, Gui.Small);

@@ -24,7 +24,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 11 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "11 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 13 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "13 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -94,7 +94,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 11 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 15 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -104,9 +104,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 12 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 16 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 11 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 15 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -372,7 +372,7 @@ public static class CoreRulesSuite
         Check(Making.Problem(plate, sinv, 18, false) == "You need a hammer to do that.", "smithing needs a hammer");
         Check(Making.Make(plate, sinv, 18, srng, out failed) == SmithingModule.BronzePlatebody && sinv.Count(SmithingModule.BronzeBar) == 0 && sinv.Count(SmithingModule.BronzePlatebody) == 1, "a platebody takes 5 bars");
         Check(Making.Problem(helm, sinv, 99, true) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
-        Check(db.RecipesAt(SmithingModule.Anvil).Count == 50 && db.RecipesAt(SmithingModule.Furnace).Count == 5, "5 bars to smelt; 10 things to smith from each");
+        Check(db.RecipesAt(SmithingModule.Anvil).Count == 55 && db.RecipesAt(SmithingModule.Furnace).Count == 5, "5 bars to smelt; 11 things to smith from each (arrowtips too)");
         Check(Item(SmithingModule.BronzeFullHelm).Slot == EquipSlot.Head && Item(SmithingModule.BronzePlatebody).Slot == EquipSlot.Body && Item(SmithingModule.BronzePlatelegs).Slot == EquipSlot.Legs, "armour goes on head, body and legs");
         Check(ToolBelt.IsTool(MiningModule.BronzePickaxe) && ToolBelt.IsTool(SmithingModule.Hammer), "pickaxe and hammer go on the tool belt");
 
@@ -409,6 +409,47 @@ public static class CoreRulesSuite
         Check(db.Node(FishingModule.LureSpot).BaitItemId == FishingModule.Feathers && db.Item(FishingModule.Feathers).Stackable, "fly fishing uses feathers");
         var noDrop = new DropTable().Add(null, 0, 0, 1);
         Check(!noDrop.Roll(new Random(1), out string nid, out int ncount), "a drop table can drop nothing");
+
+        info("Ranged and fletching");
+        var rsk = new SkillSet();
+        Check(CombatRules.CombatLevel(rsk) == 3, "Ranged 1 leaves a new player at combat 3");
+        rsk.SetLevel(SkillIds.Ranged, 99);
+        Check(CombatRules.CombatLevel(rsk) == 50, "99 Ranged alone is combat level 50 (" + CombatRules.CombatLevel(rsk) + ")");
+        Check(CombatRules.RangedMaxHit(1, 7, CombatStyle.Accurate) == 1 && CombatRules.RangedMaxHit(99, 31, CombatStyle.Rapid) == 16,
+            "ranged max hits (1 at level 1 with bronze arrows, 16 at 99 with adamant)");
+        var xpr = new SkillSet();
+        CombatRules.AwardXp(xpr, CombatStyle.Longrange, 4, true);
+        Check(xpr.GetXp(SkillIds.Ranged) == 8 && xpr.GetXp(SkillIds.Defence) == 8, "Longrange splits the xp between Ranged and Defence");
+        var req = new Equipment();
+        var rinv = new Inventory();
+        rinv.Add("maple_shortbow");
+        rinv.Add("adamant_arrow", 50);
+        rinv.Add("adamant_arrow", 25);
+        var rsk2 = new SkillSet();
+        rsk2.SetLevel(SkillIds.Ranged, 30);
+        Check(req.Equip(rinv, 0, rsk2, out string rwhy) && req.Equip(rinv, 1, rsk2, out rwhy) && req[EquipSlot.Ammo].Count == 75 && req.AmmoProblem() == null,
+            "wield a maple shortbow and 75 adamant arrows (stacked in the quiver)");
+        Check(req.UseAmmo() && req[EquipSlot.Ammo].Count == 74, "firing uses an arrow");
+        var oldBow = new Equipment();
+        oldBow.Set(EquipSlot.Weapon, new ItemStack(FletchingModule.Shortbow, 1));
+        oldBow.Set(EquipSlot.Ammo, new ItemStack("steel_arrow", 10));
+        Check(oldBow.AmmoProblem() == "You can't use steel arrows with a shortbow.", "a plain shortbow can't fire steel arrows (" + oldBow.AmmoProblem() + ")");
+        oldBow.Set(EquipSlot.Ammo, default(ItemStack));
+        Check(oldBow.AmmoProblem() == "There is no ammo left in your quiver.", "no arrows, no shooting");
+        Check(db.WeaponKind(CombatModule.Shortbow).Ranged && Item("yew_longbow").Range == 9 && Item("yew_longbow").TwoHanded, "bows are ranged and two-handed; longbows reach 9 tiles");
+        var finv = new Inventory();
+        finv.Add(FletchingModule.Knife);
+        finv.Add(WoodcuttingModule.OakLogs);
+        var shafts = db.Recipe("fletch_oak_shafts");
+        Check(Making.Make(shafts, finv, 15, new Random(1), out bool ff) == FletchingModule.ArrowShaft && finv.Count(FletchingModule.ArrowShaft) == 30, "an oak log makes 30 arrow shafts");
+        finv.Add(FishingModule.Feathers, 20);
+        var headlessR = db.Recipe("fletch_headless_arrows");
+        Check(Making.Make(headlessR, finv, 1, new Random(1), out ff, out int times) != null && times == 15 && finv.Count(FletchingModule.HeadlessArrow) == 15
+            && finv.Count(FishingModule.Feathers) == 5, "feathering makes 15 headless arrows at once");
+        Making.Make(headlessR, finv, 1, new Random(1), out ff, out times);
+        Check(times == 5, "...or as many as there are feathers for (5)");
+        Check(db.Recipe("string_yew_longbow").Level == 70 && db.Recipe("fletch_yew_longbow_u").ToolType == "knife" && db.Recipe("smith_bronze_arrowtips").ProductCount == 15,
+            "yew longbows need Fletching 70; a knife cuts bows; a bar makes 15 arrowtips");
 
         info("Spawning");
         var sow = new Overworld(2024);

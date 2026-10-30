@@ -48,6 +48,14 @@ namespace Epacenur.Core
             problem = Requirements.Problem(def, skills, def.Slot == EquipSlot.Weapon ? "wield" : "wear");
             if (problem != null)
                 return false;
+            // More of the ammo already worn joins it.
+            if (def.Stackable && this[def.Slot].ItemId == def.Id)
+            {
+                worn[(int)def.Slot] = new ItemStack(def.Id, this[def.Slot].Count + stack.Count);
+                inv.RemoveAt(invSlot);
+                Changed?.Invoke();
+                return true;
+            }
             int e = (int)def.Slot;
             var old = worn[e];
             // The other hand: a two-handed weapon and a shield can't both be worn.
@@ -92,6 +100,34 @@ namespace Epacenur.Core
         {
             worn[(int)slot] = stack.IsEmpty ? default(ItemStack) : stack;
             Changed?.Invoke();
+        }
+
+        /// Uses one of the worn ammo (an arrow fired). Returns false if there was none.
+        public bool UseAmmo()
+        {
+            var ammo = worn[(int)EquipSlot.Ammo];
+            if (ammo.IsEmpty)
+                return false;
+            worn[(int)EquipSlot.Ammo] = ammo.Count > 1 ? new ItemStack(ammo.ItemId, ammo.Count - 1) : default(ItemStack);
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// Why the wielded ranged weapon can't fire right now (no ammo, or ammo it can't use), or null.
+        public string AmmoProblem()
+        {
+            var weapon = IsWearing(EquipSlot.Weapon) ? this[EquipSlot.Weapon].Def : null;
+            if (weapon == null || weapon.AmmoType == null)
+                return null;
+            var ammo = this[EquipSlot.Ammo];
+            if (ammo.IsEmpty || ammo.Def.AmmoType != weapon.AmmoType)
+                return "There is no ammo left in your quiver.";
+            if (ammo.Def.AmmoTier > weapon.AmmoTier)
+            {
+                string name = ammo.Def.Name.ToLowerInvariant();
+                return "You can't use " + name + (name.EndsWith("s") ? "" : "s") + " with " + Making.Article(weapon.Name) + ".";
+            }
+            return null;
         }
 
         /// Takes everything off (dying).

@@ -145,7 +145,8 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Making things at a station: smelting at a furnace, smithing at an anvil, cooking on a fire.
+    /// Making things at a station: smelting at a furnace, smithing at an anvil, cooking on a fire; or in your
+    /// hands from the inventory (station null): fletching.
     /// Makes `count` (int.MaxValue: as many as you can) of the chosen recipe; with none chosen it goes
     /// through every recipe the station has that you can make (everything raw you carry, on a fire).
     public sealed class MakeActivity : Activity
@@ -154,6 +155,7 @@ namespace Epacenur.Runtime
 
         readonly StationObject station;
         readonly string stationName;  // kept: a fire can burn out (be destroyed) mid-activity
+        readonly bool inHand;
         readonly RecipeDef chosen;
         int left;
         RecipeDef current;
@@ -161,13 +163,14 @@ namespace Epacenur.Runtime
         MakeActivity(StationObject station, RecipeDef chosen, RecipeDef first, int count) : base(1)
         {
             this.station = station;
-            stationName = station.Def.Name.ToLowerInvariant();
+            inHand = station == null;
+            stationName = inHand ? null : station.Def.Name.ToLowerInvariant();
             this.chosen = chosen;
             current = first;
             left = count;
         }
 
-        public override string Status => station.Def.Action + "ing...";
+        public override string Status => inHand ? ContentDb.Current.Skill(current.Skill).Name + "..." : station.Def.Action + "ing...";
         public override Transform Target => station != null ? station.transform : null;
         public override ItemDef Tool => current != null && current.ToolType != null ? ToolBelt.Find(G.ToolBelt, G.Inventory, current.ToolType, G.Skills) : null;
         public override ArmPose Pose => current != null && current.ToolType == "hammer" ? ArmPose.Hammer : ArmPose.HoldOut;
@@ -177,9 +180,11 @@ namespace Epacenur.Runtime
         /// an item to use first (the raw fish you clicked "Cook" on).
         public static MakeActivity Start(StationObject station, RecipeDef recipe, int count, string prefer = null)
         {
-            var first = recipe ?? Next(station, prefer);
+            var first = recipe ?? (station == null ? null : Next(station, prefer));
             if (first == null)
             {
+                if (station == null)
+                    return null;
                 var recipes = ContentDb.Current.RecipesAt(station.Def.Id);
                 if (recipes.Count == 1)
                     GameLog.Add(Problem(recipes[0]) ?? "You can't make anything here.");
@@ -222,6 +227,8 @@ namespace Epacenur.Runtime
 
         public override bool StillValid(PlayerController p)
         {
+            if (inHand)
+                return true;
             if (station == null)
             {
                 GameLog.Add("The " + stationName + " has gone out.");
@@ -232,7 +239,7 @@ namespace Epacenur.Runtime
 
         protected override bool Step(PlayerController p)
         {
-            var r = chosen ?? Next(station, prefer);
+            var r = chosen ?? (inHand ? null : Next(station, prefer));
             if (r == null)
                 return false;
             current = r;
@@ -242,7 +249,7 @@ namespace Epacenur.Runtime
                 GameLog.Add(problem);
                 return false;
             }
-            string made = Making.Make(r, G.Inventory, G.Skills.GetLevel(r.Skill), G.Rng, out bool failed);
+            string made = Making.Make(r, G.Inventory, G.Skills.GetLevel(r.Skill), G.Rng, out bool failed, out int times);
             if (made == null)
                 return false;
             if (failed)
@@ -252,7 +259,7 @@ namespace Epacenur.Runtime
             }
             else
             {
-                G.Skills.AddXp(r.Skill, r.Xp);
+                G.Skills.AddXp(r.Skill, r.Xp * times);
                 if (r.SuccessMessage != null)
                     GameLog.Add(r.SuccessMessage);
             }

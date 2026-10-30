@@ -18,6 +18,7 @@ namespace Epacenur.Content
             new CookingModule(),
             new MiningModule(),
             new SmithingModule(),
+            new FletchingModule(),
             new ShopsModule(),
         };
 

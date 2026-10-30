@@ -60,7 +60,7 @@ namespace Epacenur.Runtime
             if (Window != null)
             {
                 // Like RuneScape, the bank or shop closes when you walk away.
-                if (Window.At == null || Input.GetKeyDown(KeyCode.Escape) || G.Player.FlatDistance(Window.At) > 2.2f)
+                if (Input.GetKeyDown(KeyCode.Escape) || (!Window.Anywhere && (Window.At == null || G.Player.FlatDistance(Window.At) > 2.2f)))
                     CloseWindow();
             }
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -78,6 +78,9 @@ namespace Epacenur.Runtime
         public void OpenShop(ShopKeeper keeper) => OpenWindow(new ShopWindow(keeper.Shop), keeper);
         /// The make window at a station; `prefer`: an item used on it, to show only what's made with that.
         public void OpenMaking(StationObject station, string prefer) => OpenWindow(new MakeWindow(station, prefer), station);
+
+        /// The make window for things made in your hands from the inventory (fletching).
+        public void OpenMakingInHand(List<RecipeDef> recipes) => OpenWindow(new MakeWindow(null, null, recipes), null);
 
         public void OpenWindow(Window window, Interactable at)
         {
@@ -183,6 +186,8 @@ namespace Epacenur.Runtime
     {
         protected static Game G => Game.Instance;
         public Interactable At;
+        /// Not tied to a place: stays open wherever you are (making things in your hands).
+        public bool Anywhere;
         protected Vector2 scroll;
 
         public abstract void Draw(Hud hud, Rect r);

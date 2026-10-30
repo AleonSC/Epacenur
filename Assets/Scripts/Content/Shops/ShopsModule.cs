@@ -26,6 +26,10 @@ namespace Epacenur.Content
                     new ShopStock(FishingModule.FlyFishingRod, 5),
                     new ShopStock(FishingModule.LobsterPot, 5),
                     new ShopStock(FishingModule.Harpoon, 5),
+                    new ShopStock(FletchingModule.Knife, 5),
+                    new ShopStock(FletchingModule.Bowstring, 200),
+                    new ShopStock(FletchingModule.Shortbow, 5),
+                    new ShopStock(FletchingModule.BronzeArrow, 1000),
                 },
             });
         }

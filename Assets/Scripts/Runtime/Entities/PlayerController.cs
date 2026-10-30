@@ -238,7 +238,7 @@ namespace Epacenur.Runtime
             var seen = new List<Component>();
             first = null;
             tile = null;
-            var hits = Physics.RaycastAll(ray, firstPerson ? FirstPersonReach + 1.5f : 500f);
+            var hits = Physics.RaycastAll(ray, firstPerson ? Mathf.Max(FirstPersonReach, AttackRange + 0.5f) + 1.5f : 500f);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             foreach (var hit in hits)
             {
@@ -318,7 +318,8 @@ namespace Epacenur.Runtime
             return ((GroundItem)thing).Tile;
         }
 
-        bool InReach(Component thing) => FlatDistance(thing) <= FirstPersonReach;
+        /// First person: close enough to use, or with a bow, to shoot at a monster.
+        bool InReach(Component thing) => FlatDistance(thing) <= (thing is Npc && UsingRanged ? AttackRange + 0.5f : FirstPersonReach);
 
         public float FlatDistance(Component c)
         {

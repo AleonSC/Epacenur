@@ -51,6 +51,12 @@ namespace Epacenur.Content
                 bar.GroundModel = Looks.BarModel(m.Colour);
                 Weapons(db, m);
                 Armour(db, m);
+                // Arrowtips, 15 to a bar (fletched onto headless arrows: FletchingModule).
+                var tips = db.Item(m.ItemId("arrowtips"), m.Name + " arrowtips", "I can make some arrows with these.", m.Value(1), m.Colour);
+                tips.Stackable = true;
+                tips.Icon = new Icon().Diamond(14f, 16f, 5f, m.Colour).Diamond(24f, 14f, 5f, m.Colour * 0.85f).Diamond(19f, 25f, 5f, m.Colour * 1.15f);
+                tips.GroundModel = new Model().Cube(0f, 0.02f, 0f, 0.08f, 0.03f, 0.08f, m.Colour).Turn(0f, 45f, 0f)
+                    .Cube(0.08f, 0.02f, 0.04f, 0.08f, 0.03f, 0.08f, m.Colour * 0.85f).Turn(0f, 45f, 0f);
             }
 
             // The furnace (its mouth glows and lights the ground) and the anvil.
@@ -90,8 +96,18 @@ namespace Epacenur.Content
 
             // Smithing: the metal's xp for each bar used.
             foreach (var m in Metals.All)
+            {
                 foreach (var t in Things)
                     Smith(db, m, t);
+                // 15 arrowtips from a bar (OSRS levels: bronze 5, iron 20... adamant 75).
+                db.Add(new RecipeDef
+                {
+                    Id = "smith_" + m.ItemId("arrowtips"), Name = m.Name + " arrowtips", Station = Anvil, Skill = Skill,
+                    Level = m == Metals.Bronze ? 5 : m.SmithLevel + 5, Xp = m.XpPerBar, ToolType = "hammer",
+                    Inputs = new[] { new Ingredient(m.Bar, 1) }, Product = m.ItemId("arrowtips"), ProductCount = 15,
+                    SuccessMessage = "You hammer the " + m.Name.ToLowerInvariant() + " and make some arrowtips.",
+                });
+            }
         }
 
         static void Smelt(ContentDb db, Metal m, double xp, params Ingredient[] inputs)
@@ -197,7 +213,7 @@ namespace Epacenur.Content
         static void Armour(ContentDb db, Metal m)
         {
             var c = m.Colour;
-            var helm = Piece(db, m, "full_helm", "full helm", "A full face helmet.", 44, EquipSlot.Head, new Bonuses { StabDefence = 4, SlashDefence = 5, CrushDefence = 3 });
+            var helm = Piece(db, m, "full_helm", "full helm", "A full face helmet.", 44, EquipSlot.Head, new Bonuses { StabDefence = 4, SlashDefence = 5, CrushDefence = 3, RangedDefence = 4 });
             helm.Icon = new Icon().Rect(11f, 9f, 18f, 4f, c).Rect(9f, 13f, 22f, 18f, c).Rect(12f, 18f, 16f, 3f, Looks.Dark).Rect(19f, 21f, 2f, 9f, c * 0.75f);
             helm.GroundModel = new Model().Sphere(0f, 0.1f, 0f, 0.3f, 0.26f, 0.3f, c).Cube(0f, 0.08f, 0.13f, 0.2f, 0.16f, 0.04f, c);
             helm.Worn.Add(new WornPart { Bone = Bone.Body, Model = new Model()  // a dome over the head, face guard, eye slit and crest
@@ -206,7 +222,7 @@ namespace Epacenur.Content
                 .Cube(0f, 1.71f, 0.19f, 0.2f, 0.035f, 0.01f, Looks.Dark)
                 .Cube(0f, 1.9f, 0f, 0.05f, 0.06f, 0.34f, c * 0.85f) });
 
-            var body = Piece(db, m, "platebody", "platebody", "Provides excellent protection.", 160, EquipSlot.Body, new Bonuses { StabDefence = 15, SlashDefence = 14, CrushDefence = 9 });
+            var body = Piece(db, m, "platebody", "platebody", "Provides excellent protection.", 160, EquipSlot.Body, new Bonuses { StabDefence = 15, SlashDefence = 14, CrushDefence = 9, RangedDefence = 14 });
             body.Icon = new Icon().Rect(7f, 9f, 26f, 7f, c).Rect(11f, 15f, 18f, 18f, c).Rect(19.5f, 15f, 1f, 18f, c * 0.75f)
                 .Rect(7f, 16f, 3f, 10f, c * 0.85f).Rect(30f, 16f, 3f, 10f, c * 0.85f);
             body.GroundModel = new Model().Cube(0f, 0.05f, 0f, 0.4f, 0.1f, 0.46f, c).Cube(0f, 0.05f, 0.24f, 0.56f, 0.08f, 0.12f, c * 0.9f);
@@ -215,7 +231,7 @@ namespace Epacenur.Content
                 .Cube(0f, 1.24f, 0.175f, 0.04f, 0.34f, 0.03f, c * 0.8f)
                 .Cylinder(0f, 0.95f, 0f, 0.52f, 0.06f, 0.36f, c * 0.85f) });
 
-            var legs = Piece(db, m, "platelegs", "platelegs", "Big, heavy and metal.", 80, EquipSlot.Legs, new Bonuses { StabDefence = 8, SlashDefence = 7, CrushDefence = 4 });
+            var legs = Piece(db, m, "platelegs", "platelegs", "Big, heavy and metal.", 80, EquipSlot.Legs, new Bonuses { StabDefence = 8, SlashDefence = 7, CrushDefence = 4, RangedDefence = 7 });
             legs.Icon = new Icon().Rect(11f, 7f, 18f, 6f, c).Rect(11f, 13f, 7f, 21f, c).Rect(22f, 13f, 7f, 21f, c).Rect(11f, 12f, 18f, 1f, c * 0.7f);
             legs.GroundModel = new Model().Cube(0f, 0.05f, 0.18f, 0.36f, 0.1f, 0.12f, c)
                 .Cube(-0.1f, 0.05f, -0.06f, 0.13f, 0.09f, 0.42f, c).Cube(0.1f, 0.05f, -0.06f, 0.13f, 0.09f, 0.42f, c);

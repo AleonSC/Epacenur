@@ -9,7 +9,8 @@ namespace Epacenur.Content
     {
         public const string BronzeSword = "bronze_sword", WoodenShield = "wooden_shield", Cowhide = "cowhide",
             Goblin = "goblin", Chicken = "chicken", Cow = "cow", Wolf = "wolf", Bandit = "bandit", HillGiant = "hill_giant";
-        public const string Sword = "sword", Dagger = "dagger", Scimitar = "scimitar", Mace = "mace", TwoHandedSword = "2h_sword";
+        public const string Sword = "sword", Dagger = "dagger", Scimitar = "scimitar", Mace = "mace", TwoHandedSword = "2h_sword",
+            Shortbow = "shortbow", Longbow = "longbow";
 
         static void Kind(ContentDb db, string id, string name, params WeaponStyle[] styles) =>
             db.Add(new WeaponKindDef { Id = id, Name = name, Styles = styles });
@@ -27,6 +28,14 @@ namespace Epacenur.Content
             Kind(db, Scimitar, "Scimitar", S("Chop", slash, acc), S("Slash", slash, agg), S("Lunge", stab, agg), S("Block", slash, def));
             Kind(db, Mace, "Mace", S("Pound", crush, acc), S("Pummel", crush, agg), S("Spike", stab, agg), S("Block", crush, def));
             Kind(db, TwoHandedSword, "Two-handed sword", S("Chop", slash, acc), S("Slash", slash, agg), S("Smash", crush, agg), S("Block", slash, def));
+            // Bows: Accurate (+3 Ranged), Rapid (a tick faster), Longrange (2 tiles further, trains Defence too).
+            const AttackType ranged = AttackType.Ranged;
+            foreach (var bow in new[] { Shortbow, Longbow })
+                db.Add(new WeaponKindDef
+                {
+                    Id = bow, Name = bow == Shortbow ? "Shortbow" : "Longbow", Ranged = true,
+                    Styles = new[] { S("Accurate", ranged, acc), S("Rapid", ranged, CombatStyle.Rapid), S("Longrange", ranged, CombatStyle.Longrange) },
+                });
 
             var steel = Rgb.Steel;
             var gold = Rgb.Gold;
@@ -48,6 +57,10 @@ namespace Epacenur.Content
             db.Skill(SkillIds.Hitpoints, "Hitpoints", new Rgb(0.9f, 0.25f, 0.3f), new Icon(22f)  // a heart
                 .Rect(3f, 4f, 7f, 6f, red).Rect(12f, 4f, 7f, 6f, red).Rect(3f, 8f, 16f, 4f, red).Rect(5f, 12f, 12f, 3f, red)
                 .Rect(7f, 15f, 8f, 3f, red).Rect(9f, 18f, 4f, 2f, red).Rect(5f, 5f, 2f, 2f, new Rgb(1f, 0.7f, 0.7f)), startLevel: 10);
+            var bowWood = new Rgb(0.55f, 0.36f, 0.18f);
+            db.Skill(SkillIds.Ranged, "Ranged", new Rgb(0.35f, 0.7f, 0.25f), new Icon(22f)  // a bow and arrow
+                .TurnedAbout(3f, 3f, 2f, 9f, bowWood, -30f, 11f, 11f).TurnedAbout(3f, 10f, 2f, 9f, bowWood, 30f, 11f, 11f)
+                .Rect(4f, 2f, 1f, 18f, new Rgb(0.9f, 0.9f, 0.85f)).Rect(5f, 10f, 14f, 1.5f, Rgb.Wood).Diamond(19f, 10.75f, 2.5f, Rgb.Steel));
 
             // Wooden shield: +5 defence. A round shield facing out from the left arm.
             var shieldWood = new Rgb(0.5f, 0.33f, 0.18f);

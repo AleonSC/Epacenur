@@ -45,6 +45,20 @@ namespace Epacenur.Runtime
         {
             if (useRules.Count > 0)
                 return;
+            // Things made in your hands: a knife on logs, a bowstring on a bow, feathers on arrow shafts... The make
+            // window lists every such recipe that uses both (or one, with the other as its tool).
+            RegisterUse((a, b) =>
+            {
+                var da = G.Inventory[a].Def;
+                var db = G.Inventory[b].Def;
+                var list = ContentDb.Current.RecipesAt(Making.InHand).FindAll(r =>
+                    System.Array.Exists(r.Inputs, i => i.ItemId == db.Id)
+                    && (System.Array.Exists(r.Inputs, i => i.ItemId == da.Id) || (r.ToolType != null && r.ToolType == da.ToolType)));
+                if (list.Count == 0)
+                    return false;
+                G.Hud.OpenMakingInHand(list);
+                return true;
+            });
             // A tinderbox on logs lights them.
             RegisterUse((a, b) =>
             {

@@ -190,7 +190,7 @@ namespace Epacenur.Runtime
             }
 
             // The player is walking up to fight it: wait for them rather than dancing around.
-            if (player.AttackTarget == this && player.Mode == ViewMode.Tile)
+            if (player.AttackTarget == this && player.Mode == ViewMode.Tile && !player.UsingRanged)
                 return;
             if (pathIndex >= path.Count || !path[path.Count - 1].IsCardinalNeighbour(playerTile))
             {
