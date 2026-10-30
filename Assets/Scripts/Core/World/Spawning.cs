@@ -66,6 +66,34 @@ namespace Epacenur.Core
             return null;
         }
 
+        /// The agility course a course region holds (CourseDef.Spawns by distance), or null.
+        public static CourseDef CourseIn(Overworld ow, RegionPlan plan)
+        {
+            double d = Distance(ow, plan.Center), total = 0;
+            var db = ContentDb.Current;
+            if (plan.RX == -1 && plan.RZ == 0)
+                foreach (var c in db.Courses)
+                    foreach (var r in c.Spawns)
+                        if (r.Starter)
+                            return c;
+            foreach (var c in db.Courses)
+                foreach (var r in c.Spawns)
+                    if (d >= r.MinDistance && d < r.MaxDistance)
+                        total += r.Weight;
+            if (total <= 0)
+                return null;
+            double pick = ow.Hash(plan.RX, plan.RZ, 51) * total;
+            foreach (var c in db.Courses)
+                foreach (var r in c.Spawns)
+                    if (d >= r.MinDistance && d < r.MaxDistance)
+                    {
+                        if (pick < r.Weight)
+                            return c;
+                        pick -= r.Weight;
+                    }
+            return null;
+        }
+
         public struct Group
         {
             public NpcDef Npc;
@@ -77,38 +105,39 @@ namespace Epacenur.Core
         public static List<Group> GroupsIn(Overworld ow, RegionPlan plan)
         {
             var groups = new List<Group>();
-            int count = plan.Kind == RegionKind.Shrine ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
+            int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Course ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
             double d = Distance(ow, plan.Center);
             for (int g = 0; g < count; g++)
-            {
-                double total = 0;
-                foreach (var n in ContentDb.Current.Npcs)
-                    foreach (var r in n.Spawns)
-                        if (r.Region == plan.Kind && d >= r.MinDistance && d < r.MaxDistance)
-                            total += r.Weight;
-                if (total <= 0)
-                    break;
-                double pick = ow.Hash(plan.RX, plan.RZ, 31 + g) * total;
-                bool done = false;
-                foreach (var n in ContentDb.Current.Npcs)
-                {
-                    foreach (var r in n.Spawns)
-                        if (r.Region == plan.Kind && d >= r.MinDistance && d < r.MaxDistance)
-                        {
-                            if (pick < r.Weight)
-                            {
-                                int size = r.MinGroup + (int)(ow.Hash(plan.RX, plan.RZ, 41 + g) * (r.MaxGroup - r.MinGroup + 1));
-                                groups.Add(new Group { Npc = n, Count = Math.Min(size, r.MaxGroup) });
-                                done = true;
-                                break;
-                            }
-                            pick -= r.Weight;
-                        }
-                    if (done)
-                        break;
-                }
-            }
+                Pick(ow, plan, d, g, false, groups);
+            // Towns also have their people (residents: the ones you can pickpocket), in two groups.
+            if (plan.Kind == RegionKind.Town)
+                for (int g = 0; g < 2; g++)
+                    Pick(ow, plan, d, 10 + g, true, groups);
             return groups;
+        }
+
+        static void Pick(Overworld ow, RegionPlan plan, double d, int g, bool residents, List<Group> groups)
+        {
+            double total = 0;
+            foreach (var n in ContentDb.Current.Npcs)
+                foreach (var r in n.Spawns)
+                    if (r.Region == plan.Kind && r.Resident == residents && d >= r.MinDistance && d < r.MaxDistance)
+                        total += r.Weight;
+            if (total <= 0)
+                return;
+            double pick = ow.Hash(plan.RX, plan.RZ, 31 + g) * total;
+            foreach (var n in ContentDb.Current.Npcs)
+                foreach (var r in n.Spawns)
+                    if (r.Region == plan.Kind && r.Resident == residents && d >= r.MinDistance && d < r.MaxDistance)
+                    {
+                        if (pick < r.Weight)
+                        {
+                            int size = r.MinGroup + (int)(ow.Hash(plan.RX, plan.RZ, 41 + g) * (r.MaxGroup - r.MinGroup + 1));
+                            groups.Add(new Group { Npc = n, Count = Math.Min(size, r.MaxGroup) });
+                            return;
+                        }
+                        pick -= r.Weight;
+                    }
         }
     }
 }

@@ -17,6 +17,7 @@ namespace Epacenur.Core
         Rock,   // a rock with ore in it
         Flax,   // a plant to pick (fields in the countryside)
         Stone,  // paving round a shrine's altar
+        Stall,  // a market stall in a town square (which one: Spawning, by distance)
     }
 
     public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop }
@@ -78,6 +79,15 @@ namespace Epacenur.Core
             w.Spawn = new Tile(size / 2, size / 2);
             PlaceBuildings(w, rng);
             LayRoads(w);
+            // Two market stalls at corners of the square (the square is paved, so you can always walk round them).
+            int stalls = 0;
+            foreach (var c in new[] { new Tile(w.Spawn.X - 3, w.Spawn.Z + 3), new Tile(w.Spawn.X + 3, w.Spawn.Z + 3),
+                new Tile(w.Spawn.X - 3, w.Spawn.Z - 3), new Tile(w.Spawn.X + 3, w.Spawn.Z - 3) })
+                if (stalls < 2 && (w.Map[c.X, c.Z] == Terrain.Grass || w.Map[c.X, c.Z] == Terrain.Path))
+                {
+                    w.Map[c.X, c.Z] = Terrain.Stall;
+                    stalls++;
+                }
             return w;
         }
 

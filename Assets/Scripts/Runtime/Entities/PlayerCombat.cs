@@ -68,20 +68,20 @@ namespace Epacenur.Runtime
             var b = G.Equipment.Bonuses;
             if (UsingMagic)
             {
-                hitChance = CombatRules.MagicHitChance(G.Skills.GetLevel(SkillIds.Magic), b.MagicAttack, npc.Def.DefenceLevel, npc.Def.Bonuses.MagicDefence);
+                hitChance = CombatRules.MagicHitChance(G.Level(SkillIds.Magic), b.MagicAttack, npc.Def.DefenceLevel, npc.Def.Bonuses.MagicDefence);
                 maxHit = G.Autocast.MaxHit;
                 return;
             }
             if (UsingRanged)
             {
-                hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Ranged), b.RangedAttack, style.Style,
+                hitChance = CombatRules.HitChance(G.Level(SkillIds.Ranged), b.RangedAttack, style.Style,
                     npc.Def.DefenceLevel, npc.Def.Bonuses.RangedDefence);
-                maxHit = CombatRules.RangedMaxHit(G.Skills.GetLevel(SkillIds.Ranged), b.RangedStrength, style.Style);
+                maxHit = CombatRules.RangedMaxHit(G.Level(SkillIds.Ranged), b.RangedStrength, style.Style);
                 return;
             }
-            hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Attack), b.Attack(style.Type), style.Style,
+            hitChance = CombatRules.HitChance(G.Level(SkillIds.Attack), b.Attack(style.Type), style.Style,
                 npc.Def.DefenceLevel, npc.Def.Bonuses.Defence(style.Type), G.Prayer.AttackMultiplier);
-            maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillIds.Strength), b.Strength, style.Style, G.Prayer.StrengthMultiplier);
+            maxHit = CombatRules.MaxHit(G.Level(SkillIds.Strength), b.Strength, style.Style, G.Prayer.StrengthMultiplier);
         }
 
         void StartAttack(Npc npc)
@@ -197,7 +197,7 @@ namespace Epacenur.Runtime
             bool melee = npc.Def.AttackType != AttackType.Ranged && npc.Def.AttackType != AttackType.Magic;
             if (!(melee && G.Prayer.ProtectsFromMelee))
             {
-                double chance = CombatRules.MonsterHitChance(npc.Def, G.Skills.GetLevel(SkillIds.Defence),
+                double chance = CombatRules.MonsterHitChance(npc.Def, G.Level(SkillIds.Defence),
                     G.Equipment.Bonuses.Defence(npc.Def.AttackType), G.CurrentStyle.Style, G.Prayer.DefenceMultiplier);
                 damage = CombatRules.RollDamage(G.Rng, chance, npc.Def.MaxHit);
             }

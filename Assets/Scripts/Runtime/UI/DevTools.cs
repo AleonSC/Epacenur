@@ -96,6 +96,12 @@ namespace Epacenur.Runtime
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Ranged kit")) { Give("maple_shortbow"); Give("adamant_arrow", 300); }
             if (GUILayout.Button("Crafting kit")) { G.ToolBelt.Add(CraftingModule.Needle); Give(CraftingModule.Thread, 50); Give(CraftingModule.Leather, 10); Give(CraftingModule.Flax, 10); Give(CombatModule.Cowhide, 5); }
+            if (GUILayout.Button("Herblore kit"))
+            {
+                foreach (var h in new[] { "guam", "tarromin", "harralander", "ranarr", "irit", "kwuarm" })
+                    Give("grimy_" + h, 2);
+                Give(HerbloreModule.VialOfWater, 6); Give(HerbloreModule.EyeOfNewt, 10); Give(HerbloreModule.LimpwurtRoot); Give(HerbloreModule.SnapeGrass);
+            }
             if (GUILayout.Button("Magic kit"))
             {
                 Give(MagicModule.StaffOfAir); Give(MagicModule.WizardHat); Give(MagicModule.WizardRobe); Give(MagicModule.WizardSkirt);

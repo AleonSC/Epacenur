@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Epacenur.Core
 {
-    public enum RegionKind { Wild, Town, Camp, Shrine }
+    public enum RegionKind { Wild, Town, Camp, Shrine, Course }
 
     /// What's planned for one region of the overworld: a town, a goblin camp, or just countryside.
     /// Everything is in world tiles.
@@ -20,6 +20,8 @@ namespace Epacenur.Core
         public Area Level;                                   // towns, camps, shrines: kept flat (hills rise beyond it)
         public Tile Altar;                                   // shrines: where the altar stands
         public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
+        public Tile CourseCorner;                            // agility courses: the south-west corner of the loop
+        public List<ObstaclePlacement> Obstacles;            // agility courses: where each obstacle goes
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
 
         /// The planned terrain of a tile in this region, or Grass where nothing's planned.
@@ -31,6 +33,8 @@ namespace Epacenur.Core
                 return Terrain.Camp;
             if (Kind == RegionKind.Shrine && Camp.Contains(t))
                 return Terrain.Stone;
+            if (Kind == RegionKind.Course && AgilityCourse.OnLoop(CourseCorner, t) && !Blocked.Contains(t))
+                return Terrain.Path;
             return Terrain.Grass;
         }
 
@@ -39,6 +43,8 @@ namespace Epacenur.Core
         {
             if (Kind == RegionKind.Town)
                 return t.StepsTo(Center) <= Overworld.TownClearRadius;
+            if (Kind == RegionKind.Course)
+                return Level.Contains(t);
             if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine)
                 return t.X >= Camp.X - 3 && t.X < Camp.XMax + 3 && t.Z >= Camp.Z - 3 && t.Z < Camp.ZMax + 3;
             return false;
@@ -100,15 +106,17 @@ namespace Epacenur.Core
             plan = new RegionPlan { RX = rx, RZ = rz, Bounds = new Area(rx * RegionSize, rz * RegionSize, RegionSize, RegionSize) };
             plan.Center = new Tile(plan.Bounds.X + RegionSize / 2, plan.Bounds.Z + RegionSize / 2);
             double roll = Hash(rx, rz, 1);
-            // The start is a town; just east of it, a shrine (an air altar to start runecrafting).
-            plan.Kind = rx == 0 && rz == 0 ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine
-                : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : roll < 0.4 ? RegionKind.Shrine : RegionKind.Wild;
+            // The start is a town; just east of it, a shrine (an air altar to start runecrafting); just west, an agility course.
+            plan.Kind = rx == 0 && rz == 0 ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine : rx == -1 && rz == 0 ? RegionKind.Course
+                : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : roll < 0.4 ? RegionKind.Shrine : roll < 0.46 ? RegionKind.Course : RegionKind.Wild;
             if (plan.Kind == RegionKind.Town)
                 PlanTown(plan);
             else if (plan.Kind == RegionKind.Camp)
                 PlanCamp(plan);
             else if (plan.Kind == RegionKind.Shrine)
                 PlanShrine(plan);
+            else if (plan.Kind == RegionKind.Course)
+                PlanCourse(plan);
             plans[key] = plan;
             return plan;
         }
@@ -166,6 +174,18 @@ namespace Epacenur.Core
                         plan.Stones.Add(stone);
                         plan.Blocked.Add(stone);
                     }
+        }
+
+        /// A loop of path with five obstacles along it (which course: Spawning, by distance).
+        void PlanCourse(RegionPlan plan)
+        {
+            int dx = (int)(Hash(plan.RX, plan.RZ, 7) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 8) * 16) - 8;
+            plan.CourseCorner = new Tile(plan.Center.X + dx - AgilityCourse.Width / 2, plan.Center.Z + dz - AgilityCourse.Depth / 2);
+            plan.Obstacles = AgilityCourse.Layout(plan.CourseCorner);
+            foreach (var o in plan.Obstacles)
+                foreach (var t in o.Covered)
+                    plan.Blocked.Add(t);
+            plan.Level = new Area(plan.CourseCorner.X - 3, plan.CourseCorner.Z - 3, AgilityCourse.Width + 6, AgilityCourse.Depth + 6);
         }
 
         // ---- Elevation ----

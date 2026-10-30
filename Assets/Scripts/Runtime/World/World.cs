@@ -483,6 +483,16 @@ namespace Epacenur.Runtime
             return station;
         }
 
+        /// An agility course's obstacle, blocking the tiles it covers.
+        public ObstacleObject AddObstacle(CourseDef course, ObstaclePlacement placement)
+        {
+            var owner = OwnerAt(placement.Start);
+            var o = Own(ObstacleObject.Create(course, placement, owner.Root), owner);
+            foreach (var t in placement.Covered)
+                Grid.SetBlocked(t, true);
+            return o;
+        }
+
         /// A gathering node (tree, rock, fishing spot). Trees and rocks block their tile; a fishing spot sits
         /// on water and moves between the `shore` tiles.
         public NodeObject AddNode(string nodeId, Tile tile, System.Random random, List<Tile> shore = null)
@@ -609,6 +619,7 @@ namespace Epacenur.Runtime
                 case Terrain.Rock: return MapRock;
                 case Terrain.Flax: return MapFlax;
                 case Terrain.Stone: return MapStone;
+                case Terrain.Stall: return MapWall;
                 default: return MapGrass;
             }
         }

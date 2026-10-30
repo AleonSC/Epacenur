@@ -30,7 +30,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 16 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "16 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 19 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "19 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -100,7 +100,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 20 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 22 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -110,9 +110,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 21 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 23 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 20 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 22 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -189,8 +189,8 @@ public static class CoreRulesSuite
         var rng = new Random(1);
         bool allCoins = true;
         for (int i = 0; i < 200; i++)
-            if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || id != Coins || n < 1 || n > 30) allCoins = false;
-        Check(allCoins, "goblins always drop 1-30 coins");
+            if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || (id == Coins ? n < 1 || n > 30 : !id.StartsWith("grimy_") && id != HerbloreModule.EyeOfNewt)) allCoins = false;
+        Check(allCoins, "goblins always drop 1-30 coins, or a herb or an eye of newt");
 
         // Two-handed weapons and shields.
         var eq2 = new Equipment();
@@ -473,7 +473,9 @@ public static class CoreRulesSuite
             }
         Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper, tin and essence near the start, adamantite and yews far out");
         var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
-        Check(homeGroups.Count == 1 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
+        Check(homeGroups.Count == 3 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
+        Check(homeGroups[1].Npc.Pickpocket != null && homeGroups[2].Npc.Pickpocket != null && homeGroups[1].Npc.Pickpocket.Level <= 10,
+            "...and two groups of townsfolk to pickpocket (" + homeGroups[1].Npc.Name + ", " + homeGroups[2].Npc.Name + ")");
         int campCount = 0, goblinCamps = 0, wildFar = 0, dangerous = 0;
         for (int rx = -12; rx <= 12; rx++)
             for (int rz = -12; rz <= 12; rz++)
@@ -560,6 +562,74 @@ public static class CoreRulesSuite
         Check(!nearFire && farLaw, "better altars lie further out");
         Check(db.Npc(MagicModule.DarkWizard).AttackType == AttackType.Magic && new Bonuses { MagicDefence = 3 }.Defence(AttackType.Magic) == 3,
             "dark wizards cast spells, which magic defence blocks");
+
+                info("Agility, Thieving and Herblore");
+        var energy = new RunEnergy();
+        energy.Run(10);
+        Check(System.Math.Abs(energy.Value - 91) < 1e-9 && energy.CanRun, "running uses run energy (0.9% a second)");
+        energy.Run(1000);
+        Check(!energy.CanRun, "...until there's none left");
+        Check(RunEnergy.RestorePerSecond(99) > RunEnergy.RestorePerSecond(1) * 2.5, "Agility brings it back faster");
+        var laps = new LapTracker();
+        bool lapDone = false;
+        for (int i = 0; i < 5; i++) lapDone = laps.Crossed("field_course", i);
+        Check(lapDone, "five obstacles in order make a lap");
+        laps.Crossed("field_course", 0);
+        laps.Crossed("field_course", 2);
+        lapDone = false;
+        for (int i = 3; i < 5; i++) lapDone |= laps.Crossed("field_course", i);
+        Check(!lapDone, "skipping one doesn't");
+        var lay = AgilityCourse.Layout(new Tile(0, 0));
+        bool chained = true;
+        for (int i = 0; i < lay.Count; i++)
+        {
+            var o = lay[i];
+            if (!AgilityCourse.OnLoop(new Tile(0, 0), o.Start) || !AgilityCourse.OnLoop(new Tile(0, 0), o.End)) chained = false;
+            foreach (var t in o.Covered) if (!AgilityCourse.OnLoop(new Tile(0, 0), t)) chained = false;
+        }
+        Check(chained && lay[4].End.StepsTo(lay[0].Start) <= 3, "the five obstacles go round the loop and back to the start");
+        var agw = new Overworld(13);
+        var startCourse = agw.Plan(-1, 0);
+        bool reachable = true;
+        foreach (var o in startCourse.Obstacles)
+            if (agw.IsBlocked(o.Start) || agw.IsBlocked(o.End) || !agw.IsBlocked(o.Covered[0])) reachable = false;
+        Check(startCourse.Kind == RegionKind.Course && Spawning.CourseIn(agw, startCourse).Id == AgilityModule.FieldCourse && reachable,
+            "just west of the start there's always the field course, its obstacles' ends clear and their middles blocked");
+        Check(db.Course("sky_course").Obstacles[0].Level == 80 && db.Courses.Count == 5, "five courses, up to Agility 80");
+        Check(Agility.SuccessChance(db.Course("field_course").Obstacles[1], 1) == 1 && Agility.SuccessChance(db.Course("hill_course").Obstacles[0], 20) < 0.8
+            && Agility.SuccessChance(db.Course("hill_course").Obstacles[0], 50) == 1, "obstacles fail now and then at their level, never 30 levels on");
+
+        var man = db.Npc(ThievingModule.Man).Pickpocket;
+        Check(man.Level == 1 && man.Xp == 8 && Thieving.Chance(man, 40) > Thieving.Chance(man, 1), "a man's pocket: level 1, 8 xp, easier with level");
+        var homeTown = agw.Plan(0, 0).Town;
+        int stallCount = 0;
+        for (int x = 0; x < 64; x++) for (int z = 0; z < 64; z++) if (homeTown.Map[x, z] == Terrain.Stall) stallCount++;
+        Check(stallCount == 2, "every town square has two market stalls");
+        Check(Spawning.NodeAt(agw, agw.Spawn, Terrain.Stall).Id == ThievingModule.BakeryStall, "near the start they're bakery stalls");
+
+        var boosts = new Boosts();
+        var bs = new SkillSet();
+        bs.SetLevel(SkillIds.Attack, 50);
+        var binv = new Inventory();
+        binv.Add("attack_potion_3");
+        var bpray = new PrayerBook(1);
+        var ben = new RunEnergy();
+        Potions.Drink(binv, 0, bs, boosts, bpray, ben);
+        Check(boosts.Level(bs, SkillIds.Attack) == 58 && binv[0].ItemId == "attack_potion_2", "an attack potion: Attack 50 to 58 (3 + 10%), two doses left");
+        Potions.Drink(binv, 0, bs, boosts, bpray, ben);
+        Check(boosts.Level(bs, SkillIds.Attack) == 58, "a second dose doesn't stack");
+        boosts.Decay();
+        Check(boosts.Level(bs, SkillIds.Attack) == 57, "boosts wear off a level a minute");
+        Potions.Drink(binv, 0, bs, boosts, bpray, ben);
+        Check(binv[0].ItemId == HerbloreModule.Vial, "the last dose leaves an empty vial");
+        Check(db.Recipe("clean_ranarr").Level == 25 && Item("grimy_ranarr").ProcessVerb == "Clean"
+            && db.Recipe("mix_prayer").Inputs[0].ItemId == "ranarr_potion_unf" && db.Recipe("mix_prayer").Inputs[1].ItemId == HerbloreModule.SnapeGrass,
+            "clean a ranarr at 25, then vial of water, then snape grass: a prayer potion");
+        var hinv = new Inventory();
+        hinv.Add("guam");
+        hinv.Add(HerbloreModule.VialOfWater);
+        Check(Making.Make(db.Recipe("mix_guam_unf"), hinv, 3, new Random(1), out bool hf) == "guam_potion_unf" && hinv.Count(HerbloreModule.VialOfWater) == 0,
+            "a guam leaf in a vial of water makes an unfinished potion");
 
                 info("Crafting");
         var cinv3 = new Inventory();

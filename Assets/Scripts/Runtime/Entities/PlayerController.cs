@@ -22,8 +22,8 @@ namespace Epacenur.Runtime
         public const float FirstPersonReach = 2.3f; // furthest a thing's centre can be to use it in first person
         public const float EyeHeight = 1.6f;
 
-        /// Holding Shift.
-        public bool IsRunning => Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        /// Holding Shift, with run energy left.
+        public bool IsRunning => (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && G.Energy.CanRun;
         float PathSpeed => IsRunning ? RunPathSpeed : WalkPathSpeed;
         float WasdSpeed => IsRunning ? RunWasdSpeed : WalkWasdSpeed;
 
@@ -113,6 +113,14 @@ namespace Epacenur.Runtime
             buryCooldown -= dt;
             Hitsplats.RemoveAll(h => Time.time - h.Time > Npc.HitsplatSeconds);
             SwingT = Mathf.Max(0f, SwingT - dt / 0.35f);
+            if (UpdateCrossing(dt))
+            {
+                G.Energy.Rest(dt, G.Skills.GetLevel(Epacenur.Content.AgilityModule.Skill));
+                UpdateHeldItems();
+                AnimateArm(dt);
+                AnimateBody(dt);
+                return;
+            }
 
             if (Input.GetKeyDown(KeyCode.V))
                 SetMode(Mode == ViewMode.Tile ? ViewMode.FirstPerson : ViewMode.Tile);
@@ -123,7 +131,8 @@ namespace Epacenur.Runtime
             UpdateBleeds();
             UpdateMagic(dt);
 
-            Vector3 move = Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
+            Vector3 move = IsStunned ? Vector3.zero : Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
+            UpdateEnergy(move, dt);
 
             if (cc.isGrounded)
                 fallSpeed = -6f;  // pressed to the ground, so walking down a hill doesn't bounce
@@ -216,6 +225,8 @@ namespace Epacenur.Runtime
             else if (!overUi && Input.GetMouseButtonDown(1))
                 G.Hud.OpenMenu(options, false);
 
+            if (pickTarget != null)
+                return UpdatePickpocket(dt);
             if (attackTarget != null)
                 return UpdateAttack(dt);
             if (pathIndex < path.Count)
@@ -307,6 +318,8 @@ namespace Epacenur.Runtime
                 if (npc.IsDead)
                     return;
                 string name = MenuOption.Npc(npc.HoverName);
+                if (npc.Def.Pickpocket != null)
+                    options.Add(new MenuOption("Pickpocket", name, () => StartPickpocket(npc, firstPerson)));
                 options.Add(new MenuOption("Attack", name, () => { if (firstPerson) FirstPersonAttack(npc); else StartAttack(npc); }));
                 examines.Add(new MenuOption("Examine", MenuOption.Npc(npc.Def.Name), () => GameLog.Add(npc.Def.Examine)));
             }
@@ -350,7 +363,10 @@ namespace Epacenur.Runtime
         void WalkToObject(Interactable thing, System.Action<Interactable> arrive = null)
         {
             CancelAction();
-            var p = Pathfinder.PathToInteract(G.World.Grid, StartTile(), thing.Tile);
+            var approach = thing.ApproachTile;
+            var p = approach.HasValue ? Pathfinder.PathTo(G.World.Grid, StartTile(), approach.Value) : Pathfinder.PathToInteract(G.World.Grid, StartTile(), thing.Tile);
+            if (p != null && approach.HasValue && (p.Count > 0 ? p[p.Count - 1] : StartTile()) != approach.Value)
+                p = null;  // couldn't get right there
             if (p == null)
             {
                 GameLog.Add("I can't reach that!");
@@ -369,12 +385,16 @@ namespace Epacenur.Runtime
             onArrive = null;
             if (thing == null)
                 return;  // gone (a fire burned out)
-            if (!CurrentTile.IsCardinalNeighbour(thing.Tile))
+            var approach = thing.ApproachTile;
+            if (approach.HasValue ? CurrentTile != approach.Value : !CurrentTile.IsCardinalNeighbour(thing.Tile))
             {
                 WalkToObject(thing, arrive);  // pushed off course; try again
                 return;
             }
-            transform.rotation = Quaternion.LookRotation(World.TileCenter(thing.Tile) - World.TileCenter(CurrentTile));
+            var look = World.TileCenter(thing.Tile) - World.TileCenter(CurrentTile);
+            look.y = 0f;
+            if (look.sqrMagnitude > 1e-4f)
+                transform.rotation = Quaternion.LookRotation(look);
             if (arrive != null)
                 arrive(thing);
             else
@@ -479,6 +499,7 @@ namespace Epacenur.Runtime
             targetObject = null;
             targetItem = null;
             attackTarget = null;
+            pickTarget = null;
             fighting = false;
             onArrive = null;
             Activity = null;

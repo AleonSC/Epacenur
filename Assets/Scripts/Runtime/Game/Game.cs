@@ -54,6 +54,16 @@ namespace Epacenur.Runtime
         public int StyleIndex;
         /// The combat spell your attacks cast (picked in the Magic tab), or null to fight with your weapon.
         public SpellDef Autocast;
+        /// Run energy (Agility brings it back faster).
+        public readonly RunEnergy Energy = new RunEnergy();
+        /// Skills raised by potions for a while.
+        public readonly Boosts Boosts = new Boosts();
+        /// Which agility obstacle is next for a lap.
+        public readonly LapTracker Laps = new LapTracker();
+        float boostTimer;
+
+        /// A skill's level as everything uses it: the real level plus any boost.
+        public int Level(string skill) => Boosts.Level(Skills, skill);
 
         /// The attack style in use with the wielded weapon (or unarmed).
         public WeaponStyle CurrentStyle
@@ -253,6 +263,8 @@ namespace Epacenur.Runtime
             }
             Health.Set(Health.Max);
             Prayer.DeactivateAll();
+            Boosts.Clear();
+            Energy.Set(RunEnergy.Max);
             Prayer.Recharge();
             if (map == MapId.DevPlot)
                 World.Travel(MapId.DevPlot, World.DevSpawn);
@@ -315,6 +327,18 @@ namespace Epacenur.Runtime
                 }
             }
             Prayer.SetMax(Skills.GetLevel(SkillIds.Prayer));
+            // Boosts wear off a level a minute.
+            if (Boosts.Any)
+            {
+                boostTimer += Time.deltaTime;
+                if (boostTimer >= Core.Boosts.DecaySeconds)
+                {
+                    boostTimer -= Core.Boosts.DecaySeconds;
+                    Boosts.Decay();
+                }
+            }
+            else
+                boostTimer = 0f;
             tickTimer += Time.deltaTime;
             while (tickTimer >= GameTime.TickSeconds)
             {

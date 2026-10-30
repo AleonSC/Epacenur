@@ -73,6 +73,21 @@ namespace Epacenur.Runtime
                 transform.rotation = Quaternion.LookRotation(d);
         }
 
+        /// Stands still for a while (having its pocket picked), without turning round.
+        public void Hold(float seconds)
+        {
+            engagedUntil = Mathf.Max(engagedUntil, Time.time + seconds);
+            path.Clear();
+            pathIndex = 0;
+        }
+
+        /// Caught you with a hand in its pocket: turns and hits you.
+        public void Catch(Vector3 thief)
+        {
+            Engage(thief);
+            attackAnim = 0.4f;
+        }
+
         /// Stunned: stands still (it won't even wander) for a while.
         public void Stun(float seconds)
         {
@@ -212,12 +227,13 @@ namespace Epacenur.Runtime
 
         void Step(float speed)
         {
-            Vector3 to = World.TileCenter(path[pathIndex]) - transform.position;
+            Vector3 full = World.TileCenter(path[pathIndex]) - transform.position;
+            Vector3 to = full;
             to.y = 0f;
             float step = speed * Time.deltaTime;
             if (to.magnitude <= step)
             {
-                transform.position += to;
+                transform.position += full;
                 if (++pathIndex >= path.Count)
                 {
                     path.Clear();
@@ -226,7 +242,7 @@ namespace Epacenur.Runtime
             }
             else
             {
-                transform.position += to.normalized * step;
+                transform.position += to.normalized * step + Vector3.up * full.y * (step / to.magnitude);  // up and down the hills
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-8f * Time.deltaTime));
             }
         }

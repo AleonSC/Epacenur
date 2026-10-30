@@ -80,7 +80,7 @@ namespace Epacenur.Runtime
             Gui.Shadowed(new Rect(10f, 8f, 600f, 22f), action, Gui.Title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
-            string pace = p.IsRunning ? "   <color=#7fd4ff>Running</color>" : "";
+            string pace = p.IsStunned ? "   <color=#ffff66>Stunned!</color>" : p.IsRunning ? "   <color=#7fd4ff>Running</color>" : "";
             Gui.Shadowed(new Rect(10f, 30f, 600f, 20f), "<color=#ffd966>" + mode + "</color>" + pace + "   (V to switch, H for help)", Gui.Small);
             if (!hud.ShowHelp)
                 return;
