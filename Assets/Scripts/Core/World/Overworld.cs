@@ -511,8 +511,8 @@ namespace Epacenur.Core
             bool town = best != null && best.Kind == RegionKind.Town;
             if (flat >= 1 && !town)
                 return levelAt;
-            double natural = Natural(x, z, nearest, out double depth);
-            double h = (natural - depth) * (1 - flat) + levelAt * flat;
+            double natural = Natural(x, z, nearest);
+            double h = (natural - Bed(x, z)) * (1 - flat) + levelAt * flat;
             if (town && flat > 0)
             {
                 // Towns aren't flat: their ground rises and falls gently with the land, each building on a level
@@ -534,7 +534,7 @@ namespace Epacenur.Core
         double TownGround(RegionPlan plan, double x, double z)
         {
             double level = LevelHeight(plan);
-            return level + TownRelief(Natural(x, z, 0, out _) - level);
+            return level + TownRelief(Natural(x, z, 0) - level);
         }
 
         readonly Dictionary<Building, double> padHeights = new Dictionary<Building, double>();
@@ -602,11 +602,50 @@ namespace Epacenur.Core
 
         public const double BridgeDeck = 0.22;
 
-        /// Where a pond's or river's surface lies: the slow base height (water fills the valley floors).
-        public double WaterSurface(double x, double z) => Base(x, z) + 0.04;
+        /// Where a pond's or river's surface lies: a little under the slow base height (water fills the valley
+        /// floors), so the land at its edge (which lies at the base height) stands just clear of it.
+        public double WaterSurface(double x, double z) => Base(x, z) - WaterBelowBank;
 
-        /// The lie of the land before anything is levelled, and how far below it a pond or river's bed is.
-        double Natural(double x, double z, double nearestLevel, out double depth)
+        public const double WaterBelowBank = 0.05;
+
+        /// How far below the land a pond's or river's bed is dug: under the water tiles, blurred (a Gaussian over
+        /// the tiles round, so the bed's edge is a smooth curve across the tiles' steps and corners rather than
+        /// following them), starting a little way in from a straight shore's edge, so no dry tile is dug below the
+        /// water there (and the water never hangs over a hollow at its edge). Every water tile is dug at least a
+        /// little in its middle too, however few water tiles are round it (a lone one, or a narrow channel).
+        double Bed(double x, double z)
+        {
+            int ci = (int)Math.Floor(x + 0.5), cj = (int)Math.Floor(z + 0.5);
+            const int R = 2;
+            double sum = 0, weights = 0;
+            bool any = false;
+            for (int i = ci - R; i <= ci + R; i++)
+            {
+                double wx = Math.Exp(-(x - i) * (x - i) / (2 * BedBlur * BedBlur));
+                for (int j = cj - R; j <= cj + R; j++)
+                {
+                    double w = wx * Math.Exp(-(z - j) * (z - j) / (2 * BedBlur * BedBlur));
+                    weights += w;
+                    if (IsWet(new Tile(i, j)))
+                    {
+                        sum += w;
+                        any = true;
+                    }
+                }
+            }
+            if (!any)
+                return 0;
+            double blurred = WaterDepth * Smooth((sum / weights - 0.55) / 0.35);
+            if (!IsWet(new Tile(ci, cj)))
+                return blurred;
+            double fromMiddle = Math.Max(Math.Abs(x - ci), Math.Abs(z - cj));  // 0 in the middle, a half at its edge
+            return Math.Max(blurred, WaterDepth * 0.5 * (1 - Smooth((fromMiddle - 0.15) / 0.35)));
+        }
+
+        const double BedBlur = 0.6;  // the bed's blur, in tiles
+
+        /// The lie of the land before anything is levelled (ponds' and rivers' beds are dug after: Bed).
+        double Natural(double x, double z, double nearestLevel)
         {
             double h = Hills(x, z);
             // Ponds: nothing near one is raised (ponds form where their noise passes PondLevel; the hills hold it
@@ -614,15 +653,12 @@ namespace Epacenur.Core
             double margin = PondLevel(x, z) - PondNoise(x, z);
             double dry = Smooth((margin - 0.02) / 0.7);
             // Rivers carve valleys: the hills fall away to nothing at the water's edge. (No rivers near levelled ground.)
-            double dist = RiverDistance(x, z, out double strength);
+            RiverDistance(x, z, out double strength);
             double allow = RiverAllowed(x, z);
             double river = allow * strength;
             double width = RiverWidth * river;
             // The valley deepens gradually away from towns (water only runs where it's carved all the way down).
             double valley = 1 - Smooth(allow / RiverFull) * (1 - Smooth((ValleyDistance(x, z) - 2 * width) / RiverValley));  // fully carved all across the water
-            double wetPond = 1 - Smooth((margin + 0.05) / 0.1);
-            double wetRiver = Smooth(river / RiverFull) * (1 - Smooth(dist / (width + 0.5)));
-            depth = WaterDepth * Math.Max(wetPond, wetRiver);
             return Base(x, z) + h * dry * valley;
         }
 
@@ -729,7 +765,7 @@ namespace Epacenur.Core
             {
                 var c = plan.Level;
                 double cx = c.X + c.Width / 2.0, cz = c.Z + c.Height / 2.0;
-                plan.LevelHeight = Natural(cx, cz, 0, out _);
+                plan.LevelHeight = Natural(cx, cz, 0);
                 plan.HasLevelHeight = true;
             }
             return plan.LevelHeight;

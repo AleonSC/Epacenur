@@ -3,10 +3,11 @@
 // the vertex's own tile position (the map's local space, which doesn't move when the origin does). Two copies
 // of the ripples, half a cycle apart, take turns so the drift never stretches them.
 //
-// The water is see-through, by how deep it is (from the camera's depth texture): clear and pale in the
-// shallows, so the sandy bed shows, deeper and bluer further out, with a line of foam where it meets the shore.
-// Its outline (the first uv's x: 0 on the edge, 1 a little way in) fades it out softly at its edges; the first
-// uv's y (0 on the edge, 1 about a tile in) keeps it shallow-coloured near the shore.
+// The water is see-through, by how deep it is (each vertex colour's red: 0 to 1 of the overworld's water
+// depth, worked out from the land when the mesh is made): clear and pale in the shallows, so the sandy bed
+// shows, deeper and bluer further out, with a broken line of foam just in from the shore. Its outline (the
+// first uv's x: 0 on the edge, 1 a little way in) fades it out softly at its edges; the first uv's y (0 on
+// the edge, 1 about a tile in) keeps it shallow near the shore and places the foam.
 Shader "Epacenur/Water"
 {
     Properties
@@ -16,8 +17,7 @@ Shader "Epacenur/Water"
         _Scale ("Tiles per ripple texture", Float) = 4
         _Cycle ("Seconds per cycle", Float) = 1.5
         _Glossiness ("Smoothness", Range(0,1)) = 0.8
-        _Clear ("Depth that's fully coloured", Float) = 0.35
-        _Foam ("Depth the foam reaches", Float) = 0.07
+        _Clear ("Depth that's fully coloured (of the full depth)", Float) = 0.8
     }
     SubShader
     {
@@ -30,20 +30,18 @@ Shader "Epacenur/Water"
         #pragma target 3.0
 
         sampler2D _MainTex;
-        UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
         fixed4 _Color;
         float _Scale;
         float _Cycle;
         half _Glossiness;
         float _Clear;
-        float _Foam;
 
         struct Input
         {
             float2 flow;
             float2 spot;
             float2 edge;
-            float4 screenPos;
+            float4 color : COLOR;
         };
 
         void vert(inout appdata_full v, out Input o)
@@ -67,23 +65,21 @@ Shader "Epacenur/Water"
             half still = tex2D(_MainTex, uv * 0.6 + float2(_Time.y * 0.012, _Time.y * 0.008)).r;
             half r = lerp(still, moving, saturate(length(IN.flow) * 1.5));
 
-            // How much water lies between the surface and what's under it, along the view.
-            float scene = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(IN.screenPos)));
-            float depth = max(0, scene - IN.screenPos.w);
-            float body = saturate(depth / _Clear) * (0.35 + 0.65 * IN.edge.y);
+            // How deep: shallow by the shore, whatever the bed does.
+            float body = saturate(IN.color.r / _Clear) * (0.35 + 0.65 * IN.edge.y);
 
             float3 shallow = lerp(_Color.rgb, float3(0.55, 0.82, 0.85), 0.5);
             float3 deep = _Color.rgb * 0.6;
             float3 col = lerp(shallow, deep, body) * (0.82 + 0.36 * r);
-            // Foam: a broken line where the water thins out at the shore.
-            float foam = saturate(1 - depth / _Foam);
-            foam *= smoothstep(0.35, 0.65, r + foam * 0.45);
-            col = lerp(col, float3(0.95, 0.97, 0.98), foam * 0.85);
+            // Foam: a broken line just in from the shore.
+            float foam = smoothstep(0.03, 0.12, IN.edge.y) * (1 - smoothstep(0.16, 0.32, IN.edge.y));
+            foam *= smoothstep(0.45, 0.7, r + foam * 0.3);
+            col = lerp(col, float3(0.93, 0.96, 0.97), foam * 0.7);
 
             o.Albedo = col;
             o.Metallic = 0;
             o.Smoothness = _Glossiness;
-            o.Alpha = saturate(max(lerp(0.3, 0.85, body), foam * 0.9) * saturate(IN.edge.x));
+            o.Alpha = saturate(max(lerp(0.35, 0.88, body), foam * 0.8) * saturate(IN.edge.x));
         }
         ENDCG
     }

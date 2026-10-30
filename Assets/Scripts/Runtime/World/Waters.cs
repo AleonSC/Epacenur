@@ -4,118 +4,80 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// The surface of ponds and rivers in a chunk, with a rounded, natural outline rather than a square per
-    /// tile. Each water tile (bridges too: the water runs under them) counts 1 and each dry one 0; blurred
-    /// (a Gaussian over the tiles round) and wobbled a little by noise, that gives a smooth field, and the
-    /// water is where it's over a half: the shore runs along the edges of the water tiles where they're
-    /// straight, and curves across their steps and corners. Traced a quarter of a tile at a time (marching
-    /// squares). Each corner's first uv says how far inside the edge it is (x: 0 on it, 1 just inside; y: 0 on
-    /// it, 1 about a tile in), so the water shader fades it out there and tints the shallows; the second uv is
-    /// the river's flow.
+    /// The surface of ponds and rivers in a chunk. It ends exactly where the ground, as the ground mesh draws it
+    /// (a corner at each tile corner, two triangles a tile), rises out of the water, so it never hangs over the
+    /// ground or stops short of it: the shore is where the land meets the water, curving wherever the land
+    /// does. Only round the water tiles (bridges too: the water runs under them), so a hollow elsewhere stays
+    /// dry. Traced a quarter of a tile at a time (marching squares on the water's depth over the ground).
+    ///
+    /// Each corner carries how deep the water is there: its colour's red (0 to 1 of the overworld's water depth),
+    /// and its first uv (x: 0 on the shore, 1 a few centimetres deep; y: 0 on the shore, 1 well out), so the
+    /// water shader fades it in at the shore, tints the shallows and lays the foam; the second uv is the
+    /// river's flow. (So the shader needs no depth texture.)
     public static class Waters
     {
-        const int Sub = 4;        // samples a tile
-        const float Wobble = 0.2f;
-        const float Blur = 0.55f; // the Gaussian's spread, in tiles
-        const int Reach = 2;      // tiles round a point the blur looks at
+        const int Sub = 4;  // samples a tile
 
         static bool IsWater(Terrain t) => t == Terrain.Water || t == Terrain.Bridge;
 
         public static void Build(Overworld ow, int x0, int z0, int size, Transform root, Color colour)
         {
-            // Wet or not, for the chunk's tiles and Reach round it.
-            int span = size + Reach * 2;
-            var wet = new float[span, span];
+            // Water tiles, for the chunk's tiles and one round it.
+            int span = size + 2;
+            var wet = new bool[span, span];
             bool any = false;
             for (int i = 0; i < span; i++)
                 for (int j = 0; j < span; j++)
-                    if (IsWater(ow.At(new Tile(x0 - Reach + i, z0 - Reach + j))))
-                    {
-                        wet[i, j] = 1f;
-                        any |= i >= Reach - 1 && j >= Reach - 1 && i <= size + Reach && j <= size + Reach;
-                    }
+                    any |= wet[i, j] = IsWater(ow.At(new Tile(x0 - 1 + i, z0 - 1 + j)));
             if (!any)
                 return;
 
-            // The field at every sample point (the first is the chunk's corner, x0 - 0.5, z0 - 0.5): the blur is a
-            // Gaussian, so it's done along x then along z. A sample's offset from the tile centres repeats every
-            // tile, so the weights are worked out once for each of the Sub offsets.
+            // The ground's corners (the ground mesh's), and the water's height and flow at each sample point.
+            var corner = new float[size + 1, size + 1];
+            for (int i = 0; i <= size; i++)
+                for (int j = 0; j <= size; j++)
+                    corner[i, j] = (float)ow.Elevation(x0 - 0.5 + i, z0 - 0.5 + j);
             int n = size * Sub + 1;
-            // Sample a (or b) lies a % Sub quarters past the corner of chunk tile a / Sub; the tiles it looks at are
-            // chunk tiles a / Sub + k - Reach - 1 (k from 0), which are wet[a / Sub + k - 1].
-            var weight = new float[Sub, Reach * 2 + 2];  // [offset in a tile, k]
-            for (int o = 0; o < Sub; o++)
-                for (int k = 0; k < Reach * 2 + 2; k++)
-                {
-                    float d = -0.5f + o / (float)Sub - (k - Reach - 1);
-                    weight[o, k] = Mathf.Exp(-d * d / (2f * Blur * Blur));
-                }
-            // Along x: for each sample column, each tile row.
-            var across = new float[n, span];
-            var norm = new float[n];
-            for (int a = 0; a < n; a++)
-            {
-                int o = a % Sub, i0 = a / Sub;
-                for (int k = 0; k < Reach * 2 + 2; k++)
-                {
-                    int i = i0 + k - 1;
-                    if (i < 0 || i >= span)
-                        continue;
-                    norm[a] += weight[o, k];
-                    for (int j = 0; j < span; j++)
-                        across[a, j] += wet[i, j] * weight[o, k];
-                }
-            }
-            var field = new float[n, n];
+            var depth = new float[n, n];  // the water's surface less the ground: over 0 where there's water
+            var height = new float[n, n];
+            var flows = new Vector2[n, n];
             for (int a = 0; a < n; a++)
                 for (int b = 0; b < n; b++)
                 {
-                    int o = b % Sub, j0 = b / Sub;
-                    float sum = 0f, weights = 0f;
-                    for (int k = 0; k < Reach * 2 + 2; k++)
-                    {
-                        int j = j0 + k - 1;
-                        if (j < 0 || j >= span)
-                            continue;
-                        sum += across[a, j] * weight[o, k];
-                        weights += weight[o, k];
-                    }
+                    // Only on or next to the water tiles (a sample on a tile's edge or corner is on each tile it touches).
+                    bool near = false;
+                    for (int i = (a - 1) / Sub - 1; i <= a / Sub + 1 && !near; i++)
+                        for (int j = (b - 1) / Sub - 1; j <= b / Sub + 1 && !near; j++)
+                            if (i >= -1 && j >= -1 && i <= size && j <= size && wet[i + 1, j + 1])
+                                near = true;
                     float x = x0 - 0.5f + a / (float)Sub, z = z0 - 0.5f + b / (float)Sub;
-                    field[a, b] = sum / (weights * norm[a]) + (DirtPaths.Noise(x * 1.3f + 71.3f, z * 1.3f - 23.9f) - 0.5f) * Wobble;
+                    height[a, b] = (float)ow.WaterSurface(x, z);
+                    depth[a, b] = near ? height[a, b] - Ground(corner, a, b) : -1f;
+                    if (near)
+                    {
+                        ow.RiverFlow(x, z, out double fx, out double fz);
+                        flows[a, b] = new Vector2((float)fx, (float)fz);
+                    }
                 }
-            // The water's height and flow at each sample point, worked out the first time a cell needs them.
-            var height = new float[n, n];
-            var flows = new Vector2[n, n];
-            var known = new bool[n, n];
 
             var verts = new List<Vector3>();
-            var edge = new List<Vector2>();
+            var shore = new List<Vector2>();
             var flow = new List<Vector2>();
+            var deep = new List<Color>();
             var tris = new List<int>();
-            var poly = new List<Vector3>();  // x, z, and the field
+            var poly = new List<Vector3>();  // a, the depth, b (in samples)
             for (int a = 0; a < n - 1; a++)
                 for (int b = 0; b < n - 1; b++)
                 {
-                    float f00 = field[a, b], f10 = field[a + 1, b], f11 = field[a + 1, b + 1], f01 = field[a, b + 1];
-                    if (f00 <= 0.5f && f10 <= 0.5f && f11 <= 0.5f && f01 <= 0.5f)
+                    float d00 = depth[a, b], d10 = depth[a + 1, b], d11 = depth[a + 1, b + 1], d01 = depth[a, b + 1];
+                    if (d00 <= 0f && d10 <= 0f && d11 <= 0f && d01 <= 0f)
                         continue;
-                    // Round the cell's corners, keeping the corners in the water and where each side crosses the edge.
+                    // The cell's corners under water, and where each side reaches the shore.
                     poly.Clear();
-                    Corner(poly, a, b, f00, a + 1, b, f10);
-                    Corner(poly, a + 1, b, f10, a + 1, b + 1, f11);
-                    Corner(poly, a + 1, b + 1, f11, a, b + 1, f01);
-                    Corner(poly, a, b + 1, f01, a, b, f00);
-                    for (int c = 0; c < 4; c++)
-                    {
-                        int ca = a + (c == 1 || c == 2 ? 1 : 0), cb = b + (c >= 2 ? 1 : 0);
-                        if (known[ca, cb])
-                            continue;
-                        known[ca, cb] = true;
-                        float cx = x0 - 0.5f + ca / (float)Sub, cz = z0 - 0.5f + cb / (float)Sub;
-                        height[ca, cb] = (float)ow.WaterSurface(cx, cz);
-                        ow.RiverFlow(cx, cz, out double fx, out double fz);
-                        flows[ca, cb] = new Vector2((float)fx, (float)fz);
-                    }
+                    Corner(poly, a, b, d00, a + 1, b, d10);
+                    Corner(poly, a + 1, b, d10, a + 1, b + 1, d11);
+                    Corner(poly, a + 1, b + 1, d11, a, b + 1, d01);
+                    Corner(poly, a, b + 1, d01, a, b, d00);
                     int start = verts.Count;
                     foreach (var p in poly)
                     {
@@ -124,9 +86,11 @@ namespace Epacenur.Runtime
                         float u = p.x - a, v = p.z - b;
                         float h = Mathf.Lerp(Mathf.Lerp(height[a, b], height[a + 1, b], u), Mathf.Lerp(height[a, b + 1], height[a + 1, b + 1], u), v);
                         var fl = Vector2.Lerp(Vector2.Lerp(flows[a, b], flows[a + 1, b], u), Vector2.Lerp(flows[a, b + 1], flows[a + 1, b + 1], u), v);
+                        float d = Mathf.Max(p.y, 0f);
                         verts.Add(new Vector3(x, h, z));
-                        edge.Add(new Vector2(Mathf.Clamp01((p.y - 0.5f) * 5f), Mathf.Clamp01((p.y - 0.5f) * 2.2f)));
+                        shore.Add(new Vector2(Mathf.Clamp01(d / 0.04f), Mathf.Clamp01(d / 0.25f)));
                         flow.Add(fl);
+                        deep.Add(new Color(Mathf.Clamp01(d / (float)Overworld.WaterDepth), 0f, 0f, 1f));
                     }
                     // Facing up: the corners go round anticlockwise seen from above, so wind them the other way.
                     for (int k = 1; k + 1 < poly.Count; k++)
@@ -142,8 +106,9 @@ namespace Epacenur.Runtime
             if (verts.Count > 65000)
                 mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.vertices = verts.ToArray();
-            mesh.uv = edge.ToArray();
+            mesh.uv = shore.ToArray();
             mesh.uv2 = flow.ToArray();
+            mesh.colors = deep.ToArray();
             mesh.triangles = tris.ToArray();
             var up = new Vector3[verts.Count];
             for (int k = 0; k < up.Length; k++)
@@ -158,16 +123,26 @@ namespace Epacenur.Runtime
             go.AddComponent<OwnedMesh>().Mesh = mesh;
         }
 
-        /// One corner of a cell, and where the side from it to the next crosses the edge (if it does): in sample
-        /// units, with the field in y.
-        static void Corner(List<Vector3> poly, int a, int b, float f, int a2, int b2, float f2)
+        /// The ground's height at sample (a, b), as the ground mesh draws it: each tile is two triangles, split
+        /// along the diagonal from its (-x, +z) corner to its (+x, -z) corner.
+        static float Ground(float[,] corner, int a, int b)
         {
-            if (f > 0.5f)
-                poly.Add(new Vector3(a, f, b));
-            if ((f > 0.5f) != (f2 > 0.5f))
+            int i = Mathf.Min(a / Sub, corner.GetLength(0) - 2), j = Mathf.Min(b / Sub, corner.GetLength(1) - 2);
+            float u = (a - i * Sub) / (float)Sub, v = (b - j * Sub) / (float)Sub;
+            float c00 = corner[i, j], c01 = corner[i, j + 1], c10 = corner[i + 1, j], c11 = corner[i + 1, j + 1];
+            return u + v <= 1f ? c00 + (c10 - c00) * u + (c01 - c00) * v : c11 + (c01 - c11) * (1f - u) + (c10 - c11) * (1f - v);
+        }
+
+        /// One corner of a cell, if it's under water, and where the side from it to the next reaches the shore (if
+        /// it does): in sample units, with the depth in y.
+        static void Corner(List<Vector3> poly, int a, int b, float d, int a2, int b2, float d2)
+        {
+            if (d > 0f)
+                poly.Add(new Vector3(a, d, b));
+            if ((d > 0f) != (d2 > 0f))
             {
-                float t = (0.5f - f) / (f2 - f);
-                poly.Add(new Vector3(a + (a2 - a) * t, 0.5f, b + (b2 - b) * t));
+                float t = d / (d - d2);
+                poly.Add(new Vector3(a + (a2 - a) * t, 0f, b + (b2 - b) * t));
             }
         }
     }

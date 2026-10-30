@@ -106,11 +106,12 @@ outlines), ponds, forests, highlands (tan).*
   **grass, flowers and bushes bend and flutter** in it, and **trees' crowns sway** (`Assets/Resources/Epacenur/Sway.shader`).
 - **Rivers flow**: ripples drift along each river the way it runs, fastest in its middle, while ponds lie almost still
   (`Water.shader`, with each river's flow from `Overworld.RiverFlow`).
-- **Ponds and rivers** have rounded, natural shores (`Runtime/World/Waters.cs`: the water tiles blurred and traced at a
-  quarter-tile, so the shore follows the tiles you can't walk on but curves across their steps). The water is see-through by
-  depth (from the camera's depth texture): pale and clear in the shallows, deeper blue further out, with a broken line of foam
-  at the shore, fading out at its very edge. Sand lines the banks and the bed (painted with the dirt): wet and dark at the
-  water, dry and pale further up, fraying into the grass.
+- **Ponds and rivers**: their beds are dug under the water tiles, blurred so the bed's edge curves smoothly across the
+  tiles' steps, and their water lies just below the land at their edge (`Overworld.Bed`, `WaterSurface`), so no dry tile is
+  ever below the water. The water's surface (`Runtime/World/Waters.cs`) ends exactly where the ground rises out of it, so it
+  never hangs in the air. It's see-through by depth (worked out from the land, kept in the mesh, so the shader needs no depth
+  texture): pale and clear in the shallows, deeper blue further out, with a broken line of foam just in from the shore. Sand
+  lines the banks and the bed (painted with the dirt): wet and dark at the water, dry and pale further up, fraying into the grass.
 - **Wildlife**: **butterflies** flutter over meadows and woods on calm, dry days; **flocks of birds** cross the sky in a V now
   and then; **fireflies** blink over the grass on calm nights (`Runtime/Game/AmbientLife.cs`). None in a storm or underground.
 - **Lamp posts** line the roads of every town (up to 12, the ones round the square first). They light up a little before
