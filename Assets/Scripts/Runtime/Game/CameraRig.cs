@@ -28,6 +28,7 @@ namespace Epacenur.Runtime
             rig.Cam = cam;
             rig.player = player;
             rig.focus = player.transform.position;
+            cam.depthTextureMode |= DepthTextureMode.Depth;  // water reads it: clear in the shallows, foam at the shore
 
             rig.ApplyLens();
             return rig;

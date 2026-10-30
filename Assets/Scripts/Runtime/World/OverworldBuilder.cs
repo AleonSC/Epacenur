@@ -10,7 +10,7 @@ namespace Epacenur.Runtime
     public static class OverworldBuilder
     {
         static readonly Color Tilled = new Color(0.4f, 0.3f, 0.19f);
-        static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
+        static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f);
         static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f);
         static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f), Gravel = new Color(0.5f, 0.47f, 0.42f);
 
@@ -31,14 +31,13 @@ namespace Epacenur.Runtime
             // Dirt roads and the trampled ground of camps and cave mouths, fading into the ground round them.
             DirtPaths.Build(world, heights, x0, z0, size, root);
             // Ground overlays (paving, gravel, floors, fields): sheets that follow the ground.
-            Sheet(ow, terrain, x0, z0, root, Paving, 0f, 0.025f, false, (k, t) => k == Terrain.Stone);
-            Sheet(ow, terrain, x0, z0, root, Gravel, 0f, 0.02f, false, (k, t) => k == Terrain.Quarry || (k == Terrain.Rock && ow.PlanAt(t).Kind == RegionKind.Quarry));
-            Sheet(ow, terrain, x0, z0, root, Planks, 0f, 0.03f, false, (k, t) => k == Terrain.Floor || k == Terrain.Door);
-            Sheet(ow, terrain, x0, z0, root, Tilled, 0f, 0.02f, false, (k, t) => k == Terrain.Field);
-            // Water lies at its own level (it fills the valley floors), over a sandy edge that follows the banks;
-            // bridges carry you over rivers.
-            Sheet(ow, terrain, x0, z0, root, Sand, 0.35f, 0.02f, false, (k, t) => k == Terrain.Water || k == Terrain.Bridge);
-            Sheet(ow, terrain, x0, z0, root, Water, 0f, 0f, true, (k, t) => k == Terrain.Water || k == Terrain.Bridge);
+            Sheet(ow, terrain, x0, z0, root, Paving, 0.025f, (k, t) => k == Terrain.Stone);
+            Sheet(ow, terrain, x0, z0, root, Gravel, 0.02f, (k, t) => k == Terrain.Quarry || (k == Terrain.Rock && ow.PlanAt(t).Kind == RegionKind.Quarry));
+            Sheet(ow, terrain, x0, z0, root, Planks, 0.03f, (k, t) => k == Terrain.Floor || k == Terrain.Door);
+            Sheet(ow, terrain, x0, z0, root, Tilled, 0.02f, (k, t) => k == Terrain.Field);
+            // Water lies at its own level (it fills the valley floors), its shore rounded, over the sandy bed and banks
+            // DirtPaths paints; bridges carry you over rivers.
+            Waters.Build(ow, x0, z0, size, root, Water);
             Bridges(ow, terrain, x0, z0, root);
 
             // Trees and rocks. Each chunk has its own random numbers, so it looks the same every time.
@@ -135,42 +134,32 @@ namespace Epacenur.Runtime
             return heights;
         }
 
-        /// A sheet of quads, one per tile that `which` picks (grown by `grow` each side): at the water's surface
-        /// (`water`), or just over the ground, following it.
-        static void Sheet(Overworld ow, Terrain[,] terrain, int x0, int z0, Transform root, Color colour, float grow, float lift, bool water,
+        /// A sheet of quads, one per tile that `which` picks, just over the ground (by `lift`), following it.
+        static void Sheet(Overworld ow, Terrain[,] terrain, int x0, int z0, Transform root, Color colour, float lift,
             System.Func<Terrain, Tile, bool> which)
         {
             int size = terrain.GetLength(0);
             var verts = new List<Vector3>();
-            var flow = new List<Vector2>();  // water: which way and how fast it runs, for its ripples
             var tris = new List<int>();
             for (int x = 0; x < size; x++)
                 for (int z = 0; z < size; z++)
                 {
                     if (!which(terrain[x, z], new Tile(x0 + x, z0 + z)))
                         continue;
-                    float cx = x0 + x, cz = z0 + z, r = 0.5f + grow;
+                    float cx = x0 + x, cz = z0 + z, r = 0.5f;
                     int start = verts.Count;
                     foreach (var c in new[] { new Vector2(-r, -r), new Vector2(-r, r), new Vector2(r, -r), new Vector2(r, r) })
                     {
                         float px = cx + c.x, pz = cz + c.y;
-                        double y = water ? ow.WaterSurface(px, pz) : ow.Elevation(px, pz) + lift;
-                        verts.Add(new Vector3(px, (float)y, pz));
-                        if (water)
-                        {
-                            ow.RiverFlow(px, pz, out double fx, out double fz);
-                            flow.Add(new Vector2((float)fx, (float)fz));
-                        }
+                        verts.Add(new Vector3(px, (float)ow.Elevation(px, pz) + lift, pz));
                     }
                     tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
                     tris.Add(start + 2); tris.Add(start + 1); tris.Add(start + 3);
                 }
             if (verts.Count == 0)
                 return;
-            var mesh = new Mesh { name = water ? "Water" : "Shore" };
+            var mesh = new Mesh { name = "Overlay" };
             mesh.vertices = verts.ToArray();
-            if (water)
-                mesh.uv2 = flow.ToArray();
             mesh.triangles = tris.ToArray();
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -178,7 +167,7 @@ namespace Epacenur.Runtime
             go.layer = World.FarLayer;
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = water ? Visuals.WaterMat(colour) : Visuals.Mat(colour);
+            go.AddComponent<MeshRenderer>().sharedMaterial = Visuals.Mat(colour);
             go.AddComponent<OwnedMesh>().Mesh = mesh;
         }
 

@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Dirt roads, town squares and the trampled ground of camps and cave mouths, drawn as a skin over the
+    /// Dirt roads, town squares and the trampled ground of camps and cave mouths (and sand round and under ponds
+    /// and rivers, wet near the water, dry further off, showing through the shallows), drawn as a skin over the
     /// ground with a texture painted for each chunk: mottled brown earth with pebbles, its edge ragged and
     /// fading through worn grass into the ground round it. Away from the dirt the skin is painted with the
     /// ground's own texture, texel for texel (at the same resolution and tint), so it meets the ground
@@ -17,9 +18,13 @@ namespace Epacenur.Runtime
         const float Lift = 0.012f; // above the ground
 
         internal static readonly Color DirtDark = new Color(0.42f, 0.32f, 0.21f), DirtLight = new Color(0.6f, 0.49f, 0.34f),
-            Pebble = new Color(0.6f, 0.57f, 0.51f), PebbleDark = new Color(0.36f, 0.32f, 0.27f);
+            Pebble = new Color(0.6f, 0.57f, 0.51f), PebbleDark = new Color(0.36f, 0.32f, 0.27f),
+            SandDry = new Color(0.78f, 0.7f, 0.5f), SandPale = new Color(0.86f, 0.79f, 0.6f), SandWet = new Color(0.52f, 0.45f, 0.32f);
 
-        static bool IsDirt(Terrain t) => t == Terrain.Path || t == Terrain.Camp;
+        /// Kinds of ground the skin paints (0: none).
+        internal const byte Road = 1, Camp = 2, Sand = 3;
+
+        static byte KindOf(Terrain t) => t == Terrain.Path ? Road : t == Terrain.Camp ? Camp : t == Terrain.Water || t == Terrain.Bridge ? Sand : (byte)0;
 
         /// The dirt skin for a chunk, over its ground (`heights`: the ground's corner heights, as Ground makes them).
         public static void Build(World world, float[] heights, int x0, int z0, int size, Transform root)
@@ -27,15 +32,16 @@ namespace Epacenur.Runtime
             var ow = world.Overworld;
             // Which tiles round the chunk are dirt (and which kind), out to Reach beyond its edges.
             int span = size + Reach * 2;
-            var dirt = new byte[span, span];  // 0: none, 1: road, 2: camp
+            var dirt = new byte[span, span];  // the kind of ground on each tile (Road, Camp, Sand), 0 for none
             bool any = false;
             for (int i = 0; i < span; i++)
                 for (int j = 0; j < span; j++)
                 {
                     var t = ow.At(new Tile(x0 - Reach + i, z0 - Reach + j));
-                    if (IsDirt(t))
+                    byte k = KindOf(t);
+                    if (k != 0)
                     {
-                        dirt[i, j] = (byte)(t == Terrain.Camp ? 2 : 1);
+                        dirt[i, j] = k;
                         any = true;
                     }
                 }
@@ -113,7 +119,57 @@ namespace Epacenur.Runtime
             var owned = go.AddComponent<OwnedMesh>();
             owned.Mesh = mesh;
             owned.Material = mat;
-            go.AddComponent<DirtPainter>().Begin(dirt, tint, texture, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
+            go.AddComponent<DirtPainter>().Begin(dirt, Shore(ow, x0, z0, size), tint, texture, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
+        }
+
+        const float ShoreBlur = 1f;  // the spread of the blur the sand's distance from the water comes from, in tiles
+
+        /// How wet the land is round each of the chunk's tiles and one round it (index +1), blurred (a Gaussian
+        /// over the water tiles within 2): 1 well out on the water, a half on a straight shore, falling off inland.
+        /// The sand takes its distance from the water from this (ShoreDistance), so it follows the shore smoothly.
+        static float[,] Shore(Overworld ow, int x0, int z0, int size)
+        {
+            const int R = 2;
+            int span = size + 2 + R * 2;
+            var wet = new bool[span, span];
+            bool any = false;
+            for (int i = 0; i < span; i++)
+                for (int j = 0; j < span; j++)
+                {
+                    var t = ow.At(new Tile(x0 - 1 - R + i, z0 - 1 - R + j));
+                    any |= wet[i, j] = t == Terrain.Water || t == Terrain.Bridge;
+                }
+            var shore = new float[size + 2, size + 2];
+            if (!any)
+                return shore;
+            for (int i = 0; i < size + 2; i++)
+                for (int j = 0; j < size + 2; j++)
+                {
+                    float sum = 0f, weights = 0f;
+                    for (int a = -R; a <= R; a++)
+                        for (int b = -R; b <= R; b++)
+                        {
+                            float wgt = Mathf.Exp(-(a * a + b * b) / (2f * ShoreBlur * ShoreBlur));
+                            weights += wgt;
+                            if (wet[i + R + a, j + R + b])
+                                sum += wgt;
+                        }
+                    shore[i, j] = sum / weights;
+                }
+            return shore;
+        }
+
+        /// How far a point is from the water's edge (tiles; 0 on the water), from the blurred wetness there: on a
+        /// straight shore the blur falls off as the normal curve's tail does, so its inverse gives the distance.
+        internal static float ShoreDistance(float wetness)
+        {
+            if (wetness >= 0.5f)
+                return 0f;
+            float p = Mathf.Max(wetness, 1e-4f);
+            float t = Mathf.Sqrt(-2f * Mathf.Log(p));
+            // Abramowitz and Stegun's approximation of the normal curve's inverse.
+            float z = t - (2.515517f + 0.802853f * t + 0.010328f * t * t) / (1f + 1.432788f * t + 0.189269f * t * t + 0.001308f * t * t * t);
+            return z * ShoreBlur;
         }
 
         /// The texels of the texture the ground wears for this kind of ground (made by script, so readable).
@@ -179,6 +235,7 @@ namespace Epacenur.Runtime
         static double spent;
 
         byte[,] dirt;
+        float[,] shore;
         Color[,] tint;
         Color32[,][] texture;
         Color32[] earth;
@@ -188,10 +245,11 @@ namespace Epacenur.Runtime
         MeshRenderer target;
         OwnedMesh owned;
 
-        public void Begin(byte[,] dirt, Color[,] tint, Color32[,][] texture, Color32[] earth, bool[,] covered, int x0, int z0, int size,
+        public void Begin(byte[,] dirt, float[,] shore, Color[,] tint, Color32[,][] texture, Color32[] earth, bool[,] covered, int x0, int z0, int size,
             MeshRenderer target, OwnedMesh owned)
         {
             this.dirt = dirt;
+            this.shore = shore;
             this.tint = tint;
             this.texture = texture;
             this.earth = earth;
@@ -277,7 +335,7 @@ namespace Epacenur.Runtime
                     for (int b = -Reach - 1; b <= Reach; b++)
                     {
                         int di = i + Reach + a, dj = j + Reach + b;
-                        if (di < 0 || dj < 0 || di >= size + Reach * 2 || dj >= size + Reach * 2 || dirt[di, dj] == 0)
+                        if (di < 0 || dj < 0 || di >= size + Reach * 2 || dj >= size + Reach * 2 || dirt[di, dj] == 0 || dirt[di, dj] == DirtPaths.Sand)
                             continue;
                         float dx = Mathf.Max(Mathf.Abs(x - (x0 + i + a)) - 0.5f, 0f), dz = Mathf.Max(Mathf.Abs(z - (z0 + j + b)) - 0.5f, 0f);
                         float d = dx * dx + dz * dz;
@@ -287,11 +345,30 @@ namespace Epacenur.Runtime
                             kind = dirt[di, dj];
                         }
                     }
+                best = Mathf.Sqrt(best);
+                // Sand: how far from the water's smooth edge, from the blurred wetness (blended between tile centres).
+                float sand = DirtPaths.ShoreDistance(Wetness(x - x0, z - z0));
+                if (sand < best)
+                {
+                    best = sand;
+                    kind = DirtPaths.Sand;
+                }
                 // The edge wanders in and out of the grass (noise).
-                edge[k] = Mathf.Sqrt(best) + (DirtPaths.Fbm2(x * 0.9f, z * 0.9f) - 0.5f) * 0.9f;
+                edge[k] = best + (DirtPaths.Fbm2(x * 0.9f, z * 0.9f) - 0.5f) * 0.9f;
                 mottle[k] = DirtPaths.Noise(x * 2.2f + 31.7f, z * 2.2f - 12.3f);
                 nodeKind[k] = kind;
             }
+        }
+
+        /// The blurred wetness at a point (u, v: tiles from the chunk's first tile's centre), blended smoothly
+        /// between tile centres.
+        float Wetness(float u, float v)
+        {
+            int i = Mathf.Clamp(Mathf.FloorToInt(u), -1, size - 1), j = Mathf.Clamp(Mathf.FloorToInt(v), -1, size - 1);
+            float fu = Mathf.Clamp01(u - i), fv = Mathf.Clamp01(v - j);
+            fu = fu * fu * (3f - 2f * fu);
+            fv = fv * fv * (3f - 2f * fv);
+            return Mathf.Lerp(Mathf.Lerp(shore[i + 1, j + 1], shore[i + 2, j + 1], fu), Mathf.Lerp(shore[i + 1, j + 2], shore[i + 2, j + 2], fu), fv);
         }
 
         void PaintRow(int py)
@@ -317,6 +394,8 @@ namespace Epacenur.Runtime
                 int q0 = pxx / Step, k = r0 * nodes + q0;
                 float fx = (pxx % Step) / (float)Step;
                 float e = Mathf.Lerp(Mathf.Lerp(edge[k], edge[k + 1], fx), Mathf.Lerp(edge[k + nodes], edge[k + nodes + 1], fx), fz);
+                if (nodeKind[k] == DirtPaths.Sand)
+                    e -= 0.5f;  // a shore's sand reaches further out than a road's dirt
                 if (e < 1.5f)
                 {
                     // Worn grass: paler and yellower, out to about a tile and a half.
@@ -332,13 +411,25 @@ namespace Epacenur.Runtime
                         amount = Mathf.Clamp01(amount + grain * 1.4f * amount * (1f - amount) * 4f);
                         // The earth: light and dark patches, a few pebbles, darker where it's thin (trodden into the grass).
                         float m = Mathf.Lerp(Mathf.Lerp(mottle[k], mottle[k + 1], fx), Mathf.Lerp(mottle[k + nodes], mottle[k + nodes + 1], fx), fz);
-                        var soil = Color.Lerp(DirtPaths.DirtDark, DirtPaths.DirtLight, Mathf.Clamp01(m * 1.4f - 0.2f));
-                        soil *= earth[texel].r / 255f * 1.15f;  // the grain of the ground's earth texture
-                        if (nodeKind[k] == 2)
-                            soil *= 0.88f;  // trampled camp ground: a little darker
-                        float pebble = DirtPaths.Hash((wx / 3) + 911, (wz / 3) - 377);
-                        if (pebble > 0.975f && amount > 0.7f)
-                            soil = pebble > 0.99f ? DirtPaths.Pebble : DirtPaths.PebbleDark;
+                        Color soil;
+                        byte kind = nodeKind[k];
+                        if (kind == DirtPaths.Sand)
+                        {
+                            // Sand: pale and dry away from the water, darker and wet by it and under it.
+                            soil = Color.Lerp(DirtPaths.SandDry, DirtPaths.SandPale, Mathf.Clamp01(m * 1.6f - 0.3f));
+                            soil = Color.Lerp(soil, DirtPaths.SandWet, 1f - DirtPaths.Smooth(-0.45f, -0.05f, e));
+                            soil *= 0.93f + earth[texel].r / 255f * 0.12f;  // a finer grain than earth's
+                        }
+                        else
+                        {
+                            soil = Color.Lerp(DirtPaths.DirtDark, DirtPaths.DirtLight, Mathf.Clamp01(m * 1.4f - 0.2f));
+                            soil *= earth[texel].r / 255f * 1.15f;  // the grain of the ground's earth texture
+                            if (kind == DirtPaths.Camp)
+                                soil *= 0.88f;  // trampled camp ground: a little darker
+                            float pebble = DirtPaths.Hash((wx / 3) + 911, (wz / 3) - 377);
+                            if (pebble > 0.975f && amount > 0.7f)
+                                soil = pebble > 0.99f ? DirtPaths.Pebble : DirtPaths.PebbleDark;
+                        }
                         soil = Color.Lerp(soil * 0.85f, soil, DirtPaths.Smooth(0.3f, 0.85f, amount));
                         c = Color.Lerp(c, soil, amount);
                     }
