@@ -205,6 +205,52 @@ namespace Epacenur.Runtime
             }
         }
 
+        /// Merges every mesh under `root` into one on `root` itself (a sub-mesh per material), with a collider if
+        /// asked, and takes the pieces away: a whole town wall drawn and hit as one.
+        public static void Merge(Transform root, bool collider)
+        {
+            var byMaterial = new Dictionary<Material, List<CombineInstance>>();
+            var toLocal = root.worldToLocalMatrix;
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>())
+            {
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null)
+                    continue;
+                var mats = r.sharedMaterials;
+                var m = toLocal * r.transform.localToWorldMatrix;
+                for (int s = 0; s < mf.sharedMesh.subMeshCount && s < mats.Length; s++)
+                {
+                    if (!byMaterial.TryGetValue(mats[s], out var list))
+                        byMaterial[mats[s]] = list = new List<CombineInstance>();
+                    list.Add(new CombineInstance { mesh = mf.sharedMesh, subMeshIndex = s, transform = m });
+                }
+            }
+            for (int i = root.childCount - 1; i >= 0; i--)
+                Object.Destroy(root.GetChild(i).gameObject);
+            if (byMaterial.Count == 0)
+                return;
+            var parts = new CombineInstance[byMaterial.Count];
+            var materials = new Material[byMaterial.Count];
+            int k = 0;
+            foreach (var kv in byMaterial)
+            {
+                var one = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                one.CombineMeshes(kv.Value.ToArray(), true, true);
+                parts[k] = new CombineInstance { mesh = one, transform = Matrix4x4.identity };
+                materials[k++] = kv.Key;
+            }
+            var mesh = new Mesh { name = root.name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            mesh.CombineMeshes(parts, false, false);
+            mesh.RecalculateBounds();
+            foreach (var p in parts)
+                Object.Destroy(p.mesh);
+            root.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+            root.gameObject.AddComponent<MeshRenderer>().sharedMaterials = materials;
+            root.gameObject.AddComponent<OwnedMesh>().Mesh = mesh;
+            if (collider)
+                root.gameObject.AddComponent<MeshCollider>().sharedMesh = mesh;
+        }
+
         /// A child (at any depth) with this name, or null.
         public static Transform Find(Transform root, string name)
         {

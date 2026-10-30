@@ -23,6 +23,7 @@ namespace Epacenur.Core
         Stall,  // a market stall in a town square (which one: Spawning, by distance)
         Fence,  // round a farm's field
         Field,  // the tilled ground of a farm's field (its patches stand on it)
+        TownWall, // the wall round a town: stone round a city, a wooden palisade round a town
     }
 
     public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop, Farm }
@@ -89,6 +90,7 @@ namespace Epacenur.Core
         public readonly List<Building> Buildings = new List<Building>();
         public readonly List<Tile> Lamps = new List<Tile>();  // lamp posts along the roads (they light up at night)
         public readonly List<Tile> Patches = new List<Tile>();  // the farm's farming patches (even: herb, odd: allotment)
+        public bool HasWell; public Tile Well;  // the town well, beside a road near the square
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
         public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry || t == Terrain.Bridge || t == Terrain.Field;
@@ -106,16 +108,18 @@ namespace Epacenur.Core
             w.Spawn = new Tile(size / 2, size / 2);
             PlaceBuildings(w, rng, city);
             LayRoads(w);
-            // Two market stalls at corners of the square (the square is paved, so you can always walk round them).
-            int stalls = 0;
+            // Market stalls at corners of the square (the square is paved, so you can always walk round them): two in a
+            // town, all four in a city.
+            int stalls = 0, most = city ? 4 : 2;
             foreach (var c in new[] { new Tile(w.Spawn.X - 3, w.Spawn.Z + 3), new Tile(w.Spawn.X + 3, w.Spawn.Z + 3),
                 new Tile(w.Spawn.X - 3, w.Spawn.Z - 3), new Tile(w.Spawn.X + 3, w.Spawn.Z - 3) })
-                if (stalls < 2 && (w.Map[c.X, c.Z] == Terrain.Grass || w.Map[c.X, c.Z] == Terrain.Path))
+                if (stalls < most && (w.Map[c.X, c.Z] == Terrain.Grass || w.Map[c.X, c.Z] == Terrain.Path))
                 {
                     w.Map[c.X, c.Z] = Terrain.Stall;
                     stalls++;
                 }
             PlaceLamps(w);
+            PlaceWell(w);
             foreach (var b in w.Buildings)
                 w.Patches.AddRange(b.Patches);
             foreach (var b in w.Buildings)
@@ -140,6 +144,25 @@ namespace Epacenur.Core
                         clear = false;
                 if (clear)
                     w.Lamps.Add(s);
+            }
+        }
+
+        /// The town well: on the grass beside a road, a little way out from the square, clear of the lamp posts.
+        static void PlaceWell(TownLayout w)
+        {
+            foreach (var s in RoadsideSpots(w))
+            {
+                if (s.StepsTo(w.Spawn) < 5)
+                    continue;
+                bool clear = true;
+                foreach (var l in w.Lamps)
+                    if (l.StepsTo(s) < 3)
+                        clear = false;
+                if (!clear)
+                    continue;
+                w.HasWell = true;
+                w.Well = s;
+                return;
             }
         }
 

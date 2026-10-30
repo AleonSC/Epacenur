@@ -853,6 +853,24 @@ namespace Epacenur.Runtime
             return clerk;
         }
 
+        /// A town well (fill vials at it).
+        public WellObject AddWell(Tile tile)
+        {
+            var owner = OwnerAt(tile);
+            var well = Own(WellObject.Create(tile, owner.Root), owner);
+            Grid.SetBlocked(tile, true);
+            return well;
+        }
+
+        /// A signpost by the road out of a town.
+        public SignpostObject AddSignpost(Signpost sign, string here)
+        {
+            var owner = OwnerAt(sign.At);
+            var post = Own(SignpostObject.Create(sign, here, owner.Root), owner);
+            Grid.SetBlocked(sign.At, true);
+            return post;
+        }
+
         public Npc AddNpc(NpcDef def, Tile tile, RectInt home)
         {
             var owner = OwnerAt(tile);
@@ -1000,7 +1018,7 @@ namespace Epacenur.Runtime
             {
                 case Terrain.Tree: return MapTree;
                 case Terrain.Water: return MapWater;
-                case Terrain.Wall: return MapWall;
+                case Terrain.Wall: case Terrain.TownWall: return MapWall;
                 case Terrain.Floor: case Terrain.Door: return MapFloor;
                 case Terrain.Path: return MapPath;
                 case Terrain.Camp: return MapCamp;

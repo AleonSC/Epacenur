@@ -8,7 +8,7 @@ namespace Epacenur.Content
     {
         public const string Skill = "woodcutting", Logs = "logs", OakLogs = "oak_logs", WillowLogs = "willow_logs",
             MapleLogs = "maple_logs", YewLogs = "yew_logs", BronzeHatchet = "bronze_hatchet",
-            Tree = "tree", Oak = "oak_tree", Willow = "willow_tree", Maple = "maple_tree", Yew = "yew_tree";
+            Tree = "tree", Birch = "birch_tree", Pine = "pine_tree", DeadTree = "dead_tree", Blossom = "blossom_tree", Oak = "oak_tree", Willow = "willow_tree", Maple = "maple_tree", Yew = "yew_tree";
 
         /// A small axe pointing forward (+z) from the grip.
         public static Model Axe(Rgb head) => new Model()
@@ -47,6 +47,14 @@ namespace Epacenur.Content
             var trunk = new Rgb(0.42f, 0.28f, 0.15f);
             TreeNode(db, Tree, "Tree", "One of the most common trees in the land.", Logs, "logs", 1, 25, 64, 200, 3, 6, 12f,
                 trunk, new Rgb(0.22f, 0.55f, 0.2f), 1f, 0, 6, Biome.Meadow, 0);
+            Kin(db, Birch, "Birch", "A slender tree with pale bark.", new Rgb(0.86f, 0.84f, 0.78f), new Rgb(0.48f, 0.7f, 0.3f), 0.9f,
+                new SpawnRule { Weight = 4, Biome = Biome.Meadow }, new SpawnRule { Weight = 3.5, Biome = Biome.Woodland });
+            Kin(db, Pine, "Pine tree", "A tall pine, smelling of resin.", new Rgb(0.42f, 0.25f, 0.15f), new Rgb(0.14f, 0.36f, 0.2f), 1.15f,
+                new SpawnRule { Weight = 12, Biome = Biome.Highlands }, new SpawnRule { Weight = 1.5, Biome = Biome.Woodland });
+            Kin(db, Blossom, "Blossom tree", "Covered in pink blossom.", new Rgb(0.38f, 0.26f, 0.2f), new Rgb(0.95f, 0.62f, 0.75f), 0.95f,
+                new SpawnRule { Weight = 2.5, Biome = Biome.Meadow });
+            Kin(db, DeadTree, "Dead tree", "This tree has long since died.", new Rgb(0.36f, 0.31f, 0.26f), new Rgb(0.36f, 0.31f, 0.26f), 1f,
+                new SpawnRule { Weight = 5, Biome = Biome.Wasteland }, new SpawnRule { Weight = 0.6, Biome = Biome.Highlands });
             TreeNode(db, Oak, "Oak", "A beautiful old oak.", OakLogs, "oak logs", 15, 37.5, 32, 100, 3, 8, 14f,
                 new Rgb(0.4f, 0.3f, 0.18f), new Rgb(0.27f, 0.5f, 0.18f), 1.25f, 0, 2.5, Biome.Woodland, 0);
             TreeNode(db, Willow, "Willow", "A droopy tree.", WillowLogs, "willow logs", 30, 67.5, 16, 50, 3, 10, 14f,
@@ -65,12 +73,13 @@ namespace Epacenur.Content
         }
 
         /// A tree: a trunk flaring into roots, with a leafy crown (which shakes when chopped), then a stump for a while.
-        static void TreeNode(ContentDb db, string id, string name, string examine, string logs, string logName, int level, double xp,
+        static NodeDef TreeNode(ContentDb db, string id, string name, string examine, string logs, string logName, int level, double xp,
             int low, int high, int minLives, int maxLives, float respawn, Rgb trunk, Rgb leaf, float size, int minDanger, double weight,
             Biome likes, int likesFrom)
         {
             var crown = id == Oak ? OakCrown(leaf) : id == Willow ? WillowCrown(leaf) : id == Maple ? MapleCrown(leaf)
-                : id == Yew ? YewCrown(leaf) : RoundCrown(leaf);
+                : id == Yew ? YewCrown(leaf) : id == Birch ? BirchCrown(leaf) : id == Pine ? PineCrown(leaf) : id == Blossom ? BlossomCrown(leaf)
+                : id == DeadTree ? DeadCrown(leaf) : RoundCrown(leaf);
             float h = 2.5f * size;
             var node = new NodeDef
             {
@@ -93,6 +102,21 @@ namespace Epacenur.Content
             node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDanger = minDanger, Weight = weight });
             node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDanger = likesFrom, Weight = weight * 1.5, Biome = likes });
             db.Add(node);
+            return node;
+        }
+
+        /// The everyday trees' kin, for logs like a plain tree's: birches in the meadows and woods, pines up in
+        /// the highlands, blossom trees in the meadows, and dead trees in the wasteland. Each grows only where it
+        /// belongs.
+        static void Kin(ContentDb db, string id, string name, string examine, Rgb trunk, Rgb leaf, float size, params SpawnRule[] where)
+        {
+            var node = TreeNode(db, id, name, examine, Logs, "logs", 1, 25, 64, 200, 3, 6, 12f, trunk, leaf, size, 0, 0, Biome.Meadow, 0);
+            node.Spawns.Clear();
+            foreach (var w in where)
+            {
+                w.On = Terrain.Tree;
+                node.Spawns.Add(w);
+            }
         }
 
         /// Four roots spreading out from the foot of the trunk.
@@ -177,6 +201,52 @@ namespace Epacenur.Content
             Clumps(m, red, 0f, 0.55f, 0f, 0.72f, 4, 0.9f, 5);
             Clumps(m, gold, 0f, 0.7f, 0f, 0.55f, 3, 0.8f, 4);
             return m.Sphere(0f, 1.3f, 0f, 0.9f, 0.8f, 0.9f, leaf * 1.1f);
+        }
+
+        /// A birch's: light and airy, small clumps of leaves spread high and loose.
+        static Model BirchCrown(Rgb leaf)
+        {
+            var m = new Model().Sphere(0f, 0.6f, 0f, 1.2f, 1.7f, 1.2f, leaf * 0.85f);
+            Clumps(m, leaf, 0f, 0.7f, 0f, 0.6f, 9, 0.7f, 6);
+            return m.Sphere(0.1f, 1.55f, 0f, 0.6f, 0.6f, 0.6f, leaf * 1.15f);
+        }
+
+        /// A pine's: tiers of dark needles, each narrower than the one below, to a sharp top.
+        static Model PineCrown(Rgb leaf)
+        {
+            var m = new Model();
+            for (int k = 0; k < 5; k++)
+            {
+                float w = 2.2f - k * 0.42f;
+                m.Cylinder(0f, -0.5f + k * 0.62f, 0f, w, 0.16f, w, leaf * (0.82f + k * 0.07f));
+                m.Cylinder(0f, -0.32f + k * 0.62f, 0f, w * 0.72f, 0.14f, w * 0.72f, leaf * (0.9f + k * 0.07f));
+            }
+            return m.Cylinder(0f, 2.75f, 0f, 0.22f, 0.35f, 0.22f, leaf * 1.2f);
+        }
+
+        /// A blossom tree's: a round crown thick with pink flowers, a few green leaves showing through.
+        static Model BlossomCrown(Rgb blossom)
+        {
+            var m = new Model().Sphere(0f, 0.3f, 0f, 1.9f, 1.4f, 1.9f, new Rgb(0.4f, 0.55f, 0.28f));
+            Clumps(m, blossom, 0f, 0.35f, 0f, 0.78f, 10, 0.95f, 2);
+            Clumps(m, new Rgb(0.98f, 0.9f, 0.93f), 0f, 0.5f, 0f, 0.7f, 4, 0.55f, 7);
+            return m.Sphere(0f, 0.95f, 0f, 1.1f, 0.75f, 1.1f, blossom * 1.05f);
+        }
+
+        /// A dead tree's: bare, crooked branches.
+        static Model DeadCrown(Rgb bark)
+        {
+            var m = new Model();
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * 60f + (i % 2) * 17f, rad = a * (float)System.Math.PI / 180f;
+                float len = 0.6f + (i % 3) * 0.2f, lean = 40f + (i % 3) * 12f;
+                m.Cylinder((float)System.Math.Sin(rad) * 0.35f, -0.3f + (i % 3) * 0.3f, (float)System.Math.Cos(rad) * 0.35f, 0.09f, len, 0.09f, bark * (0.9f + (i % 2) * 0.1f))
+                 .Turn(lean * (float)System.Math.Cos(rad), 0f, -lean * (float)System.Math.Sin(rad));
+                m.Cylinder((float)System.Math.Sin(rad) * 0.9f, 0.35f + (i % 3) * 0.3f, (float)System.Math.Cos(rad) * 0.9f, 0.05f, 0.3f, 0.05f, bark * 0.85f)
+                 .Turn(-20f * (float)System.Math.Cos(rad), 0f, 20f * (float)System.Math.Sin(rad));
+            }
+            return m.Cylinder(0f, 0.2f, 0f, 0.12f, 0.6f, 0.12f, bark);
         }
 
         /// A yew's: dark tiers of needles, narrowing to a point.

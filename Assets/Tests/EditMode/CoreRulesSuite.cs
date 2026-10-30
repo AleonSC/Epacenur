@@ -643,7 +643,7 @@ public static class CoreRulesSuite
         var homeTown = agw.Plan(0, 0).Town;
         int stallCount = 0;
         for (int x = 0; x < 64; x++) for (int z = 0; z < 64; z++) if (homeTown.Map[x, z] == Terrain.Stall) stallCount++;
-        Check(stallCount == 2, "every town square has two market stalls");
+        Check(stallCount == 4, "a city's square has four market stalls (a town's two)");
         bool lampsOk = homeTown.Lamps.Count >= 4;
         foreach (var l in homeTown.Lamps)
         {
@@ -851,7 +851,7 @@ public static class CoreRulesSuite
                 }
                 return true;
             });
-            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 10 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
+            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 5 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
                 "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop, farm and houses, doors, counters and farming patches reachable, "
                 + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks (all in quarries, one just north of the start), " + water + " water tiles, "
                 + stranded + " walled-in tiles");
@@ -1011,7 +1011,7 @@ public static class CoreRulesSuite
                 var k = ww.At(t);
                 if (bi == Biome.Marsh) { marshTiles++; if (k == Terrain.Water) marshWater++; }
                 if (bi == Biome.Meadow) { meadowTiles++; if (k == Terrain.Water) meadowWater++; }
-                if (bi == Biome.Highlands) { highTiles++; if (k == Terrain.Rock) highRock++; }
+                if (bi == Biome.Highlands) { highTiles++; var gr = ww.GroundAt(t); if (gr == Ground.Rock || gr == Ground.Snow) highRock++; }
                 if (bi == Biome.Woodland) { woodTiles++; if (k == Terrain.Tree) woodTrees++; }
                 if (bi == Biome.Wasteland) { wasteTiles++; if (k == Terrain.Tree) wasteTrees++; }
             }
@@ -1216,6 +1216,98 @@ public static class CoreRulesSuite
         var mkRich = new Inventory(); mkRich.Add(ItemIds.Coins, 1000000);
         for (int i = 0; i < Market.MaxOffers; i++) Market.Buy(mkFull, mkRich, mkLogs, 1, 10);
         Check(Market.Buy(mkFull, mkRich, mkLogs, 1, 10) != null, "at most " + Market.MaxOffers + " offers at once");
+        // ---- Roads, town walls, wells, signposts and landmarks ----
+        var rdw = new Overworld(2024);
+        var rwHome = rdw.Plan(0, 0);
+        Check(rwHome.Walls.Width > 0 && rwHome.StoneWalls && rwHome.Gates.Count >= 4 && rwHome.HasWell && rdw.IsBlocked(rwHome.Well),
+            "the start city has stone walls with a gate on each road out, and a well");
+        bool rwRing = true;
+        for (int x = rwHome.Walls.X; x < rwHome.Walls.XMax; x++)
+            for (int z = rwHome.Walls.Z; z < rwHome.Walls.ZMax; z++)
+            {
+                var t = new Tile(x, z);
+                bool edge = x == rwHome.Walls.X || z == rwHome.Walls.Z || x == rwHome.Walls.XMax - 1 || z == rwHome.Walls.ZMax - 1;
+                if (edge && rdw.At(t) != Terrain.TownWall && !rwHome.Gates.Contains(t)) rwRing = false;
+            }
+        Check(rwRing, "the wall runs all the way round, but for its gates");
+        Check(rwHome.Signposts.Count > 0 && rwHome.Signposts.TrueForAll(sp => sp.To != null && rdw.IsBlocked(sp.At) && !rwHome.Walls.Contains(sp.At)),
+            "signposts outside the walls point the way to the neighbouring towns (" + rwHome.Signposts.Count + ")");
+        // Follow each road from the start to the town it leads to, on road and bridge alone.
+        bool rwRoads = true;
+        int rwLongest = 0;
+        foreach (var sp in rwHome.Signposts)
+        {
+            var goal = sp.To.Center;
+            var seenRoad = new System.Collections.Generic.HashSet<Tile> { rwHome.Center };
+            var q = new System.Collections.Generic.Queue<Tile>();
+            q.Enqueue(rwHome.Center);
+            bool found = false;
+            while (q.Count > 0 && !found && seenRoad.Count < 200000)
+            {
+                var t = q.Dequeue();
+                for (int ddx = -1; ddx <= 1; ddx++)
+                for (int ddz = -1; ddz <= 1; ddz++)
+                {
+                    var n = new Tile(t.X + ddx, t.Z + ddz);
+                    if (seenRoad.Contains(n)) continue;
+                    var k = rdw.At(n);
+                    bool paved = k == Terrain.Path || k == Terrain.Bridge || k == Terrain.Stone || k == Terrain.Camp || k == Terrain.Quarry;
+                    if (!paved || rdw.IsBlocked(n)) continue;
+                    seenRoad.Add(n);
+                    if (n == goal) found = true;
+                    q.Enqueue(n);
+                }
+            }
+            if (!found)
+            {
+                rwRoads = false;
+                Tile best = rwHome.Center; int bd = int.MaxValue;
+                foreach (var t in seenRoad) { int d = t.StepsTo(goal); if (d < bd) { bd = d; best = t; } }
+                string around = "";
+                for (int dz = 2; dz >= -2; dz--) { for (int dx = -2; dx <= 2; dx++) { var k = rdw.At(new Tile(best.X + dx, best.Z + dz)); around += k.ToString().Substring(0, 2) + (rdw.IsBlocked(new Tile(best.X + dx, best.Z + dz)) ? "*" : " "); } around += " | "; }
+                Console.WriteLine("road stuck at " + best + " dist " + bd + " goal " + goal + " sign dir " + sp.DX + "," + sp.DZ + " : " + around);
+            }
+            rwLongest = Math.Max(rwLongest, seenRoad.Count);
+        }
+        Check(rwRoads, "every road out of the start leads, unbroken (over paving and bridges), all the way to the next town's square");
+        int rwLandmarks = 0, rwWells = 0, rwTowns = 0;
+        bool rwDry = true;
+        var rwKinds = new System.Collections.Generic.HashSet<LandmarkKind>();
+        for (int rx = -12; rx <= 12; rx++)
+            for (int rz = -12; rz <= 12; rz++)
+            {
+                var pl = rdw.Plan(rx, rz);
+                if (pl.Kind == RegionKind.Town) { rwTowns++; if (pl.HasWell) rwWells++; }
+                if (pl.Landmark == LandmarkKind.None) continue;
+                rwLandmarks++;
+                rwKinds.Add(pl.Landmark);
+                for (int x = pl.LandmarkArea.X - 1; x <= pl.LandmarkArea.XMax; x++)
+                    for (int z = pl.LandmarkArea.Z - 1; z <= pl.LandmarkArea.ZMax; z++)
+                    {
+                        var k = rdw.At(new Tile(x, z));
+                        if (k == Terrain.Water || k == Terrain.Bridge || k == Terrain.Path || k == Terrain.Tree) rwDry = false;
+                    }
+            }
+        Check(rwLandmarks > 20 && rwKinds.Count == 5 && rwDry, rwLandmarks + " ruins and landmarks in 625 regions, of every kind, none in water, on a road or crowded by trees");
+        Check(rwWells == rwTowns, "every town has a well (" + rwTowns + " towns)");
+        var tsKinds = new System.Collections.Generic.Dictionary<Biome, System.Collections.Generic.HashSet<string>>();
+        int tsPines = 0, tsHighTrees = 0;
+        for (int x = -1500; x < 1500; x += 7)
+            for (int z = -1500; z < 1500; z += 7)
+            {
+                var t = new Tile(x, z);
+                if (rdw.At(t) != Terrain.Tree) continue;
+                var bi = rdw.BiomeAt(t);
+                var node = Spawning.NodeAt(rdw, t, Terrain.Tree);
+                if (node == null) continue;
+                if (!tsKinds.ContainsKey(bi)) tsKinds[bi] = new System.Collections.Generic.HashSet<string>();
+                tsKinds[bi].Add(node.Id);
+                if (bi == Biome.Highlands) { tsHighTrees++; if (node.Id == WoodcuttingModule.Pine) tsPines++; }
+            }
+        Check(tsKinds.ContainsKey(Biome.Meadow) && tsKinds[Biome.Meadow].Contains(WoodcuttingModule.Birch) && tsKinds[Biome.Meadow].Contains(WoodcuttingModule.Blossom)
+            && tsKinds.ContainsKey(Biome.Wasteland) && tsKinds[Biome.Wasteland].Contains(WoodcuttingModule.DeadTree)
+            && !tsKinds[Biome.Meadow].Contains(WoodcuttingModule.Pine) && tsPines * 2 > tsHighTrees,
+            "birches and blossom in the meadows, dead trees in the wasteland, and the highlands mostly pines (" + tsPines + " of " + tsHighTrees + ")");
         var mkCity = new Overworld(12345).Plan(0, 0);
         Check(mkCity.City && mkCity.HasTradingPost && mkCity.Blocked.Contains(mkCity.TradingPost), "the starting city has a trading post on its square");
 

@@ -49,6 +49,11 @@ namespace Epacenur.Core
         public readonly List<Tile> Rubble = new List<Tile>();         // quarries: heaps of spoil in the pit's corners
         public Tile Cart;                                    // quarries: a mine cart full of ore
         public bool HasTradingPost; public Tile TradingPost;  // cities: the trading post's clerk, on the edge of the square
+        public bool HasWell; public Tile Well;               // towns: the well
+        public readonly List<Signpost> Signposts = new List<Signpost>();  // towns: where the roads out lead
+        public Area Walls; public bool StoneWalls;           // towns: the ring of town walls (none if it's empty)
+        public readonly List<Tile> Gates = new List<Tile>();  // towns: where roads go through the walls
+        public LandmarkKind Landmark; public Area LandmarkArea;  // wilds: a ruin or landmark, and where it stands
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
 
         /// The planned terrain of a tile in this region, or Grass where nothing's planned.
@@ -80,7 +85,7 @@ namespace Epacenur.Core
                 return Level.Contains(t);
             if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine || Kind == RegionKind.Quarry)
                 return t.X >= Camp.X - 3 && t.X < Camp.XMax + 3 && t.Z >= Camp.Z - 3 && t.Z < Camp.ZMax + 3;
-            return false;
+            return Overworld.NearLandmark(this, t);
         }
     }
 
@@ -91,7 +96,7 @@ namespace Epacenur.Core
     /// until you near the next. Other regions are goblin camps, shrines, quarries or wild countryside.
     /// Over that lies the countryside itself, in biomes (meadow, woodland, marsh, highlands, and wasteland
     /// deep in the wilderness): forests and flax fields where smooth noises are high, and ponds. Ore is only found in quarries.
-    public sealed class Overworld
+    public sealed partial class Overworld
     {
         public const int RegionSize = 64, ChunkSize = 16;
         public const int TownClearRadius = 15, CityClearRadius = 22;  // no trees or ponds this close to the square
@@ -187,6 +192,9 @@ namespace Epacenur.Core
             // so dry ground there always runs on out of the lake, and its ground is kept clear of water.)
             if (!here && !starter && plan.Kind != RegionKind.Wild && PondNoise(plan.Center.X, plan.Center.Z) > PondLevel(plan.Center.X, plan.Center.Z) - 0.1)
                 plan.Kind = RegionKind.Wild;
+            // Not on a road between towns.
+            if (!here && !starter && plan.Kind != RegionKind.Wild && RoadDistance(plan.Center.X, plan.Center.Z) < 30)
+                plan.Kind = RegionKind.Wild;
             if (plan.Kind == RegionKind.Town)
                 PlanTown(plan);
             else if (plan.Kind == RegionKind.Camp)
@@ -199,6 +207,8 @@ namespace Epacenur.Core
                 PlanCave(plan);
             else if (plan.Kind == RegionKind.Quarry)
                 PlanQuarry(plan);
+            else if (plan.Kind == RegionKind.Wild)
+                PlanLandmark(plan);
             plans[key] = plan;
             return plan;
         }
@@ -235,6 +245,12 @@ namespace Epacenur.Core
                 plan.Lamps.Add(lamp);
                 plan.Blocked.Add(lamp);
             }
+            if (plan.Town.HasWell)
+            {
+                plan.HasWell = true;
+                plan.Well = new Tile(plan.Bounds.X + plan.Town.Well.X, plan.Bounds.Z + plan.Town.Well.Z);
+                plan.Blocked.Add(plan.Well);
+            }
             foreach (var b in plan.Town.Buildings)
             {
                 var moved = b.Moved(plan.Bounds.X, plan.Bounds.Z);
@@ -246,6 +262,8 @@ namespace Epacenur.Core
                     foreach (var t in f.Tiles)
                         plan.Blocked.Add(t);
             }
+            PlanWalls(plan);
+            PlanSignposts(plan);
         }
 
         void PlanCamp(RegionPlan plan)
@@ -872,13 +890,18 @@ namespace Epacenur.Core
         {
             var plan = PlanAt(t);
             var planned = plan.At(t);
-            if (planned != Terrain.Grass || plan.KeepsClear(t))
+            if (planned != Terrain.Grass)
                 return planned;
+            if (plan.KeepsClear(t))
+                return IsRoad(t) ? Terrain.Path : planned;
             byte wet = Wetness(t);
             if (wet == WetPond)
                 return Terrain.Water;
+            // Roads cross rivers by bridges of their own.
             if (wet == WetRiver)
-                return OnBridgeLine(t) ? Terrain.Bridge : Terrain.Water;
+                return OnBridgeLine(t) || IsRoad(t) ? Terrain.Bridge : Terrain.Water;
+            if (IsRoad(t))
+                return Terrain.Path;
             return Growth(t, plan);
         }
 
@@ -897,6 +920,8 @@ namespace Epacenur.Core
             if (flat > 0)
                 return false;
             // Roads stay dry with a margin (a road can run diagonally, which water either side would cut).
+            if (RoadDistance(t.X, t.Z) < RoadHalfWidth + 2)
+                return false;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dz = -1; dz <= 1; dz++)
                 {
@@ -968,7 +993,8 @@ namespace Epacenur.Core
                     bool near = Math.Abs(dx) <= 1 && Math.Abs(dz) <= 1;
                     var np = PlanAt(n);
                     var nt = np.At(n);
-                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Fence || nt == Terrain.Camp || IsWet(n))))
+                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.TownWall || nt == Terrain.Fence
+                        || nt == Terrain.Camp || IsWet(n) || IsRoad(n) || np.Blocked.Contains(n))))
                         return Terrain.Grass;
                     if (near && np.KeepsClear(n))
                         return Terrain.Grass;

@@ -215,6 +215,12 @@ namespace Epacenur.Runtime
                     LampPost.Create(lamp, world.BuildRoot);
                 if (plan.HasTradingPost)
                     world.AddTradingClerk(plan.TradingPost);
+                if (plan.HasWell)
+                    world.AddWell(plan.Well);
+                string here = RegionName(world.Overworld, plan);
+                foreach (var sign in plan.Signposts)
+                    world.AddSignpost(sign, here);
+                Landmarks.TownWalls(world, plan);
                 for (int i = 0; i < plan.Patches.Count; i++)
                     world.AddPatch(plan.Patches[i], i % 2 == 0 ? PatchKind.Herb : PatchKind.Allotment);
                 world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), RegionName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
@@ -259,6 +265,8 @@ namespace Epacenur.Runtime
                 MineCart(world, plan.Cart, Spawning.QuarryOre(world.Overworld, plan));
                 world.AddLabel(World.Local(plan.Cart) + Vector3.up * 1.6f, RegionName(world.Overworld, plan), new Color(0.85f, 0.85f, 0.8f));
             }
+            else if (plan.Kind == RegionKind.Wild && plan.Landmark != LandmarkKind.None)
+                Landmarks.Landmark(world, plan);
             SpawnMonsters(world, plan);
         }
 
@@ -312,6 +320,8 @@ namespace Epacenur.Runtime
         /// What a region is called on the world map (null for countryside).
         public static string RegionName(Overworld ow, RegionPlan plan)
         {
+            if (plan.Kind == RegionKind.Wild)
+                return Landmarks.LandmarkName(ow, plan);
             if (plan.Kind == RegionKind.Town)
                 return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
             if (plan.Kind == RegionKind.Cave)
