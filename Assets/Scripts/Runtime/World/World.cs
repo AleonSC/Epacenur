@@ -34,9 +34,15 @@ namespace Epacenur.Runtime
     /// where to put. GroundTile gives the world tile under one (for chunks, maps and danger).
     public sealed class World : MonoBehaviour
     {
+        /// The ground and water are on this layer, seen to the edge of the fog; everything else (trees, rocks,
+        /// buildings, people) is culled a little nearer, where the fog has mostly hidden it (CameraRig).
+        public const int FarLayer = 8;
+        public const float NearCullDistance = 115f;
+
         public const int LoadRadius = 9;     // chunks loaded in each direction round the player (at least 144 tiles: past the fog)
         public const int StartRadius = 3;    // loaded at once on arriving; the rest streams in, nearest first
-        public const int ChunksPerFrame = 3; // streaming budget
+        public const int ChunksPerFrame = 3; // streaming budget: at most this many chunks a frame...
+        public const float StreamMillis = 4f; // ...and no more once this long has gone on them (at least one, though)
         const int OriginShiftTiles = 256;    // move the origin when the player gets this far from it
 
         public static Tile Origin { get; private set; }
@@ -238,7 +244,7 @@ namespace Epacenur.Runtime
                 return;
             var tile = GroundTile(player.CurrentTile);
             ShiftOriginIfFar(tile, false);
-            LoadAround(tile, LoadRadius, ChunksPerFrame);
+            LoadAround(tile, LoadRadius, ChunksPerFrame, StreamMillis);
             UnloadBeyond(tile, LoadRadius + 1);
         }
 
@@ -270,8 +276,9 @@ namespace Epacenur.Runtime
 
         // ---- Chunks and regions ----
 
-        void LoadAround(Tile center, int radius, int budget)
+        void LoadAround(Tile center, int radius, int budget, float maxMillis = float.MaxValue)
         {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
             int pcx = chunkGrid.ChunkOf(center.X), pcz = chunkGrid.ChunkOf(center.Z);
             // Nearest rings first.
             for (int r = 0; r <= radius && budget > 0; r++)
@@ -285,6 +292,8 @@ namespace Epacenur.Runtime
                             continue;
                         LoadChunk(cx, cz);
                         budget--;
+                        if (clock.Elapsed.TotalMilliseconds > maxMillis)
+                            budget = 0;  // that's this frame's time used up
                     }
         }
 

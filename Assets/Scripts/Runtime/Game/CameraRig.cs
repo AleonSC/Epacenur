@@ -77,6 +77,13 @@ namespace Epacenur.Runtime
             Cam.fieldOfView = Mode == ViewMode.FirstPerson ? 72f : 50f;
             Cam.nearClipPlane = Mode == ViewMode.FirstPerson ? 0.05f : 0.3f;
             Cam.farClipPlane = 150f;  // the fog hides everything past 140
+            // Small things (trees, rocks, buildings) stop being drawn a little nearer, deep in the fog: far fewer
+            // to draw. The ground and water (World.FarLayer) go on to the far clip.
+            var cull = new float[32];
+            for (int i = 0; i < cull.Length; i++)
+                cull[i] = i == World.FarLayer ? 0f : World.NearCullDistance;
+            Cam.layerCullDistances = cull;
+            Cam.layerCullSpherical = true;
         }
 
         void LateUpdate()

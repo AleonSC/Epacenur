@@ -99,7 +99,7 @@ namespace Epacenur.Core
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
         readonly Dictionary<long, Settlement> settlements = new Dictionary<long, Settlement>();
         // Slow-changing fields are worked out on a coarse lattice and blended between its points.
-        readonly CoarseField moistureField, dangerField, baseField, riverField;
+        readonly CoarseField moistureField, dangerField, baseField, riverField, hillsField;
         readonly Dictionary<long, double> pondCorners = new Dictionary<long, double>();
 
         public Overworld(int seed)
@@ -121,6 +121,7 @@ namespace Epacenur.Core
             dangerField = new CoarseField(4, ExactDanger);
             baseField = new CoarseField(8, ExactBase);
             riverField = new CoarseField(4, ExactRiver);
+            hillsField = new CoarseField(2, Hills);  // the hills as biomes see them: close enough, and far cheaper
         }
 
         /// The town square you start in.
@@ -385,7 +386,7 @@ namespace Epacenur.Core
 
         /// The biome at a tile: wasteland deep in the wilderness (unless it's wet), highlands up in the hills,
         /// then marsh, woodland or meadow by how wet it is.
-        public Biome BiomeAt(Tile t) => BiomeFor(Moisture(t.X, t.Z), Hills(t.X, t.Z), DangerAt(t.X, t.Z));
+        public Biome BiomeAt(Tile t) => BiomeFor(Moisture(t.X, t.Z), hillsField.At(t.X, t.Z), DangerAt(t.X, t.Z));
 
         static Biome BiomeFor(double wet, double height, double danger)
         {
@@ -415,6 +416,25 @@ namespace Epacenur.Core
         /// down along rivers and under ponds. Towns, camps, shrines, quarries and courses are levelled at the
         /// height the land had at their middle, blending into the hills round them.
         public double Elevation(double x, double z)
+        {
+            // Points on the half-tile lattice (tile centres and corners: the ground mesh, the maps, the game) are
+            // asked for again and again: remember them.
+            double hx = x * 2, hz = z * 2;
+            if (hx == Math.Floor(hx) && hz == Math.Floor(hz) && Math.Abs(hx) < int.MaxValue && Math.Abs(hz) < int.MaxValue)
+            {
+                long key = ChunkedGrid.Key((int)hx, (int)hz);
+                if (elevations.TryGetValue(key, out double known))
+                    return known;
+                if (elevations.Count > 1 << 20)
+                    elevations.Clear();
+                return elevations[key] = WorkOutElevation(x, z);
+            }
+            return WorkOutElevation(x, z);
+        }
+
+        readonly Dictionary<long, double> elevations = new Dictionary<long, double>();
+
+        double WorkOutElevation(double x, double z)
         {
             Levelling(x, z, out double flat, out double nearest, out double levelAt);
             if (flat >= 1)
@@ -652,7 +672,31 @@ namespace Epacenur.Core
             return (Terrain)tiles[k];
         }
 
-        const byte Unknown = 255;
+        const byte Unknown = 255, Dry = 0, WetPond = 1, WetRiver = 2;
+        readonly Dictionary<long, byte[]> wetness = new Dictionary<long, byte[]>();
+
+        /// Whether a tile is under a pond or a river (or dry), worked out once and remembered by chunk: trees
+        /// ask it of all their neighbours.
+        byte Wetness(Tile t)
+        {
+            int cx = FloorDiv(t.X, ChunkSize), cz = FloorDiv(t.Z, ChunkSize);
+            long key = ChunkedGrid.Key(cx, cz);
+            if (!wetness.TryGetValue(key, out var tiles))
+            {
+                if (wetness.Count > 4096)
+                    wetness.Clear();
+                tiles = new byte[ChunkSize * ChunkSize];
+                for (int i = 0; i < tiles.Length; i++)
+                    tiles[i] = Unknown;
+                wetness[key] = tiles;
+            }
+            int k = (t.X - cx * ChunkSize) * ChunkSize + (t.Z - cz * ChunkSize);
+            if (tiles[k] == Unknown)
+                tiles[k] = IsPond(t) ? WetPond : IsRiver(t) ? WetRiver : Dry;
+            return tiles[k];
+        }
+
+        bool IsWet(Tile t) => Wetness(t) != Dry;
         readonly Dictionary<long, byte[]> known = new Dictionary<long, byte[]>();
 
         Terrain WorkOut(Tile t)
@@ -661,9 +705,10 @@ namespace Epacenur.Core
             var planned = plan.At(t);
             if (planned != Terrain.Grass || plan.KeepsClear(t))
                 return planned;
-            if (IsPond(t))
+            byte wet = Wetness(t);
+            if (wet == WetPond)
                 return Terrain.Water;
-            if (IsRiver(t))
+            if (wet == WetRiver)
                 return OnBridgeLine(t) ? Terrain.Bridge : Terrain.Water;
             return Growth(t, plan);
         }
@@ -754,7 +799,7 @@ namespace Epacenur.Core
                     bool near = Math.Abs(dx) <= 1 && Math.Abs(dz) <= 1;
                     var np = PlanAt(n);
                     var nt = np.At(n);
-                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Camp || IsPond(n) || IsRiver(n))))
+                    if (nt == Terrain.Door || (near && (nt == Terrain.Path || nt == Terrain.Wall || nt == Terrain.Camp || IsWet(n))))
                         return Terrain.Grass;
                     if (near && np.KeepsClear(n))
                         return Terrain.Grass;

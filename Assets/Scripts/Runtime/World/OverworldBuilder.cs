@@ -121,6 +121,7 @@ namespace Epacenur.Runtime
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             var go = new GameObject("Ground");
+            go.layer = World.FarLayer;
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
@@ -160,6 +161,7 @@ namespace Epacenur.Runtime
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             var go = new GameObject(mesh.name);
+            go.layer = World.FarLayer;
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = Visuals.Mat(colour);
