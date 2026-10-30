@@ -146,6 +146,11 @@ namespace Epacenur.Runtime
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
+            foreach (var b in game.World.Bases.All)
+                state.bases.Add(BaseSave.From(b));
+            state.hasBed = game.BedBase > 0;
+            state.bedBase = game.BedBase;
+            state.bedCell = game.BedCell;
             state.hasTime = true;
             state.time = game.Clock.Time;
             state.day = game.Clock.Day;
@@ -159,11 +164,16 @@ namespace Epacenur.Runtime
             Profiles.Write();
         }
 
-        /// What a world keeps between sessions: the items on its ground and the regions seen.
+        /// What a world keeps between sessions: the items on its ground, the regions seen, the bases built (and the
+        /// bed last slept in), and the time of day.
         [Serializable] public class WorldState
         {
             public List<GroundPile> items = new List<GroundPile>();
             public List<long> explored = new List<long>();
+            public List<BaseSave> bases = new List<BaseSave>();  // what's been built
+            public bool hasBed;    // the bed last slept in: its base and cell
+            public int bedBase;
+            public long bedCell;
             public bool hasTime;   // older saves: no time of day yet
             public float time;     // DayNight.Time
             public int day;

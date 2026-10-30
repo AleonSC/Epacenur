@@ -24,6 +24,7 @@ namespace Epacenur.Runtime
         float px, pz, yaw;  // the player in map space, and the camera's facing (radians)
 
         static readonly Color32 Clear = new Color32(0, 0, 0, 0), Unknown = new Color32(18, 16, 12, 255), Rim = new Color32(168, 135, 79, 255),
+            BaseFloor = new Color32(176, 140, 96, 255),
             RimEdge = new Color32(8, 6, 5, 255);
 
         public static Rect RectFor(Hud hud) => new Rect(hud.W - Size - 10f, 8f, Size, Size);
@@ -71,7 +72,7 @@ namespace Epacenur.Runtime
             px = p.x + World.Origin.X;
             pz = p.z + World.Origin.Z;
             yaw = G.Rig.Yaw * Mathf.Deg2Rad;
-            var here = G.Player.CurrentTile;
+            var here = World.GroundTile(G.Player.CurrentTile);
             if (here != cacheFor || Time.time - cacheTime > 1f)
                 FillCache(here);
 
@@ -141,7 +142,10 @@ namespace Epacenur.Runtime
             var w = G.World;
             for (int x = 0; x < CacheSize; x++)
                 for (int z = 0; z < CacheSize; z++)
-                    cache[x * CacheSize + z] = w.TryMapColour(new Tile(cacheOrigin.X + x, cacheOrigin.Z + z), out var c) ? c : Unknown;
+                {
+                    var t = new Tile(cacheOrigin.X + x, cacheOrigin.Z + z);
+                    cache[x * CacheSize + z] = w.Map == MapId.Overworld && w.Bases.InFootprint(t) ? BaseFloor : w.TryMapColour(t, out var c) ? c : Unknown;
+                }
         }
 
         /// "N" on the rim, where north is.

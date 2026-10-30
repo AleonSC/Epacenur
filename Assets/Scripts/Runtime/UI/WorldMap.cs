@@ -236,10 +236,25 @@ namespace Epacenur.Runtime
             var g = G.Grave;
             if (g != null && g.world == G.WorldInfo.id && g.map == (int)G.World.Map)
             {
-                var gp = ToView(v, g.x, g.z);
+                var gt = World.GroundTile(new Tile(g.x, g.z));
+                var gp = ToView(v, gt.X, gt.Z);
                 Gui.Fill(new Rect(gp.x - 4f, gp.y - 6f, 8f, 12f), new Color(0.1f, 0.1f, 0.1f));
                 Gui.Fill(new Rect(gp.x - 3f, gp.y - 5f, 6f, 10f), new Color(0.85f, 0.85f, 0.9f));
                 Gui.Shadowed(new Rect(gp.x - 60f, gp.y + 6f, 120f, 18f), "<color=#e0e0e8>Gravestone</color>", Gui.Centered);
+            }
+            // Bases: their floors.
+            if (G.World.Map == MapId.Overworld)
+            {
+                float cell = Mathf.Max(2f, zoom);
+                var floor = new Color(0.69f, 0.55f, 0.38f);
+                foreach (var b in G.World.Bases.All)
+                    foreach (var k in b.Foundations.Keys)
+                    {
+                        Structure.Unkey(k, out int i, out int j);
+                        b.ToMap(i, j, out double bx, out double bz);
+                        var bp = ToView(v, (float)bx, (float)bz);
+                        Gui.Fill(new Rect(bp.x - cell / 2f, bp.y - cell / 2f, cell, cell), floor);
+                    }
             }
             var pos = G.Player.transform.position;
             var pp = ToView(v, pos.x + World.Origin.X, pos.z + World.Origin.Z);

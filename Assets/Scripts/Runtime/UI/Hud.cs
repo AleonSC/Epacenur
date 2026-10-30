@@ -75,8 +75,11 @@ namespace Epacenur.Runtime
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 G.Player.CancelUse();
+                G.Player.StopBuilding();
                 worldMap.Close();
             }
+            if (Input.GetKeyDown(KeyCode.G) && GUIUtility.keyboardControl == 0)
+                ToggleBuildMenu();
             if (Input.GetKeyDown(KeyCode.M) && GUIUtility.keyboardControl == 0)
                 worldMap.Toggle();
             if (Input.GetKeyDown(KeyCode.C) && GUIUtility.keyboardControl == 0)
@@ -88,6 +91,29 @@ namespace Epacenur.Runtime
         Game G => Game.Instance;
 
         public void OpenBank(Interactable at) => OpenWindow(new BankWindow(), at);
+        public void OpenChest(Bank store, Interactable at) => OpenWindow(new BankWindow(store, "Storage chest"), at);
+
+        /// The build menu (G), if you have a hammer.
+        public void ToggleBuildMenu()
+        {
+            if (Window is BuildWindow)
+            {
+                CloseWindow();
+                return;
+            }
+            if (G.World.Map != MapId.Overworld)
+            {
+                GameLog.Add("You can't build here.");
+                return;
+            }
+            if (ToolBelt.Find(G.ToolBelt, G.Inventory, "hammer", G.Skills) == null)
+            {
+                GameLog.Add("You need a hammer to build.");
+                return;
+            }
+            G.Player.StopBuilding();
+            OpenWindow(new BuildWindow(), null);
+        }
         public void OpenShop(ShopKeeper keeper) => OpenWindow(new ShopWindow(keeper.Shop), keeper);
         /// The make window at a station; `prefer`: an item used on it, to show only what's made with that.
         public void OpenMaking(StationObject station, string prefer) => OpenWindow(new MakeWindow(station, prefer), station);
@@ -136,12 +162,27 @@ namespace Epacenur.Runtime
             var m = MouseGui;
             return (menu.IsOpen && menu.Rect.Contains(m)) || (PanelOpen && PanelRect.Contains(m)) || (ChatOpen && ChatRect.Contains(m))
                 || ChatToggleRect.Contains(m) || PanelToggleRect.Contains(m) || BarRect.Contains(m)
-                || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
+                || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || BuildButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
                 || (worldMap.IsOpen && worldMap.RectFor(this).Contains(m)) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
         }
 
         Rect LogOutRect => new Rect(W - 90f, Minimap.RectFor(this).yMax + 4f, 80f, 24f);
         Rect MapButtonRect => new Rect(W - 180f, Minimap.RectFor(this).yMax + 4f, 86f, 24f);
+        Rect BuildButtonRect => new Rect(W - 250f, Minimap.RectFor(this).yMax + 4f, 66f, 24f);
+
+        /// While placing a piece: what it is, what's wrong with where it would go, and the keys.
+        void DrawBuilding()
+        {
+            var p = G.Player;
+            if (p.Building == null)
+                return;
+            var r = new Rect(W / 2f - 260f, 8f, 520f, 46f);
+            Gui.PanelBox(r, 0.9f);
+            string problem = p.BuildProblem;
+            Gui.Shadowed(new Rect(r.x, r.y + 4f, r.width, 20f), "<b><color=" + Gui.GoldHex + ">Building: " + p.Building.Name + "</color></b>  "
+                + (problem == null ? "<color=" + Gui.GoodHex + ">click to place</color>" : "<color=" + Gui.BadHex + ">" + problem + "</color>"), Gui.Centered);
+            Gui.Shadowed(new Rect(r.x, r.y + 23f, r.width, 20f), "<color=" + Gui.MutedHex + ">R / Shift+R: turn it    G: the build menu    right-click or Esc: stop</color>", Gui.Centered);
+        }
 
         /// Under the minimap: how long your gravestone has left.
         void DrawGraveTimer()
@@ -184,7 +225,7 @@ namespace Epacenur.Runtime
                 zoneDanger = -1;
                 return;
             }
-            var here = G.Player.CurrentTile;
+            var here = World.GroundTile(G.Player.CurrentTile);
             if (here == zoneTile)
                 return;
             zoneTile = here;
@@ -264,6 +305,9 @@ namespace Epacenur.Runtime
             DrawGraveTimer();
             if (GUI.Button(MapButtonRect, "World map"))
                 worldMap.Toggle();
+            if (GUI.Button(BuildButtonRect, "Build"))
+                ToggleBuildMenu();
+            DrawBuilding();
             worldMap.Draw(this);
             devTools.Draw(this);
             menu.Draw();

@@ -85,8 +85,8 @@ namespace Epacenur.Runtime
             if (!hud.ShowHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nF1: dev tools"
-                : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nF1: dev tools";
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nG: build (with a hammer)\nF1: dev tools"
+                : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nG: build (with a hammer)\nF1: dev tools";
             // In a quiet box, so it reads over bright ground.
             var size = Gui.Small.CalcSize(new GUIContent(help));
             var box = new Rect(6f, 50f, size.x + 16f, size.y + 10f);

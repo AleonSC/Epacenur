@@ -275,6 +275,38 @@ namespace Epacenur.Core
         public readonly List<StationSpawnRule> Spawns = new List<StationSpawnRule>();  // shrines the overworld builds round it
     }
 
+    // ---- Construction ----
+
+    /// What a building piece is: where it goes in a base, and how it blocks walking.
+    public enum PieceKind
+    {
+        Foundation,  // a cell of floor: everything else goes on these
+        Wall,        // on a cell's edge: blocks walking
+        Doorway,     // on a cell's edge: a frame you walk through
+        Window,      // on a cell's edge: blocks walking, lets light in
+        Roof,        // over a cell
+        Furniture,   // in a cell, filling it: a chest, a bed, a furnace...
+    }
+
+    /// What using a piece of furniture does.
+    public enum FurnitureUse { None, Chest, Bed, Station }
+
+    /// A building piece: what it costs, the Construction level and xp, and how it looks.
+    public sealed class PieceDef
+    {
+        public string Id, Name, Examine;
+        public PieceKind Kind;
+        public string Material;          // "Wood", "Stone": the build menu groups by this
+        public int Level;
+        public double Xp;
+        public Ingredient[] Inputs = new Ingredient[0];
+        public Rgb Colour, Trim;         // walls, floors and roofs: the main colour and the edging
+        public FurnitureUse Use;
+        public string Station;           // furniture used as a station: the StationDef it is (a furnace, an anvil)
+        public Model Model;              // furniture: its look (stations use their StationDef's), facing +z
+        public Icon Icon;                // the build menu
+    }
+
     // ---- Herblore ----
 
     /// A skill raised above its level for a while: flat + percent of the level (OSRS: an attack potion is 3 + 10%).

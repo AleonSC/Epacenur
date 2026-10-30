@@ -12,10 +12,15 @@ namespace Epacenur.Core
 
     /// The bank: every kind of item takes one slot and all of it stacks there, even items that
     /// take a slot each in the inventory (like logs). Slots stay in the order items were first deposited.
+    /// A storage chest in a base is a small one of these.
     public sealed class Bank
     {
         public const int Size = 400;
+        /// How many kinds of item it holds.
+        public readonly int Capacity;
         readonly List<BankSlot> slots = new List<BankSlot>();
+
+        public Bank(int capacity = Size) { Capacity = capacity; }
 
         public event Action Changed;
 
@@ -29,7 +34,7 @@ namespace Epacenur.Core
         }
 
         /// Whether the item already has a slot or there's a free one.
-        public bool HasRoomFor(string itemId) => IndexOf(itemId) >= 0 || slots.Count < Size;
+        public bool HasRoomFor(string itemId) => IndexOf(itemId) >= 0 || slots.Count < Capacity;
 
         /// Moves up to `amount` of an item from the inventory's slots into the bank (coins in the money
         /// pouch stay there: see DepositPouch). Returns how many moved.
@@ -90,7 +95,7 @@ namespace Epacenur.Core
             int i = IndexOf(itemId);
             if (i >= 0)
                 slots[i] = new BankSlot { ItemId = itemId, Count = slots[i].Count + count };
-            else if (slots.Count < Size)
+            else if (slots.Count < Capacity)
                 slots.Add(new BankSlot { ItemId = itemId, Count = count });
             Changed?.Invoke();
         }

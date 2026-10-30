@@ -71,6 +71,14 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("Sword + shield")) { Give(CombatModule.BronzeSword); Give(CombatModule.WoodenShield); }
             if (GUILayout.Button("Tools")) { Give(WoodcuttingModule.BronzeHatchet); Give(FiremakingModule.Tinderbox); Give(FishingModule.SmallFishingNet); }
             if (GUILayout.Button("Fill belt")) foreach (var t in ContentDb.Current.Tools) G.ToolBelt.Add(t.Id);
+            if (GUILayout.Button("Building kit"))
+            {
+                G.ToolBelt.Add(SmithingModule.Hammer); G.ToolBelt.Add(ConstructionModule.Saw);
+                Give(ConstructionModule.Nails, 500); Give(ConstructionModule.Plank, 8); Give(ConstructionModule.Limestone, 6); Give(ConstructionModule.OakPlank, 4);
+                G.Bank.Add(ConstructionModule.Plank, 300); G.Bank.Add(ConstructionModule.Limestone, 200); G.Bank.Add(ConstructionModule.OakPlank, 100);
+                G.Bank.Add(CraftingModule.Leather, 10); G.Bank.Add(SmithingModule.BronzeBar, 20); G.Bank.Add(Metals.Iron.Bar, 20);
+                GameLog.Add("Hammer and saw on your belt; planks, limestone and the rest in your bank. G opens the build menu.");
+            }
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Hurt me 3")) G.HurtPlayer(3);

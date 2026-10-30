@@ -32,7 +32,7 @@ namespace Epacenur.Core
 
         /// Whether a single step from a tile to a neighbour is allowed. As in RuneScape, a diagonal
         /// step needs both tiles it cuts past to be free, so you can't squeeze between two trees.
-        public bool CanStep(Tile from, int dx, int dz)
+        public virtual bool CanStep(Tile from, int dx, int dz)
         {
             var to = new Tile(from.X + dx, from.Z + dz);
             if (!IsWalkable(to))
@@ -41,6 +41,15 @@ namespace Epacenur.Core
                 return IsWalkable(new Tile(from.X + dx, from.Z)) && IsWalkable(new Tile(from.X, from.Z + dz));
             return true;
         }
+
+        static readonly List<Tile> NoLinks = new List<Tile>();
+
+        /// Tiles you can step to from this one besides its eight neighbours (none, unless the grid joins on
+        /// places of its own: see BaseWalkGrid). Each is one step.
+        public virtual List<Tile> Links(Tile t) => NoLinks;
+
+        /// About how many steps apart two tiles are (for the pathfinder's guesses).
+        public virtual int Estimate(Tile a, Tile b) => a.StepsTo(b);
     }
 
     /// A fixed-size grid of tiles, (0, 0) to (Width - 1, Height - 1); everything outside is blocked.
@@ -123,7 +132,7 @@ namespace Epacenur.Core
         /// Empty when already there or nothing better is reachable.
         public static List<Tile> PathTo(WalkGrid grid, Tile start, Tile target)
         {
-            return Find(grid, start, t => t == target, t => t.StepsTo(target));
+            return Find(grid, start, t => t == target, t => grid.Estimate(t, target));
         }
 
         /// Path to any free tile directly north, south, east or west of an object (to interact with it).
@@ -132,7 +141,7 @@ namespace Epacenur.Core
         {
             if (start.IsCardinalNeighbour(objectTile))
                 return new List<Tile>();
-            var path = Find(grid, start, t => t.IsCardinalNeighbour(objectTile), t => Math.Max(0, t.StepsTo(objectTile) - 1));
+            var path = Find(grid, start, t => t.IsCardinalNeighbour(objectTile), t => Math.Max(0, grid.Estimate(t, objectTile) - 1));
             if (path.Count == 0 || !path[path.Count - 1].IsCardinalNeighbour(objectTile))
                 return null;
             return path;
@@ -169,6 +178,17 @@ namespace Epacenur.Core
                     // Straight steps cost 10, diagonals 11: both are one tick in RuneScape, the extra 1
                     // just prefers straighter-looking paths when they are equally short.
                     int ng = g + (i < 4 ? 10 : 11);
+                    if (cost.TryGetValue(next, out int old) && old <= ng)
+                        continue;
+                    cost[next] = ng;
+                    came[next] = cur;
+                    open.Push(next, ng + heuristic(next) * 10);
+                }
+                foreach (var next in grid.Links(cur))
+                {
+                    if (!grid.IsWalkable(next))
+                        continue;
+                    int ng = g + 10;
                     if (cost.TryGetValue(next, out int old) && old <= ng)
                         continue;
                     cost[next] = ng;

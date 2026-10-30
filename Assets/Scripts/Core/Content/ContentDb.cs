@@ -35,6 +35,9 @@ namespace Epacenur.Core
         public readonly List<WeaponKindDef> WeaponKinds = new List<WeaponKindDef>();
         readonly Dictionary<string, SpellDef> spells = new Dictionary<string, SpellDef>();
         readonly Dictionary<string, CourseDef> courses = new Dictionary<string, CourseDef>();
+        readonly Dictionary<string, PieceDef> pieces = new Dictionary<string, PieceDef>();
+        /// Building pieces, in the build menu's order.
+        public readonly List<PieceDef> Pieces = new List<PieceDef>();
         /// Agility courses, easiest first.
         public readonly List<CourseDef> Courses = new List<CourseDef>();
         /// Spells in the spellbook's order.
@@ -85,6 +88,7 @@ namespace Epacenur.Core
         public WeaponKindDef Add(WeaponKindDef d) => Add(weaponKinds, WeaponKinds, d.Id, d, "weapon kind");
         public SpellDef Add(SpellDef d) => Add(spells, Spells, d.Id, d, "spell");
         public CourseDef Add(CourseDef d) => Add(courses, Courses, d.Id, d, "course");
+        public PieceDef Add(PieceDef d) => Add(pieces, Pieces, d.Id, d, "building piece");
         public BurnableDef Add(BurnableDef d)
         {
             if (burnables.ContainsKey(d.LogItemId))
@@ -103,6 +107,7 @@ namespace Epacenur.Core
         public ShopDef Shop(string id) => id != null && shops.TryGetValue(id, out var d) ? d : null;
         public NpcDef Npc(string id) => id != null && npcs.TryGetValue(id, out var d) ? d : null;
         public CourseDef Course(string id) => id != null && courses.TryGetValue(id, out var d) ? d : null;
+        public PieceDef Piece(string id) => id != null && pieces.TryGetValue(id, out var d) ? d : null;
         public SpellDef Spell(string id) => id != null && spells.TryGetValue(id, out var d) ? d : null;
         public WeaponKindDef WeaponKind(string id) => id != null && weaponKinds.TryGetValue(id, out var d) ? d : null;
         public BurnableDef Burnable(string itemId) => itemId != null && burnables.TryGetValue(itemId, out var d) ? d : null;
@@ -137,6 +142,14 @@ namespace Epacenur.Core
             }
             foreach (var s in Skills)
                 if (s.Icon == null) p.Add("skill " + s.Id + ": no icon");
+            foreach (var b in Pieces)
+            {
+                foreach (var i in b.Inputs) Item(i.ItemId, "building piece " + b.Id);
+                if (b.Kind == PieceKind.Furniture && b.Use == FurnitureUse.Station && !stations.ContainsKey(b.Station ?? ""))
+                    p.Add("building piece " + b.Id + ": no station \"" + b.Station + "\"");
+                if (b.Kind == PieceKind.Furniture && b.Use != FurnitureUse.Station && b.Model == null) p.Add("building piece " + b.Id + ": no model");
+                if (b.Icon == null) p.Add("building piece " + b.Id + ": no icon");
+            }
             foreach (var n in Nodes)
             {
                 Skill(n.Skill, "node " + n.Id);

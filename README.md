@@ -49,6 +49,7 @@ The game opens on the main menu:
 | Switch view | **V** | **V** |
 | Show / hide the chat box | **C** (or the button over it) | **C** |
 | Show / hide the inventory panel | **B** (or the button over it) | **B** |
+| Build (with a hammer) | **G** (or **Build** under the minimap), pick a piece, click where it goes | The same, aiming with the crosshair |
 
 - **Right-click menu**: right-click anything for RuneScape's "Choose Option" menu, listing every option for
   what's under the cursor, e.g. *Attack Goblin (level-2)*, *Take Coins (12)*, *Walk here*, *Examine Goblin*, *Cancel*.
@@ -357,11 +358,47 @@ content module.
   it back up. Combat uses your boosted levels.
 - Dev tools: a **Herblore kit**; the dev plot has an **Agility** course and a **Thieving** plot with every stall and every kind of townsfolk.
 
+## Construction: building bases
+
+Build anywhere in the overworld outside towns, at any angle, on flat ground or a gentle slope.
+
+- **Materials**: use a **saw** (general store) on **logs** for **planks** (Construction 1) or on oak logs for **oak planks** (15);
+  smith **nails** at an anvil (15 from a bronze bar at Smithing 4, 30 from an iron bar at 19; the general store sells them too);
+  mine **limestone** (pale rocks, common on the safe ground round towns).
+- **Building**: with a **hammer**, press **G** (or **Build** under the minimap) for the build menu, pick a piece, and its ghost
+  follows the mouse (the crosshair in first person): **green** where it can go, **red** with what's wrong. **Click** to place it
+  (within 12 tiles of you); it costs its materials and gives Construction xp. **R** turns it (Shift+R the other way);
+  **right-click** or **Esc** stops. **Right-click** a piece with a hammer to **Remove** it: you get half its materials back.
+- **A base**: your first **foundation** goes wherever you point, turned however you like (R: 15 degrees at a time); its floor sits
+  just above the highest ground under it, on posts where the ground falls away. Every piece after snaps to that base's own grid:
+  foundations beside foundations, **walls**, **doorways** and **windows** along their edges, **roofs** over them (held up by a
+  wall or a roof beside), **furniture** in them. Where an open edge stands above the ground, steps lead up to it.
+- **Pieces** (level, cost):
+
+  | | Wood | Stone |
+  |---|---|---|
+  | Foundation | 1: 2 planks, 2 nails | 20: 3 limestone |
+  | Wall | 1: 2 planks, 2 nails | 22: 3 limestone |
+  | Doorway | 3: 2 planks, 2 nails | 24: 3 limestone |
+  | Window | 5: 2 planks, 3 nails | 26: 3 limestone, a plank |
+  | Roof | 8: 3 planks, 3 nails | 30 (slate): 2 oak planks, 2 limestone |
+
+  Furniture: a **storage chest** (4: holds 30 kinds of item, any amount of each), a **bed** (10: sleep in it and you **wake up
+  beside it** when you die), a **spinning wheel** (12), **tanning rack** (14), **furnace** (25), **anvil** (30) and **altar** (35).
+- **Walking**: in tile mode you click into a base like anywhere else; paths go in and out by its doorways and open edges, and
+  walls and windows block them (monsters' too). Inside, the roof hides so you can see. In first person, walls and floors are solid.
+- Bases are saved with the world (with what's in their chests), and show on the minimap and world map.
+- *How it works*: a base's cells aren't on the world's tile grid, so each cell has a tile of its own, far out where the world never
+  reaches; paths, standing next to things, items on the floor and stations all work with those tiles as with any other, joined to
+  the world's tiles at the base's open edges. The world's tiles under a base can't be walked on. (`Core/World/Bases.cs`; the Unity
+  side is `BaseObject` and `PlayerBuild`.)
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and
   what you wear). Everything else goes into a **gravestone** where you fell. Your money pouch and tool belt are always safe.
-- You wake up in the **nearest town** (on the dev plot: at its start) with full health and prayer.
+- You wake up beside your **bed** if you've slept in one that's still standing, otherwise in the **nearest town** (on the dev
+  plot: at its start), with full health and prayer.
 - Get back to the gravestone within **15 minutes** (of play in that world; the time shows under the minimap) and
   **Reclaim items** to take back what fits. After that it **collapses** and your items are left on the ground where it
   stood (they stay there until picked up). Dying again while you have a gravestone collapses the old one.
@@ -523,6 +560,7 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 - Empty the inventory or fill it with logs
 - Empty the bank, or put 1,000 logs in it
 - Add 1,000 coins, a sword and shield, or the tools (hatchet, tinderbox, net) to your backpack, or fill the tool belt
+- A **building kit**: a hammer and saw on your belt, nails, and planks, limestone and the rest in your bank
 - Regrow every tree and refill every rock
 - Teleport to the dev plot (or one of its plots) and back to the overworld
 - Save now, or reset everything
@@ -531,9 +569,9 @@ That is far more than a 64-bit number holds, so xp is a `BigInteger`, kept in te
 
 | Folder | What's there |
 |---|---|
-| `Assets/Scripts/Core` | Game rules with no Unity dependency (assembly `Epacenur.Core`): the content registry and definitions (`Content`), xp and skills, items, inventory, bank, tool belt, equipment, shops, combat, abilities, prayer, the gathering and making rules (`Skilling`), the overworld generator, tile grids and A* pathfinding (`World`) |
+| `Assets/Scripts/Core` | Game rules with no Unity dependency (assembly `Epacenur.Core`): the content registry and definitions (`Content`), xp and skills, items, inventory, bank, tool belt, equipment, shops, combat, abilities, prayer, the gathering and making rules (`Skilling`), the overworld generator, bases (`Bases.cs`), tile grids and A* pathfinding (`World`) |
 | `Assets/Scripts/Content` | Everything in the game as data (`Epacenur.Content`), one module per skill: its items (icons and models too), trees, rocks or fishing spots, recipes, stations, monsters. `Modules.cs` lists them |
-| `Assets/Scripts/Runtime` | The Unity side (`Epacenur.Runtime`): `Game` (startup and the 0.6 s game tick), `World` (maps, chunk streaming, floating origin) with `OverworldBuilder` and `DevArea`, the things in the world (`NodeObject`, `StationObject`, `Fire`, `ShopKeeper`, `Npc`, `GroundItem`), the player (`PlayerController`, `PlayerCombat`, `PlayerModel`, and `Activities`: gathering, making, lighting fires), `ItemActions` (what you can do with an item), `ModelBuilder` (models from content), `CameraRig`, `SaveGame`, and the HUD (`UI`: `Hud`, the side panel `Tabs`, the bank / shop / making `Windows`, overlays, action bar, dev tools) |
+| `Assets/Scripts/Runtime` | The Unity side (`Epacenur.Runtime`): `Game` (startup and the 0.6 s game tick), `World` (maps, chunk streaming, floating origin) with `OverworldBuilder`, `DevArea` and `BaseObject` (built bases), the things in the world (`NodeObject`, `StationObject`, `Fire`, `ShopKeeper`, `Npc`, `GroundItem`), the player (`PlayerController`, `PlayerCombat`, `PlayerBuild`, `PlayerModel`, and `Activities`: gathering, making, lighting fires), `ItemActions` (what you can do with an item), `ModelBuilder` (models from content), `CameraRig`, `SaveGame`, and the HUD (`UI`: `Hud`, the side panel `Tabs`, the bank / shop / making / build `Windows`, overlays, action bar, dev tools) |
 | `Assets/Editor` | Creates the scene and build settings, and the Epacenur menu |
 | `Assets/Tests/EditMode` | The rules suite, run by Unity's Test Runner (and by `Tools/Tests/run.sh`) |
 | `Tools/Tests` | `run.sh`: runs the rules suite without Unity (content checks, xp table, skills, inventory, bank, shop, equipment, combat, skilling, world generation, pathfinding) |
@@ -558,4 +596,6 @@ them is checked, and the game won't start with a broken one (`run.sh` checks too
   `StationDef`s: `MakeAll` stations (furnace, fire) make whatever you can, `MakeWindow` stations (anvil) open the making window.
 - **A shop**: a `ShopDef` in `ShopsModule`, and a keeper with `world.AddShopKeeper(tile, shopId)`.
 - **A monster**: an `NpcDef` (stats, drops, model), placed with `world.AddNpc(...)`.
+- **A building piece**: a `PieceDef` (kind, material, level, xp, cost, colours) in `ConstructionModule`; furniture also takes a
+  `Model`, or a `Station` to be built as. It shows up in the build menu under its material.
 - **A dev plot**: subclass `SkillArea` (see `MiningArea` in `Assets/Scripts/Runtime/World/DevArea.cs`) and put it in `DevArea.CreateAreas()`.

@@ -21,7 +21,7 @@ namespace UnityEngine
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; public static Vector2 operator -(Vector2 a, Vector2 b) => a; public static Vector2 operator +(Vector2 a, Vector2 b) => a; public float magnitude => 0f; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
-        public static Vector3 zero, up, forward, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
+        public static Vector3 zero, up, down, forward, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
         public static bool operator ==(Vector3 a, Vector3 b) => true; public static bool operator !=(Vector3 a, Vector3 b) => true;
@@ -52,7 +52,7 @@ namespace UnityEngine
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return, Space, KeypadEnter, M, B, C }
+    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return, Space, KeypadEnter, M, B, C, G, R }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }

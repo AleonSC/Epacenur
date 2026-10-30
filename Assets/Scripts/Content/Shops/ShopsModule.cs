@@ -22,6 +22,8 @@ namespace Epacenur.Content
                     new ShopStock(WoodcuttingModule.BronzeHatchet, 5),
                     new ShopStock(MiningModule.BronzePickaxe, 5),
                     new ShopStock(SmithingModule.Hammer, 5),
+                    new ShopStock(ConstructionModule.Saw, 5),
+                    new ShopStock(ConstructionModule.Nails, 500),
                     new ShopStock(FishingModule.Feathers, 1000),
                     new ShopStock(FishingModule.FlyFishingRod, 5),
                     new ShopStock(FishingModule.LobsterPot, 5),

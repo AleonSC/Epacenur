@@ -28,6 +28,10 @@ namespace Epacenur.Runtime
     /// Positions: tile (x, z) lies at map-space (x, 0, z), which is what objects on the map use
     /// (World.Local). The map itself sits at -Origin, so world space stays near the player however far
     /// they walk (floating origin): World.TileCenter and World.TileAt convert.
+    ///
+    /// Bases (Core: BaseSet) players build in the overworld have cells of their own, which aren't on the
+    /// world's grid: each has a tile far out of the world's way, which TileCenter, TileAt and Local know
+    /// where to put. GroundTile gives the world tile under one (for chunks, maps and danger).
     public sealed class World : MonoBehaviour
     {
         public const int LoadRadius = 9;     // chunks loaded in each direction round the player (at least 144 tiles: past the fog)
@@ -43,7 +47,11 @@ namespace Epacenur.Runtime
             Origin = new Tile(0, 0);
             heightMap = null;
             heights.Clear();
+            activeBases = null;
         }
+
+        /// The bases on the map you're on (the overworld's), or null.
+        static BaseSet activeBases;
 
         /// The ground's height comes from this (the overworld's hills); the dev plot is flat.
         static Overworld heightMap;
@@ -52,6 +60,11 @@ namespace Epacenur.Runtime
         /// How high the ground is at the centre of a tile.
         public static float Height(Tile t)
         {
+            if (activeBases != null && BaseSet.IsCell(t))
+            {
+                activeBases.Centre(t, out _, out _, out double y);
+                return (float)y;
+            }
             if (heightMap == null)
                 return 0f;
             long key = ChunkedGrid.Key(t.X, t.Z);
@@ -65,10 +78,37 @@ namespace Epacenur.Runtime
         }
 
         /// A tile's centre on the ground, in world space.
-        public static Vector3 TileCenter(Tile t) => new Vector3(t.X - Origin.X, Height(t), t.Z - Origin.Z);
-        public static Tile TileAt(Vector3 p) => new Tile(Mathf.RoundToInt(p.x) + Origin.X, Mathf.RoundToInt(p.z) + Origin.Z);
-        /// Where a tile is in map space (on the ground): the local position of things on the map.
-        public static Vector3 Local(Tile t) => new Vector3(t.X, Height(t), t.Z);
+        public static Vector3 TileCenter(Tile t)
+        {
+            var l = Local(t);
+            return new Vector3(l.x - Origin.X, l.y, l.z - Origin.Z);
+        }
+
+        /// The tile a world-space point is on: a base's cell if it's on a floor, else the world's tile.
+        public static Tile TileAt(Vector3 p)
+        {
+            if (activeBases != null && activeBases.All.Count > 0)
+            {
+                var cell = activeBases.CellAt(p.x + Origin.X, p.z + Origin.Z, p.y);
+                if (cell.HasValue)
+                    return cell.Value;
+            }
+            return new Tile(Mathf.RoundToInt(p.x) + Origin.X, Mathf.RoundToInt(p.z) + Origin.Z);
+        }
+
+        /// The world's tile under a tile: itself, or for a base's cell, the one under it.
+        public static Tile GroundTile(Tile t) => activeBases != null && BaseSet.IsCell(t) ? activeBases.GroundTile(t) : t;
+
+        /// Where a tile is in map space (on the ground, or a base's floor): the local position of things on the map.
+        public static Vector3 Local(Tile t)
+        {
+            if (activeBases != null && BaseSet.IsCell(t))
+            {
+                activeBases.Centre(t, out double x, out double z, out double y);
+                return new Vector3((float)x, (float)y, (float)z);
+            }
+            return new Vector3(t.X, Height(t), t.Z);
+        }
         /// A map-space point in world space.
         public static Vector3 ToWorld(Vector3 local) => local - new Vector3(Origin.X, 0f, Origin.Z);
 
@@ -81,7 +121,9 @@ namespace Epacenur.Runtime
 
         public MapId Map { get; private set; }
         public Overworld Overworld { get; private set; }
-        public WalkGrid Grid => Map == MapId.DevPlot ? (WalkGrid)devGrid : chunkGrid;
+        public WalkGrid Grid => Map == MapId.DevPlot ? (WalkGrid)devGrid : baseGrid;
+        /// The bases built in this world (the overworld's).
+        public BaseSet Bases { get; private set; }
         /// Where you start: the overworld's first town square.
         public Tile MainSpawn => Overworld.Spawn;
         public Tile Spawn => MainSpawn;
@@ -98,7 +140,9 @@ namespace Epacenur.Runtime
 
         readonly System.Random rng = new System.Random();
         ChunkedGrid chunkGrid;
+        BaseWalkGrid baseGrid;
         TileGrid devGrid;
+        readonly Dictionary<int, BaseObject> baseObjects = new Dictionary<int, BaseObject>();
         Owner dev, building;
         readonly Dictionary<long, Owner> chunks = new Dictionary<long, Owner>();
         readonly Dictionary<long, Owner> regions = new Dictionary<long, Owner>();
@@ -118,8 +162,9 @@ namespace Epacenur.Runtime
         /// Regions of the overworld that have been seen (loaded round a player), for the world map.
         public readonly HashSet<long> Explored = new HashSet<long>();
 
-        /// Makes the world for a seed, with the items left lying in it and the regions already seen, and goes to `map`.
-        public static World Create(int seed, MapId map, List<GroundPile> piles, List<long> explored)
+        /// Makes the world for a seed, with the items left lying in it, the regions already seen and the bases
+        /// built, and goes to `map`.
+        public static World Create(int seed, MapId map, List<GroundPile> piles, List<long> explored, List<BaseSave> bases)
         {
             var world = new GameObject("World").AddComponent<World>();
             world.Overworld = new Overworld(seed);
@@ -129,6 +174,12 @@ namespace Epacenur.Runtime
                 foreach (var p in piles)
                     world.AddPile(p);
             world.chunkGrid = new ChunkedGrid(Overworld.ChunkSize);
+            world.Bases = new BaseSet(t => world.chunkGrid.IsWalkable(t), world.Buildable, (x, z) => world.Overworld.Elevation(x, z));
+            world.baseGrid = new BaseWalkGrid(world.chunkGrid, world.Bases);
+            if (bases != null)
+                foreach (var b in bases)
+                    b.Restore(world.Bases);
+            world.Bases.Refresh();
             // Darker grass far out under everything (it follows the player), so the map never floats in the sky.
             world.backdrop = Visuals.Prim(PrimitiveType.Cube, null, new Vector3(0f, -0.3f, 0f), new Vector3(480f, 0.5f, 480f), new Color(0.24f, 0.4f, 0.19f)).transform;
             world.backdrop.name = "Backdrop";
@@ -148,12 +199,18 @@ namespace Epacenur.Runtime
             UnloadAll();
             Map = map;
             heightMap = map == MapId.Overworld ? Overworld : null;
+            activeBases = map == MapId.Overworld ? Bases : null;
             heights.Clear();
+            at = GroundTile(at);
             SetOrigin(map == MapId.DevPlot ? new Tile(0, 0) : Snap(at));
             if (map == MapId.DevPlot)
                 BuildDevPlot();
             else
+            {
                 LoadAround(at, radius, int.MaxValue);
+                foreach (var s in Bases.All)
+                    BuildBase(s);
+            }
         }
 
         /// Teleports the player, changing map if need be.
@@ -162,11 +219,11 @@ namespace Epacenur.Runtime
             if (map != Map)
                 Enter(map, tile, 1);
             else if (map == MapId.Overworld)
-                LoadAround(tile, 1, int.MaxValue);
+                LoadAround(GroundTile(tile), 1, int.MaxValue);
             var player = Game.Instance.Player;
             player.Teleport(NearestWalkable(tile));
             if (map == MapId.Overworld)
-                ShiftOriginIfFar(tile, true);
+                ShiftOriginIfFar(GroundTile(tile), true);
         }
 
         void Update()
@@ -179,7 +236,7 @@ namespace Epacenur.Runtime
             UpdateGravestone();
             if (Map != MapId.Overworld)
                 return;
-            var tile = player.CurrentTile;
+            var tile = GroundTile(player.CurrentTile);
             ShiftOriginIfFar(tile, false);
             LoadAround(tile, LoadRadius, ChunksPerFrame);
             UnloadBeyond(tile, LoadRadius + 1);
@@ -317,6 +374,10 @@ namespace Epacenur.Runtime
             regions.Clear();
             regionChunks.Clear();
             chunkGrid.Clear();
+            foreach (var b in baseObjects.Values)
+                if (b != null)
+                    b.TakeDown();
+            baseObjects.Clear();
             if (dev != null)
                 TakeDown(dev);
             dev = null;
@@ -354,6 +415,7 @@ namespace Epacenur.Runtime
                 return building;
             if (Map == MapId.DevPlot)
                 return dev;
+            tile = GroundTile(tile);
             chunks.TryGetValue(ChunkedGrid.Key(chunkGrid.ChunkOf(tile.X), chunkGrid.ChunkOf(tile.Z)), out var owner);
             return owner;
         }
@@ -561,7 +623,13 @@ namespace Epacenur.Runtime
             return npc;
         }
 
-        long PileKey(int map, Tile t) => map == (int)MapId.DevPlot ? DevPiles : ChunkedGrid.Key(chunkGrid.ChunkOf(t.X), chunkGrid.ChunkOf(t.Z));
+        long PileKey(int map, Tile t)
+        {
+            if (map == (int)MapId.DevPlot)
+                return DevPiles;
+            t = Map == MapId.Overworld ? GroundTile(t) : Bases.GroundTile(t);
+            return ChunkedGrid.Key(chunkGrid.ChunkOf(t.X), chunkGrid.ChunkOf(t.Z));
+        }
 
         void AddPile(GroundPile p)
         {
@@ -619,9 +687,48 @@ namespace Epacenur.Runtime
         /// The square of the town or city nearest a tile (where you wake up after dying).
         public Tile NearestTown(Tile t)
         {
-            var s = Overworld.NearestSettlement(t);
+            var s = Overworld.NearestSettlement(Bases.GroundTile(t));
             return s != null ? s.Center : MainSpawn;
         }
+
+        // ---- Bases ----
+
+        /// Whether a foundation may cover a world tile: loaded, open grass outside towns and their features.
+        bool Buildable(Tile t)
+        {
+            if (!chunkGrid.IsWalkable(t) || Overworld.At(t) != Terrain.Grass)
+                return false;
+            var plan = Overworld.PlanAt(t);
+            return plan.Kind != RegionKind.Town && !plan.KeepsClear(t) && !plan.Blocked.Contains(t);
+        }
+
+        /// Builds (or builds again, after a change) a base's pieces.
+        public void BuildBase(Structure s)
+        {
+            if (Map != MapId.Overworld)
+                return;
+            if (!baseObjects.TryGetValue(s.Id, out var b) || b == null)
+                baseObjects[s.Id] = b = BaseObject.Create(this, s);
+            b.Rebuild();
+        }
+
+        /// After a base changes: walking through it again, and its pieces. A base with no foundations left goes.
+        public void BaseChanged(Structure s)
+        {
+            if (s.Foundations.Count == 0)
+            {
+                Bases.Remove(s);
+                if (baseObjects.TryGetValue(s.Id, out var b) && b != null)
+                    b.TakeDown();
+                baseObjects.Remove(s.Id);
+                return;
+            }
+            Bases.Refresh();
+            BuildBase(s);
+        }
+
+        /// The built object of a base, or null.
+        public BaseObject BaseObjectOf(Structure s) => baseObjects.TryGetValue(s.Id, out var b) ? b : null;
 
         // ---- Minimap colours ----
 

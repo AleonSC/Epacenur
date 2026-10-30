@@ -119,7 +119,12 @@ namespace Epacenur.Runtime
             Camera cam = SetUpScene();
 
             var state = SaveGame.LoadWorldState(WorldInfo);
-            World = World.Create(WorldInfo.seed, MapId.Overworld, state.items, state.explored);
+            World = World.Create(WorldInfo.seed, MapId.Overworld, state.items, state.explored, state.bases);
+            if (state.hasBed)
+            {
+                bedBase = state.bedBase;
+                bedCell = state.bedCell;
+            }
             Player = PlayerController.Create(World.Spawn);
             Rig = CameraRig.Create(cam, Player);
             // A new world starts on a fresh morning.
@@ -246,8 +251,34 @@ namespace Epacenur.Runtime
         /// Your gravestone, if you have one (in this world or another), or null.
         public Grave Grave { get; set; }
 
+        // The bed you last slept in (a base's id and the cell's key), where you wake up after dying.
+        int bedBase;
+        long bedCell;
+        public int BedBase => bedBase;
+        public long BedCell => bedCell;
+
+        /// Sleeping in a bed: you'll wake up beside it when you die (while it's still there).
+        public void SetBed(Structure s, long cell)
+        {
+            bedBase = s.Id;
+            bedCell = cell;
+            Player.Kneel(1.2f);
+            GameLog.Add("You lie down and rest a while. You'll wake up here if you die.");
+        }
+
+        /// The tile of the bed you last slept in, if it's still there.
+        Tile? BedTile()
+        {
+            var s = bedBase > 0 ? World.Bases.Get(bedBase) : null;
+            if (s == null || !s.Furniture.TryGetValue(bedCell, out var f) || ContentDb.Current.Piece(f.Piece)?.Use != FurnitureUse.Bed)
+                return null;
+            Structure.Unkey(bedCell, out int i, out int j);
+            return BaseSet.CellTile(s, i, j);
+        }
+
         /// Dying: you keep your 3 most valuable items; the rest go into a gravestone where you fell, and you
-        /// wake up in the nearest town (or at the dev plot's start) with full health.
+        /// wake up beside your bed (if you've slept in one that's still standing), else in the nearest town (or at
+        /// the dev plot's start), with full health.
         void Die()
         {
             var tile = Player.CurrentTile;
@@ -275,8 +306,14 @@ namespace Epacenur.Runtime
             Boosts.Clear();
             Energy.Set(RunEnergy.Max);
             Prayer.Recharge();
+            var bed = BedTile();
             if (map == MapId.DevPlot)
                 World.Travel(MapId.DevPlot, World.DevSpawn);
+            else if (bed.HasValue)
+            {
+                World.Travel(MapId.Overworld, bed.Value);
+                GameLog.Add("You wake up beside your bed.");
+            }
             else
                 World.Travel(MapId.Overworld, World.NearestTown(tile));
         }

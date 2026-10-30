@@ -93,6 +93,7 @@ namespace Epacenur.Runtime
         {
             Destroy(hoverMarker);
             Destroy(destMarker);
+            StopBuilding();  // the ghost of a piece being placed
         }
 
         /// The world's origin moved (World): move with it, so you stay on the same tile.
@@ -131,14 +132,27 @@ namespace Epacenur.Runtime
             UpdateBleeds();
             UpdateMagic(dt);
 
+            directMove = false;
             Vector3 move = IsStunned ? Vector3.zero : Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
             UpdateEnergy(move, dt);
 
-            if (cc.isGrounded)
-                fallSpeed = -6f;  // pressed to the ground, so walking down a hill doesn't bounce
+            if (directMove)
+            {
+                // A path step into, out of or through a base: straight there (the path already keeps to its
+                // doorways), not pushed about by its floors and walls.
+                cc.enabled = false;
+                transform.position += move;
+                cc.enabled = true;
+                fallSpeed = 0f;
+            }
             else
-                fallSpeed -= 20f * dt;
-            cc.Move(move + Vector3.up * fallSpeed * dt);
+            {
+                if (cc.isGrounded)
+                    fallSpeed = -6f;  // pressed to the ground, so walking down a hill doesn't bounce
+                else
+                    fallSpeed -= 20f * dt;
+                cc.Move(move + Vector3.up * fallSpeed * dt);
+            }
 
             if (Activity != null && !Activity.StillValid(this))
                 Activity = null;
@@ -193,6 +207,18 @@ namespace Epacenur.Runtime
         Vector3 UpdateTileMode(float dt)
         {
             bool overUi = G.Hud.IsMouseOverUi() || G.Hud.MenuOpen;
+            if (Building != null)
+            {
+                // Placing a piece: clicks place it, so they don't walk; WASD still does.
+                hoverMarker.SetActive(false);
+                HoverText = "";
+                UpdateBuilding(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), overUi, Input.GetMouseButtonDown(0), !overUi && Input.GetMouseButtonDown(1));
+                Vector3 keys = ReadWasd();
+                if (keys == Vector3.zero)
+                    return Vector3.zero;
+                Face(keys, dt);
+                return keys * WasdSpeed * dt;
+            }
             Tile? hoverTile = null;
             Component hovered = null;
             var options = overUi ? new List<MenuOption>() : WorldOptions(G.Rig.Cam.ScreenPointToRay(Input.mousePosition), false, out hovered, out hoverTile);
@@ -203,10 +229,19 @@ namespace Epacenur.Runtime
             {
                 var ht = hoverTile.Value;
                 hoverMarker.transform.position = World.TileCenter(ht);
-                // Lie along the slope of the hill.
-                float sx = (World.Height(new Tile(ht.X + 1, ht.Z)) - World.Height(new Tile(ht.X - 1, ht.Z))) / 2f;
-                float sz = (World.Height(new Tile(ht.X, ht.Z + 1)) - World.Height(new Tile(ht.X, ht.Z - 1))) / 2f;
-                hoverMarker.transform.rotation = Quaternion.Euler(-Mathf.Atan(sz) * Mathf.Rad2Deg, 0f, Mathf.Atan(sx) * Mathf.Rad2Deg);
+                if (G.World.Bases.TryCell(ht, out var hb, out _, out _))
+                {
+                    // A base's cell: square with the base.
+                    hoverMarker.transform.position += Vector3.up * 0.01f;
+                    hoverMarker.transform.rotation = Quaternion.Euler(0f, (float)hb.Angle, 0f);
+                }
+                else
+                {
+                    // Lie along the slope of the hill.
+                    float sx = (World.Height(new Tile(ht.X + 1, ht.Z)) - World.Height(new Tile(ht.X - 1, ht.Z))) / 2f;
+                    float sz = (World.Height(new Tile(ht.X, ht.Z + 1)) - World.Height(new Tile(ht.X, ht.Z - 1))) / 2f;
+                    hoverMarker.transform.rotation = Quaternion.Euler(-Mathf.Atan(sz) * Mathf.Rad2Deg, 0f, Mathf.Atan(sx) * Mathf.Rad2Deg);
+                }
             }
 
             Vector3 wasd = ReadWasd();
@@ -311,6 +346,9 @@ namespace Epacenur.Runtime
                 string name = MenuOption.Thing(obj.DisplayName);
                 if (obj.HasAction)
                     options.Add(new MenuOption(obj.Action, name, () => { if (firstPerson) obj.Interact(); else WalkToObject(obj); }));
+                var part = obj.GetComponent<BasePart>();
+                if (part != null && HasHammer)
+                    examines.Add(new MenuOption("Remove", name, () => RemovePiece(part)));
                 examines.Add(new MenuOption("Examine", name, () => GameLog.Add(obj.Examine)));
             }
             else if (thing is Npc npc)
@@ -453,6 +491,7 @@ namespace Epacenur.Runtime
         }
 
         Tile? stepTarget;  // the tile you're walking into (tile mode paths), until you reach its centre
+        bool directMove;   // this frame's move is a path step in a base: no collisions or gravity
 
         void SetPath(List<Tile> p)
         {
@@ -471,6 +510,7 @@ namespace Epacenur.Runtime
         Vector3 FollowPath(float dt)
         {
             stepTarget = path[pathIndex];
+            directMove = BaseSet.IsCell(path[pathIndex]) || BaseSet.IsCell(CurrentTile);
             Vector3 full = World.TileCenter(path[pathIndex]) - transform.position;
             Vector3 to = full;
             to.y = 0f;
@@ -521,6 +561,17 @@ namespace Epacenur.Runtime
             transform.rotation = Quaternion.Euler(0f, G.Rig.Yaw, 0f);
             var cam = G.Rig.Cam.transform;
             bool free = Cursor.lockState != CursorLockMode.Locked;
+            if (Building != null)
+            {
+                // Placing a piece where the crosshair points.
+                HoverText = "";
+                AimingAtTarget = false;
+                bool down = Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen;
+                if (down && free && !G.Hud.IsMouseOverUi())
+                    G.Rig.LockCursor(true);  // this click only grabs the mouse
+                UpdateBuilding(new Ray(cam.position, cam.forward), free, down && !free, !free && Input.GetMouseButtonDown(1));
+                return ReadWasd() * WasdSpeed * dt;
+            }
             Component aimed = null;
             var options = free || G.Hud.MenuOpen ? new List<MenuOption>() : WorldOptions(new Ray(cam.position, cam.forward), true, out aimed, out _);
             SetHoverText(options);
@@ -654,7 +705,8 @@ namespace Epacenur.Runtime
 
         bool CanLight(BurnableDef burn, Tile tile)
         {
-            string problem = LightActivity.Problem(burn, tile);
+            string problem = G.World.Bases.TryCell(tile, out var b, out int bi, out int bj) && b.HasFoundation(bi, bj)
+                ? "You can't light a fire on a floor." : LightActivity.Problem(burn, tile);
             if (problem != null)
                 GameLog.Add(problem);
             return problem == null;

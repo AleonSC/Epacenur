@@ -30,7 +30,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 19 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "19 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 20 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "20 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -100,7 +100,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 22 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 24 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -110,9 +110,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 23 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 25 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 22 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 24 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -378,7 +378,7 @@ public static class CoreRulesSuite
         Check(Making.Problem(plate, sinv, 18, false) == "You need a hammer to do that.", "smithing needs a hammer");
         Check(Making.Make(plate, sinv, 18, srng, out failed) == SmithingModule.BronzePlatebody && sinv.Count(SmithingModule.BronzeBar) == 0 && sinv.Count(SmithingModule.BronzePlatebody) == 1, "a platebody takes 5 bars");
         Check(Making.Problem(helm, sinv, 99, true) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
-        Check(db.RecipesAt(SmithingModule.Anvil).Count == 55 && db.RecipesAt(SmithingModule.Furnace).Count == 5, "5 bars to smelt; 11 things to smith from each (arrowtips too)");
+        Check(db.RecipesAt(SmithingModule.Anvil).Count == 57 && db.RecipesAt(SmithingModule.Furnace).Count == 5, "5 bars to smelt; 11 things to smith from each (arrowtips too), and nails from bronze or iron");
         Check(Item(SmithingModule.BronzeFullHelm).Slot == EquipSlot.Head && Item(SmithingModule.BronzePlatebody).Slot == EquipSlot.Body && Item(SmithingModule.BronzePlatelegs).Slot == EquipSlot.Legs, "armour goes on head, body and legs");
         Check(ToolBelt.IsTool(MiningModule.BronzePickaxe) && ToolBelt.IsTool(SmithingModule.Hammer), "pickaxe and hammer go on the tool belt");
 
@@ -468,7 +468,7 @@ public static class CoreRulesSuite
                 int danger = sow.Danger(t);
                 var rock = Spawning.NodeAt(sow, t, Terrain.Rock);
                 var treeHere = Spawning.NodeAt(sow, t, Terrain.Tree);
-                if (danger == 0 && rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock) safeOnlyBasics = false;
+                if (danger == 0 && rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && rock.Id != ConstructionModule.LimestoneRock) safeOnlyBasics = false;
                 if (danger == 0 && treeHere.Id == WoodcuttingModule.Oak) safeHasOak = true;
                 if (danger >= 30)
                 {
@@ -477,7 +477,7 @@ public static class CoreRulesSuite
                     if (treeHere.Id == WoodcuttingModule.Yew) deepHasYew = true;
                 }
             }
-        Check(safeOnlyBasics && safeHasOak && deepTiles > 0 && deepHasAdamant && deepHasYew, "copper, tin and oaks on the safe ground round towns; adamantite and yews deep in the wilderness");
+        Check(safeOnlyBasics && safeHasOak && deepTiles > 0 && deepHasAdamant && deepHasYew, "copper, tin, limestone and oaks on the safe ground round towns; adamantite and yews deep in the wilderness");
         var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
         Check(homeGroups.Count == 3 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home city has chickens or cows (" + homeGroups[0].Npc.Name + ")");
         Check(homeGroups[1].Npc.Pickpocket != null && homeGroups[2].Npc.Pickpocket != null && homeGroups[1].Npc.Pickpocket.Level <= 10,
@@ -923,6 +923,87 @@ public static class CoreRulesSuite
         var boxed = new TileGrid(5, 5);
         foreach (var t in new[] { new Tile(1, 2), new Tile(3, 2), new Tile(2, 1), new Tile(2, 3) }) boxed.SetBlocked(t, true);
         Check(Pathfinder.PathToInteract(boxed, new Tile(0, 0), new Tile(2, 2)) == null, "a surrounded tree can't be reached");
+
+        info("Construction");
+        Check(db.Piece("wooden_wall").Kind == PieceKind.Wall && db.Piece("stone_foundation").Level == 20 && db.Recipe("saw_plank").ToolType == "saw"
+            && db.Piece(ConstructionModule.Chest).Use == FurnitureUse.Chest && db.Piece("build_furnace").Station == SmithingModule.Furnace,
+            "wooden and stone pieces (stone from Construction 20), planks sawn from logs, chests, beds and stations to build");
+        bool keysRoundTrip = true;
+        foreach (int ki in new[] { -7, -1, 0, 3 })
+            foreach (int kj in new[] { -5, 0, 9 })
+                for (int side = 0; side < 2; side++)
+                {
+                    Structure.UnEdgeKey(Structure.EdgeKey(ki, kj, side), out int bi2, out int bj2, out int bside);
+                    if (bi2 != ki || bj2 != kj || bside != side) keysRoundTrip = false;
+                }
+        // A 3 x 3 base turned 30 degrees on open, flat ground, walled all round but for a doorway on its south side.
+        var open = new TileGrid(60, 60);
+        var bases = new BaseSet(t => open.IsWalkable(t), t => open.IsWalkable(t), (x, z) => 0.0);
+        Check(bases.NewBaseProblem(30.3, 30.6, 30, out double floor) == null && Math.Abs(floor - BaseSet.FloorAbove) < 1e-9, "a base can start anywhere on open ground, at any angle");
+        var hut = bases.Create(30.3, 30.6, 30, floor);
+        hut.Foundations[Structure.Key(0, 0)] = "wooden_foundation";
+        Check(bases.FoundationProblem(hut, 2, 0) != null && bases.FoundationProblem(hut, 1, 0) == null && bases.FoundationProblem(hut, 0, 0) != null,
+            "foundations go beside one another, one to a cell");
+        for (int i = -1; i <= 1; i++)
+            for (int j = -1; j <= 1; j++)
+                hut.Foundations[Structure.Key(i, j)] = "wooden_foundation";
+        for (int k = -1; k <= 1; k++)
+        {
+            hut.Edges[Structure.EdgeKey(k, 1, 0)] = "wooden_wall";                                  // north
+            hut.Edges[Structure.EdgeKey(k, -2, 0)] = k == 0 ? "wooden_doorway" : "wooden_wall";    // south, with the door
+            hut.Edges[Structure.EdgeKey(1, k, 1)] = "wooden_wall";                                  // east
+            hut.Edges[Structure.EdgeKey(-2, k, 1)] = "wooden_wall";                                 // west
+        }
+        bases.Refresh();
+        hut.ToMap(1, -1, out double mx, out double mz);
+        hut.ToLocal(mx, mz, out double li, out double lj);
+        var middle = BaseSet.CellTile(hut, 0, 0);
+        bases.Centre(middle, out double cx0, out double cz0, out double cy0);
+        Check(keysRoundTrip && Math.Abs(li - 1) < 1e-9 && Math.Abs(lj + 1) < 1e-9 && Math.Abs(cx0 - 30.3) < 1e-9 && Math.Abs(cy0 - floor) < 1e-9
+            && bases.CellAt(30.3, 30.6, floor) == middle && bases.CellAt(30.3, 30.6, floor - 2) == null && bases.TryCell(middle, out _, out int mi, out int mj) && mi == 0 && mj == 0,
+            "a base's cells have tiles of their own, and points on its floor find them");
+        var walk = new BaseWalkGrid(open, bases);
+        Check(!walk.IsWalkable(new Tile(30, 31)) && walk.IsWalkable(new Tile(20, 20)) && walk.IsWalkable(middle), "the ground under a base is its, not the world's");
+        var inside = Pathfinder.PathTo(walk, new Tile(20, 20), middle);
+        bool viaDoor = inside.Contains(BaseSet.CellTile(hut, 0, -2)) && inside.Contains(BaseSet.CellTile(hut, 0, -1));
+        bool legal = true;
+        var at = new Tile(20, 20);
+        foreach (var t in inside)
+        {
+            bool linked = walk.Links(at).Contains(t);
+            if (!linked && (Math.Abs(t.X - at.X) > 1 || Math.Abs(t.Z - at.Z) > 1 || !walk.CanStep(at, t.X - at.X, t.Z - at.Z))) legal = false;
+            at = t;
+        }
+        Check(inside.Count > 0 && inside[inside.Count - 1] == middle && viaDoor && legal, "you walk in from outside through the doorway (" + inside.Count + " steps)");
+        Check(!walk.CanStep(BaseSet.CellTile(hut, 0, 1), 0, 1) && !walk.CanStep(BaseSet.CellTile(hut, 1, 0), 1, 0) && walk.CanStep(BaseSet.CellTile(hut, 0, -1), 0, -1)
+            && walk.CanStep(middle, 1, 1), "walls block, the doorway doesn't, and you can cross a room diagonally");
+        hut.Edges[Structure.EdgeKey(0, -2, 0)] = "wooden_wall";
+        bases.Refresh();
+        var shut = Pathfinder.PathTo(walk, new Tile(20, 20), middle);
+        Check(shut.Count == 0 || shut[shut.Count - 1] != middle, "wall the doorway up and there's no way in");
+        hut.Edges[Structure.EdgeKey(0, -2, 0)] = "wooden_doorway";
+        bases.Refresh();
+        Check(BaseSet.RoofProblem(hut, 1, 1) == null && BaseSet.RoofProblem(hut, 0, 0) != null && BaseSet.RoofProblem(hut, 3, 3) != null,
+            "a roof needs a wall under it or a roof beside it, and a foundation");
+        hut.Roofs[Structure.Key(1, 1)] = "wooden_roof";
+        Check(BaseSet.RoofProblem(hut, 0, 0) != null && BaseSet.RoofProblem(hut, 0, 1) == null && BaseSet.EdgeProblem(hut, 5, 5, 0) != null
+            && BaseSet.EdgeProblem(hut, 0, 0, 0) == null && BaseSet.EdgeProblem(hut, 0, 1, 0) != null, "walls go on a foundation's edge, one to an edge");
+        hut.Furniture[Structure.Key(0, 0)] = new Furnishing { Piece = ConstructionModule.Chest, Store = new Bank(ConstructionModule.ChestSlots) };
+        Check(!walk.IsWalkable(middle) && BaseSet.FurnitureProblem(hut, 0, 0) != null && BaseSet.RemoveFoundationProblem(hut, 0, 0) != null
+            && BaseSet.RemoveFoundationProblem(hut, 1, 1) != null && BaseSet.RemoveFoundationProblem(hut, 0, -1) != null,
+            "furniture fills its cell; a foundation only comes away once nothing's on it or round its edge");
+        Check(bases.NewBaseProblem(30.9, 31.2, 0, out _) != null && bases.NewBaseProblem(45, 45, 0, out _) == null, "a new base can't go on top of another");
+        var hill = new BaseSet(t => true, t => true, (x, z) => x * 0.6);
+        Check(hill.NewBaseProblem(10, 10, 0, out double hillFloor) == null && Math.Abs(hillFloor - (10.5 * 0.6 + BaseSet.FloorAbove)) < 1e-6
+            && hill.NewBaseProblem(10, 10, 0, out _) == null, "on a slope, the floor is level with the highest ground under it");
+        var steep = hill.Create(10, 10, 0, hillFloor);
+        steep.Foundations[Structure.Key(0, 0)] = "wooden_foundation";
+        hill.Refresh();
+        Check(hill.FoundationProblem(steep, 1, 0) != null && hill.FoundationProblem(steep, -1, 0) == null && hill.FoundationProblem(steep, -4, 0) != null,
+            "uphill the floor would be buried; downhill it stands on posts, until the ground falls away too far");
+        var chestBank = new Bank(ConstructionModule.ChestSlots);
+        for (int i = 0; i < 40; i++) chestBank.Add(db.Items[i].Id, 1);
+        Check(chestBank.UsedSlots == ConstructionModule.ChestSlots, "a storage chest holds " + ConstructionModule.ChestSlots + " kinds of item");
 
     }
 }
