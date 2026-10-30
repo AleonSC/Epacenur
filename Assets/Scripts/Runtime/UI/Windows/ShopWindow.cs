@@ -33,10 +33,12 @@ namespace Epacenur.Runtime
                 var item = shop.Items[i];
                 var slot = new Rect((i % Columns) * (Gui.Slot + Gui.Gap), (i / Columns) * (cellH + Gui.Gap), Gui.Slot, Gui.Slot);
                 int price = Shop.BuyPrice(item.Def);
-                Gui.Fill(slot, new Color(0f, 0f, 0f, 0.25f));
+                Gui.EmptySlot(slot);
+                if (slot.Contains(e.mousePosition))
+                    Gui.Highlight(slot, false);
                 Gui.DrawItemIcon(slot, item.Def);
-                Gui.Shadowed(new Rect(slot.x + 2f, slot.y - 1f, slot.width, 16f), (item.Stock > 0 ? "<color=#ffff00>" : "<color=#ff6060>") + item.Stock + "</color>", Gui.Small);
-                Gui.Shadowed(new Rect(slot.x - 4f, slot.yMax, slot.width + 8f, 16f), price + " gp", Gui.Centered);
+                Gui.Shadowed(new Rect(slot.x + 2f, slot.y - 1f, slot.width, 16f), (item.Stock > 0 ? "<color=#ffff00>" : "<color=" + Gui.BadHex + ">") + item.Stock + "</color>", Gui.Small);
+                Gui.Shadowed(new Rect(slot.x - 4f, slot.yMax, slot.width + 8f, 16f), "<size=11><color=" + Gui.GoldHex + ">" + price + " gp</color></size>", Gui.Centered);
                 if (slot.Contains(e.mousePosition))
                     tooltip = item.Def.Name + ": " + price + " coins (" + item.Stock + " in stock)";
                 if (e.type == EventType.MouseDown && slot.Contains(e.mousePosition))
@@ -56,6 +58,7 @@ namespace Epacenur.Runtime
                 GameLog.Add(problem);
 
             float y = r.yMax - 76f;
+            Divider(r, y - 8f);
             GUI.Label(new Rect(r.x + Gui.Pad, y, 140f, 22f), "Buy / sell:", Gui.Small);
             for (int i = 0; i < Amounts.Length; i++)
             {
@@ -65,7 +68,7 @@ namespace Epacenur.Runtime
             }
             Gui.Shadowed(new Rect(r.x + Gui.Pad, y + 28f, 160f, 22f), "Your coins: <color=#ffff00>" + Experience.Format(G.Inventory.Count(ItemIds.Coins)) + "</color>", Gui.Label);
             GUI.Label(new Rect(r.x + Gui.Pad + 160f, y + 26f, r.width - Gui.Pad * 2 - 160f, 50f),
-                "Click: buy / sell that many. Shift: 50 / all\nRight-click: options. Your items: click to sell", Gui.Small);
+                "<color=" + Gui.MutedHex + ">Click: buy / sell that many. Shift: 50 / all\nRight-click: options. Your items: click to sell</color>", Gui.Small);
 
             if (tooltip != null && view.Contains(e.mousePosition))
                 Gui.Tooltip(new Rect(e.mousePosition.x + 14f, e.mousePosition.y - 6f, 300f, 20f), tooltip, Gui.Small);

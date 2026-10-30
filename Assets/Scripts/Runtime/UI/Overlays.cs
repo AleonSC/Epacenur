@@ -80,14 +80,18 @@ namespace Epacenur.Runtime
             Gui.Shadowed(new Rect(10f, 8f, 600f, 22f), action, Gui.Title);
 
             string mode = p.Mode == ViewMode.Tile ? "Tile mode" : "First person";
-            string pace = p.IsStunned ? "   <color=#ffff66>Stunned!</color>" : p.IsRunning ? "   <color=#7fd4ff>Running</color>" : "";
-            Gui.Shadowed(new Rect(10f, 30f, 600f, 20f), "<color=#ffd966>" + mode + "</color>" + pace + "   (V to switch, H for help)", Gui.Small);
+            string pace = p.IsStunned ? "   <color=" + Gui.GoldHex + ">Stunned!</color>" : p.IsRunning ? "   <color=" + Gui.BlueHex + ">Running</color>" : "";
+            Gui.Shadowed(new Rect(10f, 30f, 600f, 20f), "<color=" + Gui.GoldHex + ">" + mode + "</color>" + pace + "   <color=" + Gui.MutedHex + ">(V to switch, H for help)</color>", Gui.Small);
             if (!hud.ShowHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
                 ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nF1: dev tools"
                 : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nC: show or hide chat.  B: show or hide the inventory panel\nF1: dev tools";
-            Gui.Shadowed(new Rect(10f, 50f, 440f, 150f), help, Gui.Small);
+            // In a quiet box, so it reads over bright ground.
+            var size = Gui.Small.CalcSize(new GUIContent(help));
+            var box = new Rect(6f, 50f, size.x + 16f, size.y + 10f);
+            Gui.PanelBox(box, 0.6f);
+            Gui.Shadowed(new Rect(box.x + 8f, box.y + 5f, size.x + 4f, size.y + 2f), help, Gui.Small);
         }
 
         public void DrawCrosshair(Hud hud)
@@ -123,8 +127,9 @@ namespace Epacenur.Runtime
             if (Time.time > levelUpUntil || levelUpText == null)
                 return;
             var r = new Rect(hud.W / 2f - 220f, 70f, 440f, 44f);
-            Gui.Fill(r, new Color(0.1f, 0.08f, 0.04f, 0.8f));
-            Gui.Shadowed(r, "<color=#ffd966><b>" + levelUpText + "</b></color>", Gui.Centered);
+            Gui.PanelBox(r, 0.92f);
+            Gui.Fill(new Rect(r.x + 3f, r.y + 3f, r.width - 6f, 2f), Gui.Trim);
+            Gui.Shadowed(r, "<color=" + Gui.GoldHex + "><b>" + levelUpText + "</b></color>", Gui.Centered);
         }
 
         void DrawChat(Hud hud)
@@ -132,13 +137,13 @@ namespace Epacenur.Runtime
             if (!hud.ChatOpen)
                 return;
             var r = hud.ChatRect;
-            Gui.Fill(r, new Color(0.12f, 0.1f, 0.07f, 0.7f));
+            Gui.PanelBox(r, 0.72f);
             var msgs = GameLog.Messages;
             const int lines = 7;
-            float y = r.y + 4f;
+            float y = r.y + 5f;
             for (int i = Mathf.Max(0, msgs.Count - lines); i < msgs.Count; i++)
             {
-                Gui.Shadowed(new Rect(r.x + 6f, y, r.width - 12f, 20f), msgs[i], Gui.Small);
+                Gui.Shadowed(new Rect(r.x + 8f, y, r.width - 16f, 20f), msgs[i], Gui.Small);
                 y += 20f;
             }
         }
@@ -186,16 +191,18 @@ namespace Epacenur.Runtime
         /// Green for what's left, red for what's lost.
         static void HealthBar(Vector2 at, float fraction)
         {
-            var bar = new Rect(at.x - 20f, at.y - 6f, 40f, 5f);
-            Gui.Fill(bar, new Color(0.8f, 0.1f, 0.1f));
-            Gui.Fill(new Rect(bar.x, bar.y, bar.width * fraction, bar.height), new Color(0.1f, 0.85f, 0.15f));
+            var bar = new Rect(at.x - 21f, at.y - 7f, 42f, 7f);
+            Gui.Bar(bar, fraction, new Color(0.15f, 0.8f, 0.2f), new Color(0.75f, 0.1f, 0.1f));
         }
 
         /// Red with the damage, or blue for a miss.
         static void Hitsplat(Rect r, int damage)
         {
-            Gui.Fill(r, damage > 0 ? new Color(0.75f, 0.08f, 0.08f, 0.95f) : new Color(0.15f, 0.35f, 0.8f, 0.95f));
-            Gui.Shadowed(r, "<b>" + damage + "</b>", Gui.Centered);
+            var c = damage > 0 ? new Color(0.72f, 0.08f, 0.08f, 0.95f) : new Color(0.15f, 0.35f, 0.78f, 0.95f);
+            Gui.Fill(r, new Color(0f, 0f, 0f, 0.85f));
+            Gui.Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, r.height - 2f), c);
+            Gui.Fill(new Rect(r.x + 1f, r.y + 1f, r.width - 2f, 3f), new Color(1f, 1f, 1f, 0.18f));
+            Gui.Shadowed(r, "<b><color=#ffffff>" + damage + "</color></b>", Gui.Centered);
         }
     }
 }

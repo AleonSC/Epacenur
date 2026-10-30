@@ -149,7 +149,7 @@ namespace Epacenur.Runtime
             if (g == null)
                 return;
             string text = g.world == G.WorldInfo.id ? "Gravestone: <color=#ffffff>" + Gravestone.Time(g) + "</color>" : "Gravestone in another world";
-            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<color=#c0c0c8>" + text + "</color>", Gui.RightSmall);
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<color=" + Gui.MutedHex + ">" + text + "</color>", Gui.RightSmall);
         }
         bool confirmLogOut;
 
@@ -175,7 +175,7 @@ namespace Epacenur.Runtime
         {
             if (G == null)
                 return;  // logged out this frame
-            Gui.MakeStyles();
+            Gui.Begin();
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
             if (pendingMenu != null)
             {
@@ -232,11 +232,11 @@ namespace Epacenur.Runtime
         /// The window's background and title bar, with a close button.
         protected static void Frame(Hud hud, Rect r, string title)
         {
-            Gui.Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.96f));
-            Gui.Fill(new Rect(r.x, r.y, r.width, 30f), new Color(0.16f, 0.13f, 0.09f, 1f));
-            Gui.Shadowed(new Rect(r.x + Gui.Pad, r.y + 5f, 300f, 22f), "<b>" + title + "</b>", Gui.Title);
-            if (GUI.Button(new Rect(r.xMax - 30f, r.y + 4f, 24f, 22f), "X"))
+            if (Gui.TitledPanel(r, title, true))
                 hud.CloseWindow();
         }
+
+        /// A divider across the window over its controls at the bottom (at `y`).
+        protected static void Divider(Rect r, float y) => Gui.Fill(new Rect(r.x + Gui.Pad, y, r.width - Gui.Pad * 2, 1f), Gui.TrimDim);
     }
 }

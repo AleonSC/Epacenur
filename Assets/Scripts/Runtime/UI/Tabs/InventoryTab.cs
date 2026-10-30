@@ -39,8 +39,10 @@ namespace Epacenur.Runtime
                 if (slot.Contains(e.mousePosition))
                     over = i;
                 bool picked = player.IsUsing && player.UsingSlot == i;
-                Gui.Fill(slot, new Color(0f, 0f, 0f, 0.25f));
+                Gui.EmptySlot(slot);
                 var stack = inv[i];
+                if (!stack.IsEmpty && slot.Contains(e.mousePosition) && !dragging)
+                    Gui.Highlight(slot, false);
                 if (!stack.IsEmpty && !(dragging && i == pressSlot))
                 {
                     Gui.DrawItemIcon(slot, stack.Def);
@@ -52,11 +54,9 @@ namespace Epacenur.Runtime
                 }
                 if (picked)
                 {
-                    // A white outline round the item being used.
-                    Gui.Fill(new Rect(slot.x, slot.y, slot.width, 1f), Color.white);
-                    Gui.Fill(new Rect(slot.x, slot.yMax - 1f, slot.width, 1f), Color.white);
-                    Gui.Fill(new Rect(slot.x, slot.y, 1f, slot.height), Color.white);
-                    Gui.Fill(new Rect(slot.xMax - 1f, slot.y, 1f, slot.height), Color.white);
+                    // A bright outline round the item being used.
+                    Gui.Highlight(slot, true);
+                    Gui.Outline(slot, new Color(1f, 0.95f, 0.8f));
                 }
                 if (e.type != EventType.MouseDown || !slot.Contains(e.mousePosition))
                     continue;
@@ -157,7 +157,7 @@ namespace Epacenur.Runtime
                 Gui.Fill(new Rect(r.x + 7f, r.y + 18f - k * 5f, 16f, 5f), dark);
                 Gui.Fill(new Rect(r.x + 7f, r.y + 18f - k * 5f, 16f, 3f), gold);
             }
-            GUI.Label(new Rect(r.x + 28f, r.y + 6f, 80f, 18f), "Coins", Gui.Small);
+            GUI.Label(new Rect(r.x + 28f, r.y + 6f, 80f, 18f), "<color=" + Gui.MutedHex + ">Coins</color>", Gui.Small);
             Gui.Shadowed(new Rect(r.x, r.y + 6f, r.width - 8f, 18f), "<b>" + PouchText(G.Inventory.PouchCoins) + "</b>", Gui.RightSmall);
 
             if (r.Contains(e.mousePosition) && e.type == EventType.MouseDown)

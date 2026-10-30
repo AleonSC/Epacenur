@@ -28,8 +28,7 @@ namespace Epacenur.Runtime
             var e = Event.current;
             var pr = G.Prayer;
             int level = G.Skills.GetLevel(SkillIds.Prayer);
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>PRAYER</b>", Gui.Small);
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<color=#7fd4ff>" + pr.Points + " / " + pr.Max + "</color>", Gui.RightSmall);
+            Gui.Heading(body, "PRAYER", "<color=" + Gui.BlueHex + ">" + pr.Points + " / " + pr.Max + "</color>");
             float top = body.y + 20f;
             PrayerDef tip = null;
             for (int i = 0; i < Prayers.All.Length; i++)
@@ -40,15 +39,16 @@ namespace Epacenur.Runtime
                 var inner = new Rect(slot.x + 1f, slot.y + 1f, slot.width - 2f, slot.height - 2f);
                 Gui.Bevel(slot);
                 if (on)
-                    Gui.Fill(inner, new Color(1f, 0.85f, 0.35f, 0.35f));
+                    Gui.Highlight(slot, true);
                 DrawIcon(new Rect(slot.x + 9f, slot.y + 9f, 22f, 22f), def);
                 if (!unlocked)
                 {
-                    Gui.Fill(inner, new Color(0.12f, 0.11f, 0.09f, 0.7f));
-                    Gui.Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=#ff6060>Lv " + def.Level + "</color>", Gui.Centered);
+                    Gui.Fill(inner, Gui.Locked);
+                    Gui.Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=" + Gui.BadHex + ">Lv " + def.Level + "</color>", Gui.Centered);
                 }
                 if (!slot.Contains(e.mousePosition))
                     continue;
+                Gui.Highlight(slot, false);
                 tip = def;
                 if (e.type == EventType.MouseDown)
                 {
@@ -62,15 +62,15 @@ namespace Epacenur.Runtime
             }
             int rows = (Prayers.All.Length + 3) / 4;
             GUI.Label(new Rect(body.x, top + rows * (Gui.Slot + Gui.Gap) + 4f, body.width, 90f),
-                "Click a prayer to turn it on or off. Prayers drain your points; recharge them at the altar by the bank. Bury bones to train Prayer.", Gui.Rich);
+                "<color=" + Gui.MutedHex + ">Click a prayer to turn it on or off. Prayers drain your points; recharge them at the altar by the bank. Bury bones to train Prayer.</color>", Gui.Rich);
             if (tip != null)
             {
                 float seconds = PrayerBook.DrainResistance / (float)tip.DrainEffect * GameTime.TickSeconds;
                 var t = new Rect(Mathf.Max(4f, hud.PanelRect.x - 236f), Mathf.Clamp(e.mousePosition.y - 30f, 4f, hud.H - 74f), 230f, 70f);
-                Gui.Fill(t, new Color(0.06f, 0.05f, 0.04f, 0.95f));
-                Gui.Shadowed(new Rect(t.x + 8f, t.y + 3f, t.width - 16f, 18f), "<b><color=#ffcc66>" + tip.Name + "</color></b>  (level " + tip.Level + ")", Gui.Small);
+                Gui.TipBox(t);
+                Gui.Shadowed(new Rect(t.x + 8f, t.y + 3f, t.width - 16f, 18f), "<b><color=" + Gui.GoldHex + ">" + tip.Name + "</color></b>  (level " + tip.Level + ")", Gui.Small);
                 GUI.Label(new Rect(t.x + 8f, t.y + 20f, t.width - 16f, 30f), tip.Description, Gui.Small);
-                GUI.Label(new Rect(t.x + 8f, t.y + 48f, t.width - 16f, 18f), "Drains a point every " + seconds.ToString("0.#") + " s", Gui.Small);
+                GUI.Label(new Rect(t.x + 8f, t.y + 48f, t.width - 16f, 18f), "<color=" + Gui.MutedHex + ">Drains a point every " + seconds.ToString("0.#") + " s</color>", Gui.Small);
             }
         }
 

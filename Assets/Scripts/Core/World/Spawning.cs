@@ -15,8 +15,24 @@ namespace Epacenur.Core
             return Math.Sqrt(dx * dx + dz * dz);
         }
 
-        /// The node on a Tree, Rock or Water tile (null if no rule covers it).
+        /// The node on a Tree, Rock, Flax, Water or Essence tile (null if no rule covers it). Most of a
+        /// quarry's rocks are its own ore (QuarryOre); the rest are whatever grows at that distance.
         public static NodeDef NodeAt(Overworld ow, Tile t, Terrain on)
+        {
+            if (on == Terrain.Rock)
+            {
+                var plan = ow.PlanAt(t);
+                if (plan.Kind == RegionKind.Quarry && plan.Rocks.Contains(t) && ow.Hash(t.X, t.Z, 62) < 0.65)
+                    return QuarryOre(ow, plan);
+            }
+            return Pick(ow, t, on, ow.Hash(t.X, t.Z, 21 + (int)on));
+        }
+
+        /// The rock a quarry is mostly made of (by distance, like rocky ground), or null.
+        public static NodeDef QuarryOre(Overworld ow, RegionPlan plan) => Pick(ow, plan.Center, Terrain.Rock, ow.Hash(plan.RX, plan.RZ, 63));
+
+        /// The node whose spawn rules for `on` cover `t`, chosen by weight with `roll` (0..1).
+        static NodeDef Pick(Overworld ow, Tile t, Terrain on, double roll)
         {
             double d = Distance(ow, t), total = 0;
             var db = ContentDb.Current;
@@ -26,7 +42,7 @@ namespace Epacenur.Core
                         total += r.Weight;
             if (total <= 0)
                 return null;
-            double pick = ow.Hash(t.X, t.Z, 21 + (int)on) * total;
+            double pick = roll * total;
             foreach (var n in db.Nodes)
                 foreach (var r in n.Spawns)
                     if (r.On == on && d >= r.MinDistance && d < r.MaxDistance)
@@ -101,11 +117,11 @@ namespace Epacenur.Core
         }
 
         /// The monster groups living in a region: a camp has one (its occupants); wild country up to two;
-        /// a town a few chickens and the like.
+        /// a town a few chickens and the like; shrines and quarries none.
         public static List<Group> GroupsIn(Overworld ow, RegionPlan plan)
         {
             var groups = new List<Group>();
-            int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Course ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
+            int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Quarry || plan.Kind == RegionKind.Course ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
             double d = Distance(ow, plan.Center);
             for (int g = 0; g < count; g++)
                 Pick(ow, plan, d, g, false, groups);

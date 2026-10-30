@@ -95,7 +95,7 @@ namespace Epacenur.Core
     /// distance from the start: within the range, nodes are picked by weight. Further out, better things grow.
     public sealed class SpawnRule
     {
-        public Terrain On;                    // Tree, Rock, Flax (plants) or Water (fishing spots)
+        public Terrain On;                    // Tree, Rock, Flax (plants), Water (fishing spots) or Essence (round shrines)
         public int MinDistance, MaxDistance = int.MaxValue;  // tiles from the start
         public double Weight = 1;
     }

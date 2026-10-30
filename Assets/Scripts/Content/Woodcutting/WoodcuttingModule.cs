@@ -63,17 +63,12 @@ namespace Epacenur.Content
             logs.GroundModel = Looks.LogModel(bark, end);
         }
 
-        /// A tree: a trunk and a leafy crown (which shakes when chopped), then a stump for a while.
+        /// A tree: a trunk flaring into roots, with a leafy crown (which shakes when chopped), then a stump for a while.
         static void TreeNode(ContentDb db, string id, string name, string examine, string logs, string logName, int level, double xp,
             int low, int high, int minLives, int maxLives, float respawn, Rgb trunk, Rgb leaf, float size, int minDistance, double weight)
         {
-            var crown = new Model()
-                .Sphere(0f, 0.35f, 0f, 1.9f, 1.6f, 1.9f, leaf)
-                .Sphere(0.45f, -0.1f, 0.3f, 1.2f, 1.1f, 1.2f, leaf * 0.82f)
-                .Sphere(-0.4f, 0.05f, -0.35f, 1.25f, 1.1f, 1.25f, leaf * 0.82f);
-            if (id == Willow)  // long drooping fronds
-                crown.Cylinder(0.6f, -0.6f, 0.2f, 0.5f, 0.7f, 0.5f, leaf * 0.9f).Cylinder(-0.55f, -0.6f, -0.25f, 0.5f, 0.7f, 0.5f, leaf * 0.9f)
-                     .Cylinder(0f, -0.6f, 0.6f, 0.45f, 0.65f, 0.45f, leaf * 0.85f);
+            var crown = id == Oak ? OakCrown(leaf) : id == Willow ? WillowCrown(leaf) : id == Maple ? MapleCrown(leaf)
+                : id == Yew ? YewCrown(leaf) : RoundCrown(leaf);
             float h = 2.5f * size;
             var node = new NodeDef
             {
@@ -82,10 +77,12 @@ namespace Epacenur.Content
                 Skill = Skill, ToolType = "hatchet",
                 Yields = new[] { new NodeYield { ItemId = logs, Level = level, Xp = xp, LowChance = low, HighChance = high, Message = "You get some " + logName + "." } },
                 AttemptTicks = 4, FirstPersonTicks = 2, MinLives = minLives, MaxLives = maxLives, RespawnSeconds = respawn, Look = NodeLook.Tree,
-                Model = new Model().Cylinder(0f, h / 2f, 0f, 0.36f * size, h / 2f, 0.36f * size, trunk).Child(crown, 0f, h, 0f, scale: size, name: "crown"),
+                Model = Trunk(trunk, size, h, id == Oak).Child(crown, 0f, h, 0f, scale: size, name: "crown"),
                 EmptyModel = new Model()
+                    .Include(Roots(trunk, size))
                     .Cylinder(0f, 0.18f, 0f, 0.42f * size, 0.18f, 0.42f * size, trunk)
-                    .Cylinder(0f, 0.365f, 0f, 0.36f * size, 0.01f, 0.36f * size, new Rgb(0.78f, 0.64f, 0.42f)),
+                    .Cylinder(0f, 0.365f, 0f, 0.36f * size, 0.01f, 0.36f * size, new Rgb(0.78f, 0.64f, 0.42f))
+                    .Cylinder(0f, 0.367f, 0f, 0.2f * size, 0.01f, 0.2f * size, new Rgb(0.68f, 0.54f, 0.34f)),  // a growth ring
                 StartMessage = "You swing your axe at the tree.",
                 NeedToolMessage = "You need a hatchet you can use to chop down this tree.",
                 FullMessage = "Your inventory is too full to hold any more logs.",
@@ -93,6 +90,107 @@ namespace Epacenur.Content
             };
             node.Spawns.Add(new SpawnRule { On = Terrain.Tree, MinDistance = minDistance, Weight = weight });
             db.Add(node);
+        }
+
+        /// Four roots spreading out from the foot of the trunk.
+        static Model Roots(Rgb bark, float size)
+        {
+            var m = new Model();
+            for (int i = 0; i < 4; i++)
+            {
+                // Each leans in from the ground outside the trunk to the trunk's side.
+                float a = i * 90f + 20f, r = 0.24f * size, rad = a * (float)System.Math.PI / 180f;
+                m.Capsule((float)System.Math.Sin(rad) * r, 0.1f, (float)System.Math.Cos(rad) * r, 0.2f * size, 0.2f * size, 0.2f * size, bark * 0.9f)
+                 .Turn(-60f, a, 0f);
+            }
+            return m;
+        }
+
+        /// A trunk narrowing as it rises, with darker bark streaks and a branch or two reaching into the crown.
+        static Model Trunk(Rgb bark, float size, float h, bool branchy)
+        {
+            float r = 0.36f * size;  // the trunk's width
+            var m = new Model().Include(Roots(bark, size))
+                .Cylinder(0f, h * 0.3f, 0f, r * 1.12f, h * 0.3f, r * 1.12f, bark)
+                .Cylinder(0f, h * 0.75f, 0f, r * 0.85f, h * 0.25f, r * 0.85f, bark * 1.05f)
+                .Cube(r * 0.4f, h * 0.3f, r * 0.33f, 0.05f, h * 0.45f, 0.05f, bark * 0.75f)   // darker streaks in the bark
+                .Cube(-r * 0.3f, h * 0.72f, -r * 0.25f, 0.05f, h * 0.3f, 0.05f, bark * 0.75f)
+                .Cylinder(r * 1.2f, h * 0.82f, 0f, 0.09f * size, 0.45f * size, 0.09f * size, bark).Turn(0f, 0f, -50f)
+                .Cylinder(-r, h * 0.9f, r * 0.6f, 0.08f * size, 0.4f * size, 0.08f * size, bark).Turn(30f, 0f, 45f);
+            if (branchy)
+                m.Cylinder(0f, h * 0.7f, -r * 1.3f, 0.1f * size, 0.55f * size, 0.1f * size, bark).Turn(-55f, 0f, 0f);
+            return m;
+        }
+
+        /// Clumps of leaves round a point: darker underneath, lighter on top, so the crown has some depth.
+        static Model Clumps(Model m, Rgb leaf, float cx, float cy, float cz, float radius, int count, float clump, int seed)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float a = (i * 2.4f + seed) % 6.283f, y = ((i * 7 + seed) % 5) / 4f - 0.5f;  // spread round and up and down
+                float rr = radius * (1f - y * y * 0.6f);
+                float s = clump * (0.8f + ((i * 3 + seed) % 4) * 0.12f);
+                m.Sphere(cx + (float)System.Math.Cos(a) * rr, cy + y * radius * 0.8f, cz + (float)System.Math.Sin(a) * rr, s, s * 0.85f, s, leaf * (0.82f + (y + 0.5f) * 0.35f));
+            }
+            return m;
+        }
+
+        /// A plain tree's crown: a round mass of leaves.
+        static Model RoundCrown(Rgb leaf)
+        {
+            var m = new Model().Sphere(0f, 0.3f, 0f, 1.8f, 1.5f, 1.8f, leaf * 0.85f);
+            Clumps(m, leaf, 0f, 0.3f, 0f, 0.75f, 8, 1.05f, 1);
+            return m.Sphere(0.1f, 0.95f, -0.05f, 1.1f, 0.85f, 1.1f, leaf * 1.15f);
+        }
+
+        /// An oak's: broad and lumpy, wider than it is tall.
+        static Model OakCrown(Rgb leaf)
+        {
+            var m = new Model().Sphere(0f, 0.25f, 0f, 2.4f, 1.4f, 2.3f, leaf * 0.82f);
+            Clumps(m, leaf, 0f, 0.25f, 0f, 1.05f, 11, 1.05f, 3);
+            return m.Sphere(-0.2f, 0.8f, 0.15f, 1.3f, 0.8f, 1.3f, leaf * 1.12f).Sphere(0.55f, 0.7f, -0.35f, 0.9f, 0.6f, 0.9f, leaf * 1.18f);
+        }
+
+        /// A willow's: a dome with long fronds hanging all round it, nearly to the ground.
+        static Model WillowCrown(Rgb leaf)
+        {
+            var m = new Model().Sphere(0f, 0.3f, 0f, 2f, 1.3f, 2f, leaf * 0.9f).Sphere(0f, 0.75f, 0f, 1.3f, 0.8f, 1.3f, leaf * 1.1f);
+            for (int i = 0; i < 14; i++)
+            {
+                float a = i * 6.283f / 14f, r = 0.88f + (i % 2) * 0.12f, len = 0.75f + (i % 3) * 0.18f;
+                m.Capsule((float)System.Math.Cos(a) * r, -len + 0.1f, (float)System.Math.Sin(a) * r, 0.22f, len, 0.22f, leaf * (i % 2 == 0 ? 0.95f : 0.8f))
+                 .Turn((float)System.Math.Sin(a) * 8f, 0f, -(float)System.Math.Cos(a) * 8f);  // hanging slightly outwards
+            }
+            return m;
+        }
+
+        /// A maple's: a tall crown in autumn reds, oranges and golds.
+        static Model MapleCrown(Rgb leaf)
+        {
+            var red = new Rgb(0.72f, 0.2f, 0.1f);
+            var gold = new Rgb(0.92f, 0.62f, 0.15f);
+            var m = new Model().Sphere(0f, 0.45f, 0f, 1.8f, 1.9f, 1.8f, leaf * 0.85f);
+            Clumps(m, leaf, 0f, 0.4f, 0f, 0.7f, 5, 1f, 2);
+            Clumps(m, red, 0f, 0.55f, 0f, 0.72f, 4, 0.9f, 5);
+            Clumps(m, gold, 0f, 0.7f, 0f, 0.55f, 3, 0.8f, 4);
+            return m.Sphere(0f, 1.3f, 0f, 0.9f, 0.8f, 0.9f, leaf * 1.1f);
+        }
+
+        /// A yew's: dark tiers of needles, narrowing to a point.
+        static Model YewCrown(Rgb leaf)
+        {
+            var m = new Model();
+            for (int k = 0; k < 4; k++)
+            {
+                float w = 2.3f - k * 0.5f;
+                m.Sphere(0f, -0.3f + k * 0.62f, 0f, w, 0.75f, w, leaf * (0.85f + k * 0.1f));
+                for (int i = 0; i < 5; i++)  // shaggy edges
+                {
+                    float a = i * 1.2566f + k * 0.6f;
+                    m.Sphere((float)System.Math.Cos(a) * w * 0.38f, -0.38f + k * 0.62f, (float)System.Math.Sin(a) * w * 0.38f, w * 0.38f, 0.45f, w * 0.38f, leaf * 0.8f);
+                }
+            }
+            return m.Sphere(0f, 2.2f, 0f, 0.4f, 0.6f, 0.4f, leaf * 1.2f);
         }
     }
 }

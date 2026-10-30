@@ -16,8 +16,7 @@ namespace Epacenur.Runtime
             var player = G.Player;
             var spells = ContentDb.Current.Spells;
             int level = G.Skills.GetLevel(SkillIds.Magic);
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>MAGIC</b>", Gui.Small);
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<color=#7f9fff>Level " + level + "</color>", Gui.RightSmall);
+            Gui.Heading(body, "MAGIC", "<color=" + Gui.BlueHex + ">Level " + level + "</color>");
             float top = body.y + 20f;
             SpellDef tip = null;
             for (int i = 0; i < spells.Count; i++)
@@ -30,18 +29,19 @@ namespace Epacenur.Runtime
                 bool castable = unlocked && Magic.Problem(spell, G.Skills, G.Inventory, G.Equipment) == null;
                 Gui.Bevel(slot);
                 if (on)
-                    Gui.Fill(inner, new Color(0.45f, 0.55f, 1f, 0.4f));
+                    Gui.Highlight(slot, true);
                 if (spell.Icon != null)
                     Gui.DrawIcon(new Rect(slot.x + 9f, slot.y + 9f, 22f, 22f), spell.Icon);
                 if (!unlocked)
                 {
-                    Gui.Fill(inner, new Color(0.12f, 0.11f, 0.09f, 0.7f));
-                    Gui.Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=#ff6060>Lv " + spell.Level + "</color>", Gui.Centered);
+                    Gui.Fill(inner, Gui.Locked);
+                    Gui.Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=" + Gui.BadHex + ">Lv " + spell.Level + "</color>", Gui.Centered);
                 }
                 else if (!castable)
-                    Gui.Fill(inner, new Color(0.12f, 0.11f, 0.09f, 0.45f));  // not enough runes
+                    Gui.Fill(inner, new Color(Gui.Locked.r, Gui.Locked.g, Gui.Locked.b, 0.45f));  // not enough runes
                 if (!slot.Contains(e.mousePosition))
                     continue;
+                Gui.Highlight(slot, false);
                 tip = spell;
                 if (e.type == EventType.MouseDown)
                 {
@@ -54,10 +54,10 @@ namespace Epacenur.Runtime
                 }
             }
             int rows = (spells.Count + 3) / 4;
-            string status = G.Autocast != null ? "Autocasting <color=#9fb8ff>" + G.Autocast.Name + "</color>. Click it again to fight with your weapon."
+            string status = G.Autocast != null ? "Autocasting <color=" + Gui.BlueHex + ">" + G.Autocast.Name + "</color>. Click it again to fight with your weapon."
                 : "Click a strike or bolt to cast it when you attack.";
             GUI.Label(new Rect(body.x, top + rows * (Gui.Slot + Gui.Gap) + 4f, body.width, 90f),
-                status + " Runes come from altars out in the wilds (Runecrafting); a staff gives endless runes of its element.", Gui.Rich);
+                status + " <color=" + Gui.MutedHex + ">Runes come from altars out in the wilds (Runecrafting); a staff gives endless runes of its element.</color>", Gui.Rich);
             if (tip != null)
                 DrawTip(hud, e, tip);
         }
@@ -75,15 +75,15 @@ namespace Epacenur.Runtime
                 int have = G.Inventory.Count(r.ItemId);
                 var weapon = G.Equipment.IsWearing(EquipSlot.Weapon) ? G.Equipment[EquipSlot.Weapon].Def : null;
                 bool staff = weapon != null && weapon.InfiniteRune == r.ItemId;
-                string colour = staff || have >= r.Count ? "#a0ffa0" : "#ff7070";
+                string colour = staff || have >= r.Count ? Gui.GoodHex : Gui.BadHex;
                 lines.Add("<color=" + colour + ">" + r.Count + " " + def.Name.ToLowerInvariant() + (staff ? " (staff)" : " (" + have + ")") + "</color>");
             }
             string runes = lines.Count > 0 ? string.Join(", ", lines.ToArray()) : "No runes";
             float h = 78f;
             var t = new Rect(Mathf.Max(4f, hud.PanelRect.x - 256f), Mathf.Clamp(e.mousePosition.y - 30f, 4f, hud.H - h - 4f), 250f, h);
-            Gui.Fill(t, new Color(0.06f, 0.05f, 0.04f, 0.95f));
+            Gui.TipBox(t);
             string xp = s.Xp > 0 ? "  " + s.Xp + " xp" : "";
-            Gui.Shadowed(new Rect(t.x + 8f, t.y + 3f, t.width - 16f, 18f), "<b><color=#9fb8ff>" + s.Name + "</color></b>  (level " + s.Level + ")" + xp, Gui.Small);
+            Gui.Shadowed(new Rect(t.x + 8f, t.y + 3f, t.width - 16f, 18f), "<b><color=" + Gui.GoldHex + ">" + s.Name + "</color></b>  (level " + s.Level + ")" + xp, Gui.Small);
             if (wrap == null)
                 wrap = new GUIStyle(Gui.Small) { wordWrap = true };
             GUI.Label(new Rect(t.x + 8f, t.y + 20f, t.width - 16f, 34f), s.Description, wrap);

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace Epacenur.Core
 {
-    public enum RegionKind { Wild, Town, Camp, Shrine, Course }
+    public enum RegionKind { Wild, Town, Camp, Shrine, Quarry, Course }
 
-    /// What's planned for one region of the overworld: a town, a goblin camp, or just countryside.
+    /// What's planned for one region of the overworld: a town, a goblin camp, a shrine, a quarry, or just countryside.
     /// Everything is in world tiles.
     public sealed class RegionPlan
     {
@@ -15,13 +15,17 @@ namespace Epacenur.Core
         public Tile Center;
         public TownLayout Town;                              // towns: the built-up tiles (local to Bounds)
         public readonly List<Building> Buildings = new List<Building>();
-        public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar
+        public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar; quarries: the pit
         public readonly List<Tile> Tents = new List<Tile>();
-        public Area Level;                                   // towns, camps, shrines: kept flat (hills rise beyond it)
+        public Area Level;                                   // towns, camps, shrines, quarries: kept flat (hills rise beyond it)
         public Tile Altar;                                   // shrines: where the altar stands
         public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
         public Tile CourseCorner;                            // agility courses: the south-west corner of the loop
         public List<ObstaclePlacement> Obstacles;            // agility courses: where each obstacle goes
+        public readonly HashSet<Tile> Essence = new HashSet<Tile>();  // shrines: rune essence boulders round the paving
+        public readonly HashSet<Tile> Rocks = new HashSet<Tile>();    // quarries: the ore rocks in the pit
+        public readonly List<Tile> Rubble = new List<Tile>();         // quarries: heaps of spoil in the pit's corners
+        public Tile Cart;                                    // quarries: a mine cart full of ore
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
 
         /// The planned terrain of a tile in this region, or Grass where nothing's planned.
@@ -35,6 +39,10 @@ namespace Epacenur.Core
                 return Terrain.Stone;
             if (Kind == RegionKind.Course && AgilityCourse.OnLoop(CourseCorner, t) && !Blocked.Contains(t))
                 return Terrain.Path;
+            if (Kind == RegionKind.Shrine && Essence.Contains(t))
+                return Terrain.Essence;
+            if (Kind == RegionKind.Quarry && Camp.Contains(t))
+                return Rocks.Contains(t) ? Terrain.Rock : Terrain.Quarry;
             return Terrain.Grass;
         }
 
@@ -45,15 +53,15 @@ namespace Epacenur.Core
                 return t.StepsTo(Center) <= Overworld.TownClearRadius;
             if (Kind == RegionKind.Course)
                 return Level.Contains(t);
-            if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine)
+            if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine || Kind == RegionKind.Quarry)
                 return t.X >= Camp.X - 3 && t.X < Camp.XMax + 3 && t.Z >= Camp.Z - 3 && t.Z < Camp.ZMax + 3;
             return false;
         }
     }
 
     /// The endless overworld, worked out from a seed: the same tile always comes out the same, so it can be
-    /// built a chunk at a time as you walk. It's split into square regions; each is a town, a goblin camp
-    /// or wild countryside (the one you start in is always a town). Over that lies the countryside itself:
+    /// built a chunk at a time as you walk. It's split into square regions; each is a town, a goblin camp,
+    /// a shrine, a quarry or wild countryside (the one you start in is always a town). Over that lies the countryside itself:
     /// forests, rocky ground and flax fields where smooth noises are high, and ponds.
     public sealed class Overworld
     {
@@ -108,7 +116,8 @@ namespace Epacenur.Core
             double roll = Hash(rx, rz, 1);
             // The start is a town; just east of it, a shrine (an air altar to start runecrafting); just west, an agility course.
             plan.Kind = rx == 0 && rz == 0 ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine : rx == -1 && rz == 0 ? RegionKind.Course
-                : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : roll < 0.4 ? RegionKind.Shrine : roll < 0.46 ? RegionKind.Course : RegionKind.Wild;
+                : roll < 0.12 ? RegionKind.Town : roll < 0.32 ? RegionKind.Camp : roll < 0.4 ? RegionKind.Shrine
+                : roll < 0.48 ? RegionKind.Quarry : roll < 0.54 ? RegionKind.Course : RegionKind.Wild;
             if (plan.Kind == RegionKind.Town)
                 PlanTown(plan);
             else if (plan.Kind == RegionKind.Camp)
@@ -117,6 +126,8 @@ namespace Epacenur.Core
                 PlanShrine(plan);
             else if (plan.Kind == RegionKind.Course)
                 PlanCourse(plan);
+            else if (plan.Kind == RegionKind.Quarry)
+                PlanQuarry(plan);
             plans[key] = plan;
             return plan;
         }
@@ -157,7 +168,8 @@ namespace Epacenur.Core
             }
         }
 
-        /// A ring of standing stones on paving, with the altar in the middle.
+        /// A ring of standing stones on paving, with the altar in the middle, and rune essence boulders round it
+    /// (in pairs either side of each way in, so it can always be reached straight on).
         void PlanShrine(RegionPlan plan)
         {
             int dx = (int)(Hash(plan.RX, plan.RZ, 5) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 6) * 16) - 8;
@@ -174,6 +186,30 @@ namespace Epacenur.Core
                         plan.Stones.Add(stone);
                         plan.Blocked.Add(stone);
                     }
+            var essence = new[] { new Tile(5, 2), new Tile(5, -2), new Tile(-5, 2), new Tile(-5, -2), new Tile(2, 5), new Tile(-2, 5), new Tile(2, -5), new Tile(-2, -5) };
+            for (int i = 0; i < essence.Length; i++)
+                if (i < 2 || Hash(plan.RX, plan.RZ, 60 + i) < 0.75)
+                    plan.Essence.Add(new Tile(c.X + essence[i].X, c.Z + essence[i].Z));
+        }
+
+        /// An open pit of gravel with ore rocks in rows (never touching, so you can walk between them all),
+        /// heaps of spoil in its corners and a mine cart at the top.
+        void PlanQuarry(RegionPlan plan)
+        {
+            int dx = (int)(Hash(plan.RX, plan.RZ, 3) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 4) * 16) - 8;
+            var q = plan.Camp = new Area(plan.Center.X + dx - 7, plan.Center.Z + dz - 6, 14, 12);
+            for (int x = q.X + 2; x < q.XMax - 2; x += 3)
+                for (int z = q.Z + 2; z < q.ZMax - 2; z += 3)
+                    if (Hash(x, z, 61) < 0.85)
+                        plan.Rocks.Add(new Tile(x, z));
+            foreach (var corner in new[] { new Tile(q.X, q.Z), new Tile(q.XMax - 1, q.Z), new Tile(q.X, q.ZMax - 1), new Tile(q.XMax - 1, q.ZMax - 1) })
+            {
+                plan.Rubble.Add(corner);
+                plan.Blocked.Add(corner);
+            }
+            plan.Cart = new Tile(q.X + q.Width / 2, q.ZMax - 1);
+            plan.Blocked.Add(plan.Cart);
+            plan.Level = new Area(q.X - 3, q.Z - 3, q.Width + 6, q.Height + 6);
         }
 
         /// A loop of path with five obstacles along it (which course: Spawning, by distance).
@@ -195,7 +231,7 @@ namespace Epacenur.Core
 
         /// How high the ground is (world units) at a point in tile coordinates (a tile's centre is a whole
         /// number). Rolling hills, higher where a very slow noise (ranges) is high, with small bumps on top;
-        /// flat at 0 in and round towns, camps, shrines and ponds, so buildings, paving and water sit level.
+        /// flat at 0 in and round towns, camps, shrines, quarries and ponds, so buildings, paving and water sit level.
         public double Elevation(double x, double z)
         {
             double flat = Flatness(x, z);
@@ -220,7 +256,7 @@ namespace Epacenur.Core
 
         public double Elevation(Tile t) => Elevation(t.X, t.Z);
 
-        /// 1 in a town, camp or shrine (and a little way round it), falling smoothly to 0 away from them.
+        /// 1 in a town, camp, shrine or quarry (and a little way round it), falling smoothly to 0 away from them.
         double Flatness(double x, double z)
         {
             int rx = RegionOf((int)Math.Round(x)), rz = RegionOf((int)Math.Round(z));

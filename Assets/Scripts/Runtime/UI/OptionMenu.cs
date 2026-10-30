@@ -30,7 +30,7 @@ namespace Epacenur.Runtime
     /// or move the mouse away from it, as in RuneScape.
     public sealed class OptionMenu
     {
-        const float RowH = 17f, HeaderH = 18f, CloseMargin = 12f;
+        const float RowH = 18f, HeaderH = 20f, CloseMargin = 12f;
 
         List<MenuOption> options;
         Rect rect;
@@ -56,8 +56,8 @@ namespace Epacenur.Runtime
             float w = style.CalcSize(new GUIContent("Choose Option")).x;
             foreach (var o in options)
                 w = Mathf.Max(w, style.CalcSize(new GUIContent(o.Text)).x);
-            w += 10f;
-            float h = HeaderH + options.Count * RowH + 3f;
+            w += 16f;
+            float h = HeaderH + options.Count * RowH + 5f;
             // The cursor lands on the header, centred, like RuneScape; kept on screen.
             float x = Mathf.Clamp(at.x - w / 2f, 2f, screenSize.x - w - 2f);
             float y = Mathf.Clamp(at.y - 6f, 2f, screenSize.y - h - 2f);
@@ -105,15 +105,18 @@ namespace Epacenur.Runtime
             if (!IsOpen || Event.current.type != EventType.Repaint)
                 return;
             MakeStyles();
-            Gui.Fill(rect, new Color(0.36f, 0.33f, 0.27f, 1f));
-            Gui.Fill(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, HeaderH - 1f), Color.black);
-            GUI.Label(new Rect(rect.x + 4f, rect.y + 1f, rect.width, HeaderH), "Choose Option", header);
+            Gui.PanelBox(rect, 1f);
+            Gui.Fill(new Rect(rect.x + 3f, rect.y + 3f, rect.width - 6f, HeaderH - 4f), Gui.HeaderBg);
+            Gui.Fill(new Rect(rect.x + 3f, rect.y + HeaderH - 1f, rect.width - 6f, 1f), Gui.TrimDim);
+            GUI.Label(new Rect(rect.x + 7f, rect.y + 2f, rect.width, HeaderH), "Choose Option", header);
             int hover = Row(Event.current.mousePosition);
             for (int i = 0; i < options.Count; i++)
             {
-                var r = new Rect(rect.x + 4f, rect.y + HeaderH + i * RowH, rect.width - 6f, RowH);
+                var r = new Rect(rect.x + 7f, rect.y + HeaderH + 1f + i * RowH, rect.width - 10f, RowH);
+                if (i == hover)
+                    Gui.Fill(new Rect(rect.x + 3f, r.y, rect.width - 6f, RowH), Gui.Picked);
                 var old = style.normal.textColor;
-                style.normal.textColor = i == hover ? new Color(1f, 1f, 0f) : Color.white;
+                style.normal.textColor = i == hover ? new Color(1f, 0.95f, 0.6f) : Gui.Text;
                 GUI.Label(r, options[i].Text, style);
                 style.normal.textColor = old;
             }
@@ -126,7 +129,7 @@ namespace Epacenur.Runtime
                 return -1;
             if (m.y < rect.y + HeaderH)
                 return -2;
-            int i = (int)((m.y - rect.y - HeaderH) / RowH);
+            int i = (int)((m.y - rect.y - HeaderH - 1f) / RowH);
             return i >= 0 && i < options.Count ? i : -1;
         }
 
@@ -136,8 +139,8 @@ namespace Epacenur.Runtime
                 return;
             style = new GUIStyle(GUI.skin.label) { fontSize = 12, richText = true, padding = new RectOffset(0, 0, 1, 0) };
             style.normal.textColor = Color.white;
-            header = new GUIStyle(style);
-            header.normal.textColor = new Color(0.36f, 0.33f, 0.27f);
+            header = new GUIStyle(style) { fontStyle = FontStyle.Bold };
+            header.normal.textColor = Gui.Trim;
         }
     }
 }

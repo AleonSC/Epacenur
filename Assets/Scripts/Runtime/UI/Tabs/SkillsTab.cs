@@ -16,7 +16,7 @@ namespace Epacenur.Runtime
             const float gap = 3f, cellH = 30f, footH = 28f;
             float cellW = (body.width - gap * (cols - 1)) / cols;
             var e = Event.current;
-            Gui.Shadowed(new Rect(body.x, body.y - 2f, body.width, 18f), "<b>SKILLS</b>", Gui.Small);
+            Gui.Heading(body, "SKILLS");
             float top = body.y + 18f;
             SkillDef hovered = null;
             Rect hoveredRect = default(Rect);
@@ -31,7 +31,7 @@ namespace Epacenur.Runtime
                 Gui.Bevel(cell);
                 if (cell.Contains(e.mousePosition))
                 {
-                    Gui.Fill(new Rect(cell.x + 1f, cell.y + 1f, cell.width - 2f, cell.height - 2f), new Color(1f, 1f, 1f, 0.08f));
+                    Gui.Highlight(cell, false);
                     hovered = def;
                     hoveredRect = cell;
                 }
@@ -40,7 +40,7 @@ namespace Epacenur.Runtime
                 int level = G.Skills.GetLevel(def.Id), current = G.Level(def.Id);
                 var numbers = new Rect(cell.x + 25f, cell.y + 1f, cell.width - 28f, cell.height - 2f);
                 Gui.Fill(new Rect(numbers.x + 4f, numbers.y + numbers.height / 2f, numbers.width - 4f, 1f), new Color(1f, 1f, 1f, 0.12f));
-                string text = "<color=#e8e2d0>" + level + "</color>";
+                string text = "<color=" + Gui.TextHex + ">" + level + "</color>";
                 // Boosted (a potion): the current level on top, in green.
                 Gui.Shadowed(new Rect(numbers.x, numbers.y - 1f, numbers.width, 16f), current > level ? "<color=#66ff66>" + current + "</color>" : text, Gui.RightSmall);
                 Gui.Shadowed(new Rect(numbers.x, numbers.y + numbers.height / 2f - 1f, numbers.width, 16f), text, Gui.RightSmall);
@@ -60,7 +60,7 @@ namespace Epacenur.Runtime
                 var box = new Rect(foot.x + i * (boxW + gap), foot.y, boxW, foot.height);
                 Gui.Bevel(box);
                 DrawFooterIcon(new Rect(box.x + 3f, box.y + 4f, 20f, 20f), i);
-                Gui.Shadowed(new Rect(box.x + 22f, box.y + 6f, box.width - 25f, 18f), "<color=#e8e2d0>" + values[i] + "</color>", Gui.RightSmall);
+                Gui.Shadowed(new Rect(box.x + 22f, box.y + 6f, box.width - 25f, 18f), "<color=" + Gui.TextHex + ">" + values[i] + "</color>", Gui.RightSmall);
                 if (box.Contains(e.mousePosition))
                     footTip = tips[i];
             }
@@ -80,7 +80,7 @@ namespace Epacenur.Runtime
             // To the left of the panel, level with the cell.
             var r = new Rect(Mathf.Max(4f, hud.PanelRect.x - w - 6f), Mathf.Clamp(cell.y - 10f, 4f, hud.H - h - 4f), w, h);
             Gui.Box(r);
-            Gui.Shadowed(new Rect(r.x + 8f, r.y + 4f, w, 18f), "<b><color=#ffcc66>" + def.Name + "</color></b>  level " + level + " / " + Experience.MaxLevel, Gui.Small);
+            Gui.Shadowed(new Rect(r.x + 8f, r.y + 4f, w, 18f), "<b><color=" + Gui.GoldHex + ">" + def.Name + "</color></b>  level " + level + " / " + Experience.MaxLevel, Gui.Small);
             GUI.Label(new Rect(r.x + 8f, r.y + 22f, w - 16f, 16f), "XP: " + Experience.Format(xp), Gui.Small);
             if (level < Experience.MaxLevel)
             {
@@ -91,9 +91,8 @@ namespace Epacenur.Runtime
             {
                 GUI.Label(new Rect(r.x + 8f, r.y + 37f, w - 16f, 16f), "Maxed!", Gui.Small);
             }
-            var bar = new Rect(r.x + 8f, r.yMax - 12f, w - 16f, 6f);
-            Gui.Fill(bar, new Color(0.5f, 0.1f, 0.1f));
-            Gui.Fill(new Rect(bar.x, bar.y, bar.width * (float)Experience.LevelProgress(xp), bar.height), new Color(0.2f, 0.75f, 0.2f));
+            var bar = new Rect(r.x + 8f, r.yMax - 14f, w - 16f, 8f);
+            Gui.Bar(bar, (float)Experience.LevelProgress(xp), ModelBuilder.ToColor(def.Colour), Gui.Well);
         }
 
         static void DrawFooterIcon(Rect b, int which)
