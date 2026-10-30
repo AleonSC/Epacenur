@@ -132,7 +132,7 @@ namespace Epacenur.Runtime
             if (got == null || !G.Inventory.HasRoomFor(got.ItemId))
                 return true;  // nothing this time
             if (def.BaitItemId != null)
-                G.Inventory.Remove(def.BaitItemId, 1);
+                G.Inventory.Use(def.BaitItemId, 1);
             G.Inventory.Add(got.ItemId);
             G.Skills.AddXp(def.Skill, got.Xp);
             GameLog.Add(got.Message);

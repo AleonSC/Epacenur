@@ -78,7 +78,7 @@ namespace Epacenur.Core
             var food = stack.IsEmpty ? null : stack.Def;
             if (food == null || food.Heals <= 0)
                 return null;
-            inv.RemoveAt(slot);
+            inv.UseAt(slot);
             healed = health.Heal(food.Heals);
             return food;
         }

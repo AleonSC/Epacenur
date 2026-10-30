@@ -77,7 +77,7 @@ namespace UnityEngine
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
-    public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void SetPixels32(Color32[] c) { } public void Apply() { } }
+    public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void SetPixels32(Color32[] c) { } public Color32[] GetPixels32() => null; public void Apply() { } }
     public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
     public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
@@ -105,7 +105,7 @@ namespace UnityEngine
         public static bool Button(Rect r, string s) => false; public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
     public static class GUIUtility { public static int keyboardControl; public static void RotateAroundPivot(float a, Vector2 p) { } }
-    public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
+    public static class GUILayout { public static bool Toggle(bool v, string s, params GUILayoutOption[] o) => v; public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
         public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
     public enum EventType { MouseDown, MouseMove, Repaint, MouseDrag, MouseUp, KeyDown, ScrollWheel }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public KeyCode keyCode; public Vector2 delta; public void Use() { } }

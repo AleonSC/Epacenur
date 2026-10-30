@@ -72,7 +72,9 @@ The game opens on the main menu:
 - **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level
   shown twice, stacked (current over base; they match until there are boosts). Hover a cell for its xp, the next level and
   a progress bar. The footer shows total level, combat level (OSRS formula with melee and Prayer; no Ranged or Magic yet) and total xp.
-- **H** shows or hides the help, and **F1** opens the dev tools.
+- **H** shows or hides the help, and **F1** opens the dev tools. Its **Infinite resources** switch means nothing you have is
+  used up (materials, runes, arrows, bait, seeds, food, potions, bones, logs you light, coins you spend) and trees, rocks, fishing
+  spots and stalls never run out; it's off each time you start, and isn't saved.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
 ## The overworld
@@ -112,7 +114,12 @@ outlines), ponds, forests, highlands (tan).*
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so
   neighbours are at least 3 regions apart, and about 1 cell in 5 has none, leaving wide wilds. About 1 in 4 is a **city**: more
   houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
-  with an altar, a **smithy**, a **workshop** and **houses**, joined by dirt roads, and its own made-up name.
+  with an altar, a **smithy**, a **workshop**, a **farm** and **houses**, joined by dirt roads, and its own made-up name.
+- **Dirt** (roads, town squares, and the trampled ground of camps and cave mouths) is painted for each chunk
+  (`Runtime/World/DirtPaths.cs`): mottled brown earth with the ground's earthy grain and a few pebbles, its edge wandering and
+  fraying into a band of worn, yellowed grass that fades into the ground. Away from the dirt it's painted with the ground's own
+  texture, texel for texel, so there's no seam. The painting is spread over frames (4 ms a frame for all of it), so streaming
+  chunks in doesn't stutter; a chunk's dirt shows once it's done.
 - **Safety and the wilderness**: within 48 tiles of a town's square (80 for a city) is **safe**. Beyond, the **wilderness**
   begins: **wilderness level 1** at the edge, one more every 6 tiles further from the nearest town, up to 60, then falling again
   as you near the next town. The rings' edges wander a little. Under the minimap you see **Safe** (and which town) or the

@@ -728,6 +728,20 @@ public static class CoreRulesSuite
         bool allotRented = Farming.Rent(rentAllot, PatchKind.Allotment, rentInv) == null && rentAllot.rented && rentInv.Count(ItemIds.Coins) == 50;
         Check(herbRefused && allotRented && Farming.Rent(rentAllot, PatchKind.Allotment, rentInv) != null && rentInv.Count(ItemIds.Coins) == 50,
             "the farmer rents an allotment for 100 coins, a herb patch for 250, each once");
+        Cheats.InfiniteResources = true;
+        var freeInv = new Inventory();
+        freeInv.Add(FishingModule.RawShrimps, 1);
+        freeInv.Add(ItemIds.Coins, 100);
+        string cooked = Making.Make(cook, freeInv, 99, new Random(1), out _);
+        var freeHerb = new PatchState();
+        bool rentFree = Farming.Rent(freeHerb, PatchKind.Allotment, freeInv) == null && freeInv.Count(ItemIds.Coins) == 100;
+        var freeEq = new Equipment();
+        freeEq.Set(EquipSlot.Ammo, new ItemStack("bronze_arrow", 1));
+        bool arrowKept = freeEq.UseAmmo() && freeEq[EquipSlot.Ammo].Count == 1;
+        Cheats.InfiniteResources = false;
+        bool usedAgain = freeInv.Use(ItemIds.Coins, 100) == 100 && freeInv.Count(ItemIds.Coins) == 0;
+        Check(cooked == CookingModule.Shrimps && freeInv.Count(FishingModule.RawShrimps) == 1 && freeInv.Count(CookingModule.Shrimps) == 1
+            && rentFree && arrowKept && usedAgain, "with infinite resources (dev tools), nothing is used up: materials, coins, arrows; off again, they are");
 
                 info("Dungeons and bosses");
         var dw = new Overworld(2024);

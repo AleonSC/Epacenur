@@ -175,6 +175,16 @@ namespace Epacenur.Core
 
         public void RemoveAt(int slot) => Set(slot, default(ItemStack));
 
+        /// Uses up `count` of an item (as Remove), unless resources are infinite (Cheats). Returns how many.
+        public int Use(string itemId, int count) => Cheats.InfiniteResources ? count : Remove(itemId, count);
+
+        /// Uses up what's in a slot (as RemoveAt), unless resources are infinite (Cheats).
+        public void UseAt(int slot)
+        {
+            if (!Cheats.InfiniteResources)
+                RemoveAt(slot);
+        }
+
         /// Removes up to `count` of an item, from the last slots first (coins: the pouch first).
         /// Returns how many were removed.
         public int Remove(string itemId, int count)

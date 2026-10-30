@@ -529,7 +529,7 @@ namespace Epacenur.Runtime
             int key = (int)biome * DangerBands + band;
             if (groundMats[key] == null)
             {
-                var m = Visuals.NewMat(GroundColour(biome, band) * 1.15f);
+                var m = Visuals.NewMat(GroundTint(Ground.Grass, biome, band));
                 m.mainTexture = Visuals.GrassTexture();
                 m.mainTextureScale = Vector2.one * (Overworld.ChunkSize / Visuals.TextureTiles);
                 groundMats[key] = m;
@@ -543,7 +543,7 @@ namespace Epacenur.Runtime
             int i = (int)ground;
             if (bareMats[i] == null)
             {
-                var m = Visuals.NewMat(BareColour(ground) * 1.1f);
+                var m = Visuals.NewMat(GroundTint(ground, Biome.Meadow, 0));
                 m.mainTexture = ground == Ground.Snow ? Visuals.SnowTexture() : ground == Ground.Rock ? Visuals.RockTexture() : Visuals.EarthTexture();
                 m.mainTextureScale = Vector2.one * (Overworld.ChunkSize / Visuals.TextureTiles);
                 bareMats[i] = m;
@@ -552,6 +552,11 @@ namespace Epacenur.Runtime
         }
 
         readonly Material[] bareMats = new Material[4];
+
+        /// The colour the ground's material has (its texture is pale, so this shows through): the biome's grass
+        /// in its band of danger, or bare earth, rock or snow (biome and band don't matter then).
+        public static Color GroundTint(Ground ground, Biome biome, int band) =>
+            ground == Ground.Grass ? GroundColour(biome, band) * 1.15f : BareColour(ground) * 1.1f;
 
         public static Color BareColour(Ground ground) =>
             ground == Ground.Earth ? new Color(0.45f, 0.36f, 0.25f) : ground == Ground.Rock ? new Color(0.5f, 0.49f, 0.46f) : new Color(0.9f, 0.92f, 0.96f);

@@ -135,7 +135,7 @@ namespace Epacenur.Runtime
             if (stack.IsEmpty || stack.Def.BuryXp <= 0 || buryCooldown > 0f)
                 return;
             buryCooldown = Prayers.BuryTicks * GameTime.TickSeconds;
-            G.Inventory.RemoveAt(slot);
+            G.Inventory.UseAt(slot);
             G.Skills.AddXp(SkillIds.Prayer, stack.Def.BuryXp * 3.5);
             Kneel(0.8f);
             GameLog.Add("The gods are pleased with your offering.");

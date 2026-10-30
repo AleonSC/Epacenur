@@ -136,7 +136,7 @@ namespace Epacenur.Runtime
         {
             if (IsEmpty)
                 return true;
-            if (Def.MaxLives <= 0)
+            if (Def.MaxLives <= 0 || Cheats.InfiniteResources)
                 return false;  // never runs out
             LivesLeft--;
             if (LivesLeft > 0)

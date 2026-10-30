@@ -29,7 +29,7 @@ namespace Epacenur.Core
         {
             foreach (var r in spell.Runes)
                 if (Have(r.ItemId, inv, eq) != int.MaxValue)
-                    inv.Remove(r.ItemId, r.Count);
+                    inv.Use(r.ItemId, r.Count);
         }
 
         /// Casts an alchemy spell on one of the item in a slot: it turns into coins (into the pouch), the runes

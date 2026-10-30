@@ -20,7 +20,8 @@ namespace Epacenur.Core
                     prayer.Points + p.PrayerFlat + (int)System.Math.Floor(skills.GetLevel(SkillIds.Prayer) * p.PrayerPercent)));
             if (p.Energy > 0)
                 energy.Restore(p.Energy);
-            inv.Set(slot, new ItemStack(p.Leaves, 1));
+            if (!Cheats.InfiniteResources)
+                inv.Set(slot, new ItemStack(p.Leaves, 1));
             return p;
         }
     }

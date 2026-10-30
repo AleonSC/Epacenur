@@ -9,7 +9,7 @@ namespace Epacenur.Runtime
     /// ponds, trees, rocks and fishing spot, and a region's buildings, goblin camp, shrine, quarry and place names.
     public static class OverworldBuilder
     {
-        static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f), Tilled = new Color(0.4f, 0.3f, 0.19f);
+        static readonly Color Tilled = new Color(0.4f, 0.3f, 0.19f);
         static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
         static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f);
         static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f), Gravel = new Color(0.5f, 0.47f, 0.42f);
@@ -28,10 +28,9 @@ namespace Epacenur.Runtime
 
             var heights = Ground(world, x0, z0, size, root);
 
-            // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
-            // Ground overlays (roads, camps, paving, gravel, floors, fields): sheets that follow the ground.
-            Sheet(ow, terrain, x0, z0, root, Dirt, 0f, 0.02f, false, (k, t) => k == Terrain.Path);
-            Sheet(ow, terrain, x0, z0, root, CampDirt, 0f, 0.02f, false, (k, t) => k == Terrain.Camp);
+            // Dirt roads and the trampled ground of camps and cave mouths, fading into the ground round them.
+            DirtPaths.Build(world, heights, x0, z0, size, root);
+            // Ground overlays (paving, gravel, floors, fields): sheets that follow the ground.
             Sheet(ow, terrain, x0, z0, root, Paving, 0f, 0.025f, false, (k, t) => k == Terrain.Stone);
             Sheet(ow, terrain, x0, z0, root, Gravel, 0f, 0.02f, false, (k, t) => k == Terrain.Quarry || (k == Terrain.Rock && ow.PlanAt(t).Kind == RegionKind.Quarry));
             Sheet(ow, terrain, x0, z0, root, Planks, 0f, 0.03f, false, (k, t) => k == Terrain.Floor || k == Terrain.Door);
@@ -519,10 +518,16 @@ namespace Epacenur.Runtime
     public sealed class OwnedMesh : MonoBehaviour
     {
         public Mesh Mesh;
+        public Texture2D Texture;  // and a texture and material made for it, if any
+        public Material Material;
         void OnDestroy()
         {
             if (Mesh != null)
                 Destroy(Mesh);
+            if (Texture != null)
+                Destroy(Texture);
+            if (Material != null)
+                Destroy(Material);
         }
     }
 }
