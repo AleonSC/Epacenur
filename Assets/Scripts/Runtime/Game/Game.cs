@@ -106,7 +106,8 @@ namespace Epacenur.Runtime
             WorldInfo = startWorld;
             Camera cam = SetUpScene();
 
-            World = World.Create(WorldInfo.seed, MapId.Overworld, SaveGame.LoadPiles(WorldInfo));
+            var state = SaveGame.LoadWorldState(WorldInfo);
+            World = World.Create(WorldInfo.seed, MapId.Overworld, state.items, state.explored);
             Player = PlayerController.Create(World.Spawn);
             Rig = CameraRig.Create(cam, Player);
             Hud = gameObject.AddComponent<Hud>();

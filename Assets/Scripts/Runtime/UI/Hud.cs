@@ -24,6 +24,7 @@ namespace Epacenur.Runtime
         readonly StatusBars statusBars = new StatusBars();
         readonly DevTools devTools = new DevTools();
         readonly Minimap minimap = new Minimap();
+        readonly WorldMap worldMap = new WorldMap();
         readonly OptionMenu menu = new OptionMenu();
         bool showHelp = true;
 
@@ -63,7 +64,12 @@ namespace Epacenur.Runtime
                     CloseWindow();
             }
             if (Input.GetKeyDown(KeyCode.Escape))
+            {
                 G.Player.CancelUse();
+                worldMap.Close();
+            }
+            if (Input.GetKeyDown(KeyCode.M) && GUIUtility.keyboardControl == 0)
+                worldMap.Toggle();
         }
 
         Game G => Game.Instance;
@@ -104,10 +110,12 @@ namespace Epacenur.Runtime
                 return false;
             var m = MouseGui;
             return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m)
-                || StatusRect.Contains(m) || LogOutRect.Contains(m) || Minimap.RectFor(this).Contains(m) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
+                || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
+                || (worldMap.IsOpen && worldMap.RectFor(this).Contains(m)) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
         }
 
         Rect LogOutRect => new Rect(W - 90f, Minimap.RectFor(this).yMax + 4f, 80f, 24f);
+        Rect MapButtonRect => new Rect(W - 180f, Minimap.RectFor(this).yMax + 4f, 86f, 24f);
 
         /// Under the minimap: how long your gravestone has left.
         void DrawGraveTimer()
@@ -161,6 +169,9 @@ namespace Epacenur.Runtime
             minimap.Draw(this);
             DrawLogOut();
             DrawGraveTimer();
+            if (GUI.Button(MapButtonRect, "World map"))
+                worldMap.Toggle();
+            worldMap.Draw(this);
             devTools.Draw(this);
             menu.Draw();
         }

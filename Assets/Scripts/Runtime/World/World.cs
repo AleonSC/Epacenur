@@ -90,11 +90,16 @@ namespace Epacenur.Runtime
         readonly Dictionary<long, List<GroundPile>> pilesByChunk = new Dictionary<long, List<GroundPile>>();
         const long DevPiles = long.MinValue;
 
-        /// Makes the world for a seed, with the items left lying in it, and goes to `map`.
-        public static World Create(int seed, MapId map, List<GroundPile> piles)
+        /// Regions of the overworld that have been seen (loaded round a player), for the world map.
+        public readonly HashSet<long> Explored = new HashSet<long>();
+
+        /// Makes the world for a seed, with the items left lying in it and the regions already seen, and goes to `map`.
+        public static World Create(int seed, MapId map, List<GroundPile> piles, List<long> explored)
         {
             var world = new GameObject("World").AddComponent<World>();
             world.Overworld = new Overworld(seed);
+            if (explored != null)
+                world.Explored.UnionWith(explored);
             if (piles != null)
                 foreach (var p in piles)
                     world.AddPile(p);
@@ -234,6 +239,7 @@ namespace Epacenur.Runtime
             building = null;
 
             long rkey = RegionKey(cx, cz);
+            Explored.Add(rkey);
             regionChunks.TryGetValue(rkey, out int n);
             regionChunks[rkey] = n + 1;
             if (n == 0)
@@ -560,7 +566,7 @@ namespace Epacenur.Runtime
             MapPath = new Color32(160, 132, 90, 255), MapCamp = new Color32(118, 92, 62, 255), MapRock = new Color32(120, 116, 110, 255),
             MapBlocked = new Color32(90, 90, 95, 255);
 
-        static Color32 TerrainColour(Terrain t)
+        public static Color32 TerrainColour(Terrain t)
         {
             switch (t)
             {

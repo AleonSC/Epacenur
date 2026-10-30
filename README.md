@@ -218,6 +218,14 @@ so they don't take up slots.
   monsters (yellow), items on the ground (red), banks (gold), altars (white), shops (orange), other stations (blue),
   fishing spots (cyan), your gravestone (white). **Click it to walk there** (tile mode).
 
+## World map
+
+- **M**, or **World map** under the minimap: the overworld from above, north up. **Drag** to move round it, **scroll** to zoom
+  (in close you see every tile; zoomed out, a whole countryside). Regions you haven't seen yet are **shaded**; the towns and
+  goblin camps you have seen are **named**. You and your gravestone are marked; hover for the place and tile. Esc closes it.
+- It's drawn from the world's generator a region at a time (a few each frame) and remembered. What's been seen is saved with
+  the world. On the dev plot it shows the dev plot.
+
 ## Melee abilities (action bar)
 
 The bar above the chat box holds RuneScape 3's nine basic melee abilities. Use them with keys **1–9** or by clicking.

@@ -137,9 +137,10 @@ namespace Epacenur.Runtime
             PlayerPrefs.SetString(KeyFor(game.Character), JsonUtility.ToJson(d));
             d.hasGrave = game.Grave != null;
             d.grave = game.Grave;
-            var piles = new PileList();
-            piles.items.AddRange(game.World.Piles);
-            PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(piles));
+            var state = new WorldState();
+            state.items.AddRange(game.World.Piles);
+            state.explored.AddRange(game.World.Explored);
+            PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(state));
 
             // What the main menu shows.
             game.Character.totalLevel = game.Skills.TotalLevel;
@@ -149,17 +150,18 @@ namespace Epacenur.Runtime
             Profiles.Write();
         }
 
-        [Serializable] class PileList { public List<GroundPile> items = new List<GroundPile>(); }
+        /// What a world keeps between sessions: the items on its ground and the regions seen.
+        [Serializable] public class WorldState { public List<GroundPile> items = new List<GroundPile>(); public List<long> explored = new List<long>(); }
 
         static string PilesKey(WorldInfo w) => "Epacenur.WorldItems." + w.id;
 
-        /// The items left lying on the ground in a world.
-        public static List<GroundPile> LoadPiles(WorldInfo w)
+        /// The items left lying on the ground in a world, and the regions seen.
+        public static WorldState LoadWorldState(WorldInfo w)
         {
             if (!PlayerPrefs.HasKey(PilesKey(w)))
-                return null;
-            try { return JsonUtility.FromJson<PileList>(PlayerPrefs.GetString(PilesKey(w)))?.items; }
-            catch (Exception) { return null; }
+                return new WorldState();
+            try { return JsonUtility.FromJson<WorldState>(PlayerPrefs.GetString(PilesKey(w))) ?? new WorldState(); }
+            catch (Exception) { return new WorldState(); }
         }
 
         public static void DeletePiles(WorldInfo w) => PlayerPrefs.DeleteKey(PilesKey(w));

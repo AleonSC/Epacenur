@@ -85,8 +85,8 @@ namespace Epacenur.Runtime
             if (!hud.ShowHelp)
                 return;
             string help = p.Mode == ViewMode.Tile
-                ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk\nF1: dev tools"
-                : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk\nF1: dev tools";
+                ? "Left-click: walk / chop / attack / take\nWASD: walk freely.  Hold Shift: run\nArrow keys or middle-drag: rotate camera\nScroll: zoom\nRight-click anything: all its options\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nF1: dev tools"
+                : "Mouse: look    WASD: walk    Hold Shift: run\nLeft-click: one chop or attack per click, take items\nEsc: free the mouse (click the view to grab it again)\nRight-click: all the options for what you aim at\n1-9: melee abilities\nClick an item: wear, eat... or Use it on something\nDrag items to move them.  Shift-click: drop.  Minimap: click to walk.  M: world map\nF1: dev tools";
             Gui.Shadowed(new Rect(10f, 50f, 440f, 150f), help, Gui.Small);
         }
 

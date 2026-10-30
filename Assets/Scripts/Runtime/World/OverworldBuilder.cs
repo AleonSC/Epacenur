@@ -110,8 +110,16 @@ namespace Epacenur.Runtime
             }
         }
 
+        /// What a region is called on the world map (null for countryside).
+        public static string RegionName(Overworld ow, RegionPlan plan)
+        {
+            if (plan.Kind == RegionKind.Town)
+                return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
+            return plan.Kind == RegionKind.Camp ? "Goblin camp" : null;
+        }
+
         /// A made-up name for a town, the same every time.
-        static string TownName(Overworld ow, RegionPlan plan)
+        public static string TownName(Overworld ow, RegionPlan plan)
         {
             string[] starts = { "Ash", "Bram", "Cor", "Dun", "Fen", "Glen", "Hal", "Kel", "Lor", "Mar", "Nor", "Os", "Rav", "Thorn", "Wil" };
             string[] ends = { "by", "ford", "holm", "mere", "stead", "ton", "wick", "dale", "hollow", "bridge" };
