@@ -228,7 +228,10 @@ namespace Epacenur.Runtime
                 var mat = Visuals.Mat(plan.Valid ? GhostGood : GhostBad);
                 foreach (var r in ghost.GetComponentsInChildren<Renderer>())
                 {
-                    r.sharedMaterial = mat;
+                    var mats = new Material[Mathf.Max(1, r.sharedMaterials.Length)];  // a merged model has one per colour
+                    for (int i = 0; i < mats.Length; i++)
+                        mats[i] = mat;
+                    r.sharedMaterials = mats;
                     r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
             }

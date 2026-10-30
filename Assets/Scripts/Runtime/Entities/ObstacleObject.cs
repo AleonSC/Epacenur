@@ -49,7 +49,18 @@ namespace Epacenur.Runtime
             WaterBlue = new Rgb(0.2f, 0.42f, 0.7f), RopeColour = new Rgb(0.75f, 0.65f, 0.45f);
 
         /// The obstacle's model, `len` tiles long along z, centred on the origin.
+        static readonly System.Collections.Generic.Dictionary<int, Model> looks = new System.Collections.Generic.Dictionary<int, Model>();
+
+        /// One model per look and length, shared.
         static Model Look(ObstacleLook look, float len)
+        {
+            int key = (int)look * 100 + (int)len;
+            if (!looks.TryGetValue(key, out var m))
+                looks[key] = m = MakeLook(look, len);
+            return m;
+        }
+
+        static Model MakeLook(ObstacleLook look, float len)
         {
             var m = new Model();
             float half = len / 2f;

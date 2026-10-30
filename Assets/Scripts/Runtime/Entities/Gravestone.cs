@@ -22,6 +22,14 @@ namespace Epacenur.Runtime
     /// The gravestone in the world. "Reclaim" takes back as much as fits in your inventory.
     public sealed class Gravestone : Interactable
     {
+        static readonly Rgb Grey = new Rgb(0.6f, 0.6f, 0.62f);
+        static readonly Model Look = new Model()
+                .Cube(0f, 0.05f, 0f, 0.8f, 0.1f, 0.5f, Grey * 0.8f)
+                .Cube(0f, 0.5f, 0f, 0.5f, 0.8f, 0.14f, Grey)
+                .Sphere(0f, 0.9f, 0f, 0.5f, 0.2f, 0.14f, Grey)
+                .Cube(0f, 0.6f, -0.075f, 0.05f, 0.34f, 0.01f, Grey * 0.6f)
+                .Cube(0f, 0.68f, -0.075f, 0.22f, 0.05f, 0.01f, Grey * 0.6f);
+
         static Game G => Game.Instance;
 
         public override string Action => "Reclaim items";
@@ -42,13 +50,7 @@ namespace Epacenur.Runtime
             go.transform.localPosition = World.Local(grave.Tile);
             var stone = go.AddComponent<Gravestone>();
             stone.Tile = grave.Tile;
-            var grey = new Rgb(0.6f, 0.6f, 0.62f);
-            var model = new Model()
-                .Cube(0f, 0.05f, 0f, 0.8f, 0.1f, 0.5f, grey * 0.8f)
-                .Cube(0f, 0.5f, 0f, 0.5f, 0.8f, 0.14f, grey)
-                .Sphere(0f, 0.9f, 0f, 0.5f, 0.2f, 0.14f, grey)
-                .Cube(0f, 0.6f, -0.075f, 0.05f, 0.34f, 0.01f, grey * 0.6f)
-                .Cube(0f, 0.68f, -0.075f, 0.22f, 0.05f, 0.01f, grey * 0.6f);
+            var model = Look;
             ModelBuilder.Build(model, go.transform);
             var box = ModelBuilder.AddBox(go, model);
             box.isTrigger = true;  // you can stand next to it and walk round it

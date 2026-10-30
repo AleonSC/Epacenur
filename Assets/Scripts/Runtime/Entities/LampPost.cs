@@ -9,6 +9,14 @@ namespace Epacenur.Runtime
         const float Range = 8f, Brightness = 1.5f;
         static readonly Rgb Iron = new Rgb(0.18f, 0.18f, 0.2f), Flame = new Rgb(1f, 0.82f, 0.45f);
 
+        static readonly Model Look = new Model()
+                .Cylinder(0f, 0.08f, 0f, 0.3f, 0.08f, 0.3f, Iron)
+                .Cylinder(0f, 1.3f, 0f, 0.09f, 1.25f, 0.09f, Iron)
+                .Cube(0f, 2.55f, 0f, 0.36f, 0.05f, 0.36f, Iron)
+                .Cube(0f, 2.82f, 0f, 0.42f, 0.06f, 0.42f, Iron)
+                .Cylinder(0f, 2.92f, 0f, 0.12f, 0.06f, 0.12f, Iron)
+                .Cube(0f, 2.69f, 0f, 0.28f, 0.24f, 0.28f, Flame).Glowing();
+
         Light glow;
         Renderer[] flames;
         float lit;   // 0 out .. 1 fully lit (it fades)
@@ -19,13 +27,7 @@ namespace Epacenur.Runtime
             var go = new GameObject("Lamp post");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = World.Local(tile);
-            ModelBuilder.Build(new Model()
-                .Cylinder(0f, 0.08f, 0f, 0.3f, 0.08f, 0.3f, Iron)
-                .Cylinder(0f, 1.3f, 0f, 0.09f, 1.25f, 0.09f, Iron)
-                .Cube(0f, 2.55f, 0f, 0.36f, 0.05f, 0.36f, Iron)
-                .Cube(0f, 2.82f, 0f, 0.42f, 0.06f, 0.42f, Iron)
-                .Cylinder(0f, 2.92f, 0f, 0.12f, 0.06f, 0.12f, Iron)
-                .Cube(0f, 2.69f, 0f, 0.28f, 0.24f, 0.28f, Flame).Glowing(), go.transform);
+            ModelBuilder.Build(Look, go.transform);
             var box = go.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 1.5f, 0f);
             box.size = new Vector3(0.4f, 3f, 0.4f);

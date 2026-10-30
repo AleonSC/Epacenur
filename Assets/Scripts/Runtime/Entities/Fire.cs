@@ -8,6 +8,17 @@ namespace Epacenur.Runtime
     /// then dies down to ashes.
     public sealed class Fire : StationObject
     {
+        static readonly Model Flames = MakeFlames();
+
+        static Model MakeFlames()
+        {
+            var flames = new Model();
+            var colours = new[] { new Rgb(1f, 0.35f, 0.05f), new Rgb(1f, 0.6f, 0.1f), new Rgb(1f, 0.9f, 0.4f) };
+            for (int i = 0; i < 3; i++)
+                flames.Sphere(0f, 0.2f + i * 0.08f, 0f, 0.4f - i * 0.1f, 0.4f - i * 0.1f, 0.4f - i * 0.1f, colours[i]).Glowing();
+            return flames;
+        }
+
         Transform[] flameParts;
         float expires, flicker;
 
@@ -35,11 +46,7 @@ namespace Epacenur.Runtime
                 log.transform.localRotation = Quaternion.Euler(90f, i * 60f, 0f);
             }
             Visuals.Prim(PrimitiveType.Cylinder, t, new Vector3(0f, 0.02f, 0f), new Vector3(0.5f, 0.01f, 0.5f), new Color(0.15f, 0.12f, 0.1f));
-            var flames = new Model();
-            var colours = new[] { new Rgb(1f, 0.35f, 0.05f), new Rgb(1f, 0.6f, 0.1f), new Rgb(1f, 0.9f, 0.4f) };
-            for (int i = 0; i < 3; i++)
-                flames.Sphere(0f, 0.2f + i * 0.08f, 0f, 0.4f - i * 0.1f, 0.4f - i * 0.1f, 0.4f - i * 0.1f, colours[i]).Glowing();
-            var built = ModelBuilder.Build(flames, t, "Flames");
+            var built = ModelBuilder.Build(Flames, t, "Flames");
             flameParts = new Transform[built.childCount];
             for (int i = 0; i < flameParts.Length; i++)
                 flameParts[i] = built.GetChild(i);

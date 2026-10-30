@@ -19,18 +19,29 @@ namespace Epacenur.Runtime
         {
             var def = ContentDb.Current.Item(ammoItemId);
             var tip = def != null ? def.Colour : new Rgb(0.6f, 0.6f, 0.6f);
-            Launch("Arrow", from, target.transform, target.Def.Height * 0.55f, 0.25f, new Model()
+            Launch("Arrow", from, target.transform, target.Def.Height * 0.55f, 0.25f, Cached("arrow", tip, () => new Model()
                 .Cylinder(0f, 0f, 0f, 0.025f, 0.3f, 0.025f, new Rgb(0.7f, 0.55f, 0.32f)).Turn(90f, 0f, 0f)
                 .Cube(0f, 0f, 0.32f, 0.05f, 0.05f, 0.08f, tip)
-                .Cube(0f, 0f, -0.28f, 0.01f, 0.07f, 0.1f, new Rgb(0.95f, 0.95f, 0.93f)));
+                .Cube(0f, 0f, -0.28f, 0.01f, 0.07f, 0.1f, new Rgb(0.95f, 0.95f, 0.93f))));
         }
 
         /// A glowing ball of a spell's colour, flying straight at `target` (aimed `aimHeight` above its feet).
         public static void Spell(Vector3 from, Transform target, float aimHeight, Rgb colour)
         {
-            Launch("Spell", from, target, aimHeight, 0f, new Model()
+            Launch("Spell", from, target, aimHeight, 0f, Cached("spell", colour, () => new Model()
                 .Sphere(0f, 0f, 0f, 0.28f, 0.28f, 0.28f, colour).Glowing()
-                .Sphere(0f, 0f, -0.22f, 0.16f, 0.16f, 0.22f, colour * 0.8f).Glowing());
+                .Sphere(0f, 0f, -0.22f, 0.16f, 0.16f, 0.22f, colour * 0.8f).Glowing()));
+        }
+
+        /// One model per kind and colour of projectile, shared (built models are cached per model).
+        static readonly System.Collections.Generic.Dictionary<string, Model> models = new System.Collections.Generic.Dictionary<string, Model>();
+
+        static Model Cached(string kind, Rgb colour, System.Func<Model> make)
+        {
+            string key = kind + colour.R + "," + colour.G + "," + colour.B;
+            if (!models.TryGetValue(key, out var m))
+                models[key] = m = make();
+            return m;
         }
 
         static void Launch(string name, Vector3 from, Transform target, float aimHeight, float arc, Model model)
