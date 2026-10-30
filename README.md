@@ -44,7 +44,7 @@ The game opens on the main menu:
 | Camera | Arrow keys or middle-drag to rotate, scroll to zoom | Mouse look. **Esc** frees the mouse; click the view to grab it again |
 | Use the bank | Left-click the bank booth (by spawn): you walk up to it and the bank opens | Look at it and left-click (within reach) |
 | Trade with the shop keeper | Left-click him (beside the bank booth) | Look at him and left-click |
-| Attack a goblin (sword and shield worn) | Left-click it: you walk up and keep hitting it until it dies | Look at it and left-click once per hit (within reach) |
+| Attack a goblin | Left-click it: you walk up and keep hitting it until it dies | Look at it and left-click once per hit (within reach) |
 | Pick up an item on the ground | Left-click it ("Take"): you walk onto its tile and pick it up | Look at it and left-click (within reach) |
 | Switch view | **V** | **V** |
 
@@ -170,14 +170,21 @@ so they don't take up slots.
 
 - The **Worn** tab is laid out like RuneScape's equipment screen: head; cape, neck and ammo; weapon, body and shield; legs;
   gloves, boots and ring. Click a worn item to take it off (you need a free inventory slot). Below that are
-  your attack, strength and defence bonuses, and the **attack style**: which skill your hits train.
-- The **Bronze sword** (+4 attack, +5 strength) and **Wooden shield** (+5 defence) are the only equipment so far.
-  You need **both** worn to fight.
+  your bonuses and the weapon's **attack styles**.
+- **Bonuses work like OSRS**: attack and defence bonuses for **stab, slash and crush**, plus melee **strength**. Your hit
+  chance uses your attack bonus for the style's attack type against the monster's defence against that type; a monster's
+  hits use your defence against its type (goblins crush).
+- **Weapons** each have a kind with its own styles, and a **speed**: sword and dagger (Stab, Lunge, Slash, Block), scimitar
+  (Chop, Slash, Lunge, Block), mace (Pound, Pummel, Spike, Block), two-handed sword (Chop, Slash, Smash, Block). Each style
+  says which skill it trains (hover it). With no weapon you fight **unarmed** (Punch, Kick, Block); no sword or shield needed.
+- Bronze weapons, all smithed at the anvil: **dagger** (fast stabs), **mace** (crush, 3 s), **sword**, **scimitar** (slash),
+  **2h sword** (strong but slow, 4.2 s, and **two-handed**: wearing it takes your shield off, and the other way round).
+  Bronze armour and the wooden shield defend differently against each type.
 - The **Goblins** plot, in the middle, has 4 goblins (level 2, 5 hitpoints) that wander around it. They leave you alone
   until you attack, then **fight back**: they chase you (but not far from their plot) and hit you every 4 ticks. A goblin's
   max hit is 1, and its hit chance is rolled against your Defence level and bonus, Defence prayers and attack style
   (Defensive adds 3), using OSRS's formulas. They give up if you run more than 12 tiles away or leave the area round their plot.
-- **Auto retaliate**: if a goblin hits you while you're standing idle in tile mode with a sword and shield worn, you fight back.
+- **Auto retaliate**: if a goblin hits you while you're standing idle in tile mode, you fight back.
 - Hits use RuneScape's melee formulas: hit chance from your Attack level and bonus against the goblin's defence, and
   max hit from Strength. With the sword, a hit every 4 ticks (2.4 s). Red hitsplats show damage, blue ones a miss,
   and a health bar shows over a goblin you're fighting.
@@ -185,10 +192,36 @@ so they don't take up slots.
 - A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
   Its stats and drops are in `CombatModule` in `Assets/Scripts/Content/Combat`.
 
+## Death and gravestones
+
+- When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and
+  what you wear). Everything else goes into a **gravestone** where you fell. Your money pouch and tool belt are always safe.
+- You wake up in the **nearest town** (on the dev plot: at its start) with full health and prayer.
+- Get back to the gravestone within **15 minutes** (of play in that world; the time shows under the minimap) and
+  **Reclaim items** to take back what fits. After that it **collapses** and your items are left on the ground where it
+  stood (they stay there until picked up). Dying again while you have a gravestone collapses the old one.
+
+## Using items, and Make-X
+
+- **Use**: every item has it. Pick an item (Use, or just click an item that has nothing else to do), then click another item
+  or something in the world: a **tinderbox on logs** lights them, **raw fish on a fire** or **ore on a furnace** opens the make
+  window for that item, **bones on an altar** are offered for 3.5 times the Prayer xp of burying, an item on a **bank booth**
+  deposits all of it, a hatchet on a tree chops it. The hover text shows "Use Logs -> ...". Esc or right-click cancels.
+- **Drag** an item onto another slot to swap them.
+- **Make-X**: every station (furnace, anvil, fire) opens "What would you like to make?" with **1, 5, 10, X** (type a number)
+  and **All**; the choice is remembered. Click a recipe to make it, or press **Space** for the first one you can make.
+  Right-click a recipe for every amount.
+
+## Minimap
+
+- Top right: the ground round you from above, **turned with the camera** like RuneScape's, with **N** on the rim. Dots:
+  monsters (yellow), items on the ground (red), banks (gold), altars (white), shops (orange), other stations (blue),
+  fishing spots (cyan), your gravestone (white). **Click it to walk there** (tile mode).
+
 ## Melee abilities (action bar)
 
 The bar above the chat box holds RuneScape 3's nine basic melee abilities. Use them with keys **1–9** or by clicking.
-Right-click a slot for Activate and Examine, and hover one for what it does. Like normal attacks, they need a sword and shield worn.
+Right-click a slot for Activate and Examine, and hover one for what it does.
 
 | Key | Ability | Needs | Cooldown | Damage (× max hit) | Effect |
 |---|---|---|---|---|---|

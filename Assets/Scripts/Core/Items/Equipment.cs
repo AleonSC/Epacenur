@@ -13,23 +13,58 @@ namespace Epacenur.Core
         public ItemStack this[EquipSlot slot] => worn[(int)slot];
         public bool IsWearing(EquipSlot slot) => !worn[(int)slot].IsEmpty;
 
-        public int AttackBonus => Sum(d => d.AttackBonus);
-        public int StrengthBonus => Sum(d => d.StrengthBonus);
-        public int DefenceBonus => Sum(d => d.DefenceBonus);
+        /// Everything worn, added up.
+        public Bonuses Bonuses
+        {
+            get
+            {
+                var b = new Bonuses();
+                foreach (var s in worn)
+                    if (!s.IsEmpty)
+                        b = b + s.Def.Bonuses;
+                return b;
+            }
+        }
+
         /// Ticks between attacks: the weapon's speed, or 4 when unarmed.
         public int AttackTicks => IsWearing(EquipSlot.Weapon) ? this[EquipSlot.Weapon].Def.AttackTicks : 4;
 
+        /// The kind of weapon wielded (its attack styles): "unarmed" with none.
+        public string WeaponKind => IsWearing(EquipSlot.Weapon) ? this[EquipSlot.Weapon].Def.WeaponKind ?? WeaponKindIds.Unarmed : WeaponKindIds.Unarmed;
+
         /// Wears the item in an inventory slot. Whatever was in that equipment slot goes back into the
-        /// same inventory slot. Returns false if the item can't be worn.
-        public bool Equip(Inventory inv, int invSlot)
+        /// same inventory slot. A two-handed weapon takes the shield off too (and a shield a two-handed
+        /// weapon), which needs a free slot. Returns false if the item can't be worn, with the reason.
+        public bool Equip(Inventory inv, int invSlot) => Equip(inv, invSlot, out _);
+
+        public bool Equip(Inventory inv, int invSlot, out string problem)
         {
+            problem = null;
             var stack = inv[invSlot];
             if (stack.IsEmpty || stack.Def.Slot == EquipSlot.None)
                 return false;
-            int e = (int)stack.Def.Slot;
+            var def = stack.Def;
+            int e = (int)def.Slot;
             var old = worn[e];
+            // The other hand: a two-handed weapon and a shield can't both be worn.
+            EquipSlot other = EquipSlot.None;
+            if (def.TwoHanded && IsWearing(EquipSlot.Shield))
+                other = EquipSlot.Shield;
+            else if (def.Slot == EquipSlot.Shield && IsWearing(EquipSlot.Weapon) && this[EquipSlot.Weapon].Def.TwoHanded)
+                other = EquipSlot.Weapon;
+            var removed = other == EquipSlot.None ? default(ItemStack) : worn[(int)other];
+            if (!removed.IsEmpty && inv.FreeSlots + (old.IsEmpty ? 1 : 0) < 1)
+            {
+                problem = "You don't have enough inventory space to do that.";
+                return false;
+            }
             worn[e] = stack;
             inv.Set(invSlot, old);
+            if (!removed.IsEmpty)
+            {
+                worn[(int)other] = default(ItemStack);
+                inv.Add(removed.ItemId, removed.Count);
+            }
             Changed?.Invoke();
             return true;
         }
@@ -55,13 +90,12 @@ namespace Epacenur.Core
             Changed?.Invoke();
         }
 
-        int Sum(Func<ItemDef, int> f)
+        /// Takes everything off (dying).
+        public void Clear()
         {
-            int n = 0;
-            foreach (var s in worn)
-                if (!s.IsEmpty)
-                    n += f(s.Def);
-            return n;
+            for (int i = 0; i < worn.Length; i++)
+                worn[i] = default(ItemStack);
+            Changed?.Invoke();
         }
     }
 }

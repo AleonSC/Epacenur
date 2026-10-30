@@ -31,7 +31,49 @@ namespace Epacenur.Core
     public static class Verbs
     {
         public const string Wield = "Wield", Wear = "Wear", Eat = "Eat", Bury = "Bury", Light = "Light", Cook = "Cook",
-            AddToToolBelt = "Add to tool belt", AddToPouch = "Add to pouch", Drop = "Drop", Examine = "Examine";
+            AddToToolBelt = "Add to tool belt", AddToPouch = "Add to pouch", Use = "Use", Drop = "Drop", Examine = "Examine";
+    }
+
+    /// How a melee attack lands. Armour defends against each differently, as in RuneScape.
+    public enum AttackType { Stab, Slash, Crush }
+
+    /// An item's (or a monster's) combat bonuses: accuracy and defence against each attack type, and
+    /// melee strength (max hit). Worn items' bonuses add up.
+    public struct Bonuses
+    {
+        public int StabAttack, SlashAttack, CrushAttack;
+        public int StabDefence, SlashDefence, CrushDefence;
+        public int Strength;
+
+        public int Attack(AttackType t) => t == AttackType.Stab ? StabAttack : t == AttackType.Slash ? SlashAttack : CrushAttack;
+        public int Defence(AttackType t) => t == AttackType.Stab ? StabDefence : t == AttackType.Slash ? SlashDefence : CrushDefence;
+
+        /// The same defence against all three types (most armour is close to even).
+        public static Bonuses AllDefence(int d) => new Bonuses { StabDefence = d, SlashDefence = d, CrushDefence = d };
+
+        public static Bonuses operator +(Bonuses a, Bonuses b) => new Bonuses
+        {
+            StabAttack = a.StabAttack + b.StabAttack, SlashAttack = a.SlashAttack + b.SlashAttack, CrushAttack = a.CrushAttack + b.CrushAttack,
+            StabDefence = a.StabDefence + b.StabDefence, SlashDefence = a.SlashDefence + b.SlashDefence, CrushDefence = a.CrushDefence + b.CrushDefence,
+            Strength = a.Strength + b.Strength,
+        };
+    }
+
+    /// One way to fight with a kind of weapon, e.g. a sword's "Slash": the attack type it uses and the
+    /// skill it trains (CombatStyle).
+    public sealed class WeaponStyle
+    {
+        public string Name;
+        public AttackType Type;
+        public CombatStyle Style;
+        public WeaponStyle(string name, AttackType type, CombatStyle style) { Name = name; Type = type; Style = style; }
+    }
+
+    /// A kind of weapon (sword, mace, dagger... or "unarmed"): the attack styles it offers.
+    public sealed class WeaponKindDef
+    {
+        public string Id, Name;
+        public WeaponStyle[] Styles;
     }
 
     public sealed class ItemDef
@@ -47,8 +89,10 @@ namespace Epacenur.Core
 
         // Equipment
         public EquipSlot Slot = EquipSlot.None;
-        public int AttackBonus, StrengthBonus, DefenceBonus;
-        public int AttackTicks = 4;  // weapons: game ticks between attacks
+        public Bonuses Bonuses;
+        public string WeaponKind;    // weapons: "sword", "mace"... (their attack styles)
+        public int AttackTicks = 4;  // weapons: game ticks between attacks (a dagger 4, a two-handed sword 7)
+        public bool TwoHanded;       // weapons: can't be used with a shield
         public readonly List<WornPart> Worn = new List<WornPart>();  // armour: what shows on the body
 
         // Uses
@@ -152,8 +196,7 @@ namespace Epacenur.Core
     /// What a station does when used.
     public enum StationKind
     {
-        MakeAll,      // makes as many as you can of its recipes, starting with the one you chose (furnace, fire)
-        MakeWindow,   // opens a window to choose what and how many to make (anvil)
+        Make,         // opens the make window: choose what and how many (furnace, anvil, fire)
         Bank,         // opens the bank
         Altar,        // recharges Prayer points
     }
@@ -168,7 +211,7 @@ namespace Epacenur.Core
         public Rgb LightColour;
         public string Label;                      // the name floating over it, e.g. "Bank" (null: none)
         public float LabelHeight = 2f;            // how high it floats
-        public string Help;                       // MakeWindow: a hint at the bottom of the window
+        public string Help;                       // Make: a hint at the bottom of the make window
     }
 
     // ---- Shops ----
@@ -238,8 +281,10 @@ namespace Epacenur.Core
     {
         public string Id, Name, Examine;
         public int CombatLevel, Hitpoints;
-        public int DefenceLevel, DefenceBonus;
+        public int DefenceLevel;
+        public Bonuses Bonuses;                       // its defence against each attack type
         public int AttackLevel, AttackBonus, MaxHit;  // fighting back
+        public AttackType AttackType = AttackType.Crush;  // what your armour defends against
         public int AttackTicks = 4;
         public float RespawnSeconds;
         public float WalkSpeed = 1.6f;                // tiles per second

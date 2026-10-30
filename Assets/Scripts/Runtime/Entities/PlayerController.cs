@@ -51,7 +51,7 @@ namespace Epacenur.Runtime
         Interactable targetObject;  // the tree, bank booth, NPC... being walked to (tile mode)
         GroundItem targetItem;      // the ground item being walked to (tile mode)
         bool lightOnArrival;        // ...to light it rather than take it
-        string pendingCook;         // the raw item to cook first when you reach the fire
+        System.Action<Interactable> onArrive;  // what to do on reaching targetObject (null: use it)
         float swingCooldown, fallSpeed, eatCooldown, buryCooldown;
 
         public static PlayerController Create(Tile spawn)
@@ -220,7 +220,9 @@ namespace Epacenur.Runtime
 
         void SetHoverText(List<MenuOption> options)
         {
-            if (options.Count == 0)
+            if (IsUsing && (options.Count == 0 || options[0].Action != "Use"))
+                HoverText = "Use " + MenuOption.Item(UsingDef.Name) + " ->";
+            else if (options.Count == 0)
                 HoverText = "";
             else
                 HoverText = options[0].Text + (options.Count > 1 ? " <color=#ffffff>/ " + (options.Count - 1) + " more option" + (options.Count > 2 ? "s" : "") + "</color>" : "");
@@ -279,6 +281,11 @@ namespace Epacenur.Runtime
 
         void AddOptions(Component thing, bool firstPerson, List<MenuOption> options, List<MenuOption> examines)
         {
+            if (IsUsing)
+            {
+                AddUseOptions(thing, firstPerson, options, examines);
+                return;
+            }
             if (thing is Interactable obj)
             {
                 string name = MenuOption.Thing(obj.DisplayName);
@@ -320,15 +327,18 @@ namespace Epacenur.Runtime
             return d.magnitude;
         }
 
+        /// Walks to a tile (the minimap).
+        public void WalkToTile(Tile tile) => WalkTo(tile);
+
         void WalkTo(Tile tile)
         {
             CancelAction();
             SetPath(Pathfinder.PathTo(G.World.Grid, StartTile(), tile));
         }
 
-        void WalkToObject(Interactable thing)
+        /// Walks next to something, then uses it (or does `arrive` instead, e.g. use an item on it).
+        void WalkToObject(Interactable thing, System.Action<Interactable> arrive = null)
         {
-            string cook = pendingCook;
             CancelAction();
             var p = Pathfinder.PathToInteract(G.World.Grid, StartTile(), thing.Tile);
             if (p == null)
@@ -336,24 +346,29 @@ namespace Epacenur.Runtime
                 GameLog.Add("I can't reach that!");
                 return;
             }
-            pendingCook = cook;
             targetObject = thing;
+            onArrive = arrive;
             SetPath(p);
         }
 
         void ArriveAtObject()
         {
             var thing = targetObject;
+            var arrive = onArrive;
             targetObject = null;
+            onArrive = null;
             if (thing == null)
                 return;  // gone (a fire burned out)
             if (!CurrentTile.IsCardinalNeighbour(thing.Tile))
             {
-                WalkToObject(thing);  // pushed off course; try again
+                WalkToObject(thing, arrive);  // pushed off course; try again
                 return;
             }
             transform.rotation = Quaternion.LookRotation(World.TileCenter(thing.Tile) - World.TileCenter(CurrentTile));
-            thing.Interact();
+            if (arrive != null)
+                arrive(thing);
+            else
+                thing.Interact();
         }
 
         void WalkToItem(GroundItem item, bool light)
@@ -452,8 +467,9 @@ namespace Epacenur.Runtime
             targetItem = null;
             attackTarget = null;
             fighting = false;
-            pendingCook = null;
+            onArrive = null;
             Activity = null;
+            CancelUse();
         }
 
         void Face(Vector3 dir, float dt)
@@ -536,13 +552,10 @@ namespace Epacenur.Runtime
                 GameLog.Add(node.Def.StartMessage);
         }
 
-        /// Starts making things at a station: `count` of a recipe, or with recipe null whatever the
-        /// station can make from what you carry (a furnace, a fire). Walking away stops it.
+        /// Starts making `count` of a recipe at a station (int.MaxValue: as many as you can). Walking away stops it.
         public void StartMaking(StationObject station, RecipeDef recipe, int count)
         {
-            string prefer = pendingCook;
-            pendingCook = null;
-            var a = MakeActivity.Start(station, recipe, count, prefer);
+            var a = MakeActivity.Start(station, recipe, count);
             if (a == null)
                 return;
             CancelAction();
@@ -571,11 +584,10 @@ namespace Epacenur.Runtime
                     : "You need a fire to cook on. Light one with logs and a tinderbox.");
                 return;
             }
-            pendingCook = rawItemId;
             if (Mode == ViewMode.Tile && !CurrentTile.IsCardinalNeighbour(nearest.Tile))
-                WalkToObject(nearest);  // cooks when you get there
+                WalkToObject(nearest, t => UseOnObject(t, rawItemId));  // cooks when you get there
             else
-                StartMaking(nearest, null, int.MaxValue);
+                UseOnObject(nearest, rawItemId);
         }
 
         /// "Light" on logs in the inventory: they go down on your tile and you light them there.

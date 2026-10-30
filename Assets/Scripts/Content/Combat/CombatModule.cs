@@ -2,13 +2,30 @@ using Epacenur.Core;
 
 namespace Epacenur.Content
 {
-    /// Melee combat: Attack, Strength, Defence and Hitpoints, a bronze sword and wooden shield, and goblins.
+    /// Melee combat: Attack, Strength, Defence and Hitpoints, the kinds of weapon and their attack styles,
+    /// a bronze sword and wooden shield, and goblins. (Smithing makes the other bronze weapons.)
     public sealed class CombatModule : IContentModule
     {
         public const string BronzeSword = "bronze_sword", WoodenShield = "wooden_shield", Goblin = "goblin";
+        public const string Sword = "sword", Dagger = "dagger", Scimitar = "scimitar", Mace = "mace", TwoHandedSword = "2h_sword";
+
+        static void Kind(ContentDb db, string id, string name, params WeaponStyle[] styles) =>
+            db.Add(new WeaponKindDef { Id = id, Name = name, Styles = styles });
+
+        static WeaponStyle S(string name, AttackType type, CombatStyle style) => new WeaponStyle(name, type, style);
 
         public void Register(ContentDb db)
         {
+            // Attack styles per kind of weapon, as in OSRS: each style's attack type and the skill it trains.
+            const AttackType stab = AttackType.Stab, slash = AttackType.Slash, crush = AttackType.Crush;
+            const CombatStyle acc = CombatStyle.Accurate, agg = CombatStyle.Aggressive, def = CombatStyle.Defensive;
+            Kind(db, WeaponKindIds.Unarmed, "Unarmed", S("Punch", crush, acc), S("Kick", crush, agg), S("Block", crush, def));
+            Kind(db, Sword, "Sword", S("Stab", stab, acc), S("Lunge", stab, agg), S("Slash", slash, agg), S("Block", stab, def));
+            Kind(db, Dagger, "Dagger", S("Stab", stab, acc), S("Lunge", stab, agg), S("Slash", slash, agg), S("Block", stab, def));
+            Kind(db, Scimitar, "Scimitar", S("Chop", slash, acc), S("Slash", slash, agg), S("Lunge", stab, agg), S("Block", slash, def));
+            Kind(db, Mace, "Mace", S("Pound", crush, acc), S("Pummel", crush, agg), S("Spike", stab, agg), S("Block", crush, def));
+            Kind(db, TwoHandedSword, "Two-handed sword", S("Chop", slash, acc), S("Slash", slash, agg), S("Smash", crush, agg), S("Block", slash, def));
+
             var steel = Rgb.Steel;
             var gold = Rgb.Gold;
             var wood = Rgb.Wood;
@@ -30,11 +47,11 @@ namespace Epacenur.Content
                 .Rect(3f, 4f, 7f, 6f, red).Rect(12f, 4f, 7f, 6f, red).Rect(3f, 8f, 16f, 4f, red).Rect(5f, 12f, 12f, 3f, red)
                 .Rect(7f, 15f, 8f, 3f, red).Rect(9f, 18f, 4f, 2f, red).Rect(5f, 5f, 2f, 2f, new Rgb(1f, 0.7f, 0.7f)), startLevel: 10);
 
-            // Bronze sword: +4 attack, +5 strength, a hit every 4 ticks.
+            // Bronze sword: best at stabbing, a hit every 4 ticks (OSRS stats).
             var sword = db.Item(BronzeSword, "Bronze sword", "A razor-sharp sword.", 26, Looks.Bronze);
             sword.Slot = EquipSlot.Weapon;
-            sword.AttackBonus = 4;
-            sword.StrengthBonus = 5;
+            sword.WeaponKind = Sword;
+            sword.Bonuses = new Bonuses { StabAttack = 4, SlashAttack = 3, CrushAttack = -2, SlashDefence = 2, CrushDefence = 1, Strength = 5 };
             sword.AttackTicks = 4;
             sword.Icon = new Icon()
                 .Rect(18f, 4f, 5f, 22f, Looks.Bronze).Rect(19f, 4f, 2f, 22f, new Rgb(0.9f, 0.7f, 0.45f))
@@ -49,7 +66,7 @@ namespace Epacenur.Content
             var shieldWood = new Rgb(0.5f, 0.33f, 0.18f);
             var shield = db.Item(WoodenShield, "Wooden shield", "A solid wooden shield.", 20, shieldWood);
             shield.Slot = EquipSlot.Shield;
-            shield.DefenceBonus = 5;
+            shield.Bonuses = new Bonuses { StabDefence = 4, SlashDefence = 5, CrushDefence = 3 };
             shield.Icon = new Icon()
                 .Rect(8f, 6f, 24f, 28f, new Rgb(0.45f, 0.45f, 0.5f)).Rect(10f, 8f, 20f, 24f, shieldWood)
                 .Rect(16f, 8f, 1f, 24f, shieldWood * 0.7f).Rect(23f, 8f, 1f, 24f, shieldWood * 0.7f)
@@ -67,7 +84,8 @@ namespace Epacenur.Content
             var goblin = new NpcDef
             {
                 Id = Goblin, Name = "Goblin", Examine = "An ugly green creature.", CombatLevel = 2, Hitpoints = 5,
-                DefenceLevel = 1, DefenceBonus = -2, AttackLevel = 1, AttackBonus = 0, MaxHit = 1, AttackTicks = 4,
+                DefenceLevel = 1, Bonuses = Bonuses.AllDefence(-2), AttackLevel = 1, AttackBonus = 0, AttackType = AttackType.Crush,
+                MaxHit = 1, AttackTicks = 4,
                 RespawnSeconds = 15f, Height = 1.5f,
                 Model = new Model()
                     .Capsule(0f, 0.72f, 0f, 0.45f, 0.4f, 0.35f, cloth)

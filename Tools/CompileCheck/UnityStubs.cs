@@ -19,7 +19,7 @@ namespace UnityEngine
         public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { }
         public int childCount => 0; public Transform GetChild(int i) => null; }
     public struct Vector2 { public static Vector2 zero; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
-        public static Vector2 operator /(Vector2 a, float b) => a; }
+        public static Vector2 operator /(Vector2 a, float b) => a; public static Vector2 operator -(Vector2 a, Vector2 b) => a; public float magnitude => 0f; }
     public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 zero, up, forward, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
@@ -52,7 +52,7 @@ namespace UnityEngine
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogError(object o) { } }
     public static class PlayerPrefs { public static void SetString(string k, string v) { } public static string GetString(string k) => null; public static bool HasKey(string k) => false; public static void DeleteKey(string k) { } public static void Save() { } }
     public static class JsonUtility { public static string ToJson(object o) => null; public static T FromJson<T>(string s) => default(T); }
-    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return }
+    public enum KeyCode { LeftShift, RightShift, Alpha1, Alpha2, Alpha3, Alpha4, Alpha5, Alpha6, Alpha7, Alpha8, Alpha9, W, A, S, D, V, H, F1, Escape, LeftArrow, RightArrow, UpArrow, DownArrow, Return, Space, KeypadEnter }
     public static class Input { public static bool GetKey(KeyCode k) => false; public static bool GetKeyDown(KeyCode k) => false; public static bool GetMouseButtonDown(int b) => false;
         public static bool GetMouseButton(int b) => false; public static Vector3 mousePosition; public static Vector2 mouseScrollDelta; public static float GetAxisRaw(string a) => 0f; }
     public enum CursorLockMode { None, Locked, Confined }
@@ -71,7 +71,8 @@ namespace UnityEngine
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
-    public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void Apply() { } }
+    public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void SetPixels32(Color32[] c) { } public void Apply() { } }
+    public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
     public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
     public sealed class BoxCollider : Collider { public Vector3 center, size; }
@@ -95,8 +96,8 @@ namespace UnityEngine
     public static class GUIUtility { public static void RotateAroundPivot(float a, Vector2 p) { } }
     public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
         public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
-    public enum EventType { MouseDown, MouseMove, Repaint }
-    public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public void Use() { } }
+    public enum EventType { MouseDown, MouseMove, Repaint, MouseDrag, MouseUp, KeyDown }
+    public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public KeyCode keyCode; public void Use() { } }
 }
 namespace UnityEngine.Rendering
 {

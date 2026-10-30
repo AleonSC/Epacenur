@@ -11,6 +11,12 @@ namespace Epacenur.Core
         void Register(ContentDb db);
     }
 
+    public static class WeaponKindIds
+    {
+        /// Fighting with no weapon (punch, kick, block).
+        public const string Unarmed = "unarmed";
+    }
+
     /// Every definition in the game, by id. Built once at startup from the content modules
     /// (ContentDb.Load), then read through ContentDb.Current.
     public sealed class ContentDb
@@ -25,6 +31,8 @@ namespace Epacenur.Core
         readonly Dictionary<string, ShopDef> shops = new Dictionary<string, ShopDef>();
         readonly Dictionary<string, NpcDef> npcs = new Dictionary<string, NpcDef>();
         readonly Dictionary<string, BurnableDef> burnables = new Dictionary<string, BurnableDef>();
+        readonly Dictionary<string, WeaponKindDef> weaponKinds = new Dictionary<string, WeaponKindDef>();
+        public readonly List<WeaponKindDef> WeaponKinds = new List<WeaponKindDef>();
 
         // Registration order is kept: it's the order skills show in the Skills tab, tools on the belt, and so on.
         public readonly List<ItemDef> Items = new List<ItemDef>();
@@ -68,6 +76,7 @@ namespace Epacenur.Core
         public StationDef Add(StationDef d) => Add(stations, Stations, d.Id, d, "station");
         public ShopDef Add(ShopDef d) => Add(shops, Shops, d.Id, d, "shop");
         public NpcDef Add(NpcDef d) => Add(npcs, Npcs, d.Id, d, "monster");
+        public WeaponKindDef Add(WeaponKindDef d) => Add(weaponKinds, WeaponKinds, d.Id, d, "weapon kind");
         public BurnableDef Add(BurnableDef d)
         {
             if (burnables.ContainsKey(d.LogItemId))
@@ -85,6 +94,7 @@ namespace Epacenur.Core
         public StationDef Station(string id) => id != null && stations.TryGetValue(id, out var d) ? d : null;
         public ShopDef Shop(string id) => id != null && shops.TryGetValue(id, out var d) ? d : null;
         public NpcDef Npc(string id) => id != null && npcs.TryGetValue(id, out var d) ? d : null;
+        public WeaponKindDef WeaponKind(string id) => id != null && weaponKinds.TryGetValue(id, out var d) ? d : null;
         public BurnableDef Burnable(string itemId) => itemId != null && burnables.TryGetValue(itemId, out var d) ? d : null;
 
         /// The recipes made at a station, in registration order.
@@ -107,8 +117,11 @@ namespace Epacenur.Core
             Action<string, string> Skill = (id, where) => { if (id != null && !skills.ContainsKey(id)) p.Add(where + ": no skill \"" + id + "\""); };
             Action<string, string> Tool = (type, where) => { if (type != null && !items.Values.Any(i => i.ToolType == type)) p.Add(where + ": no tool of type \"" + type + "\""); };
 
+            if (!weaponKinds.ContainsKey(WeaponKindIds.Unarmed)) p.Add("no \"" + WeaponKindIds.Unarmed + "\" weapon kind");
             foreach (var i in Items)
             {
+                if (i.WeaponKind != null && !weaponKinds.ContainsKey(i.WeaponKind)) p.Add("item " + i.Id + ": no weapon kind \"" + i.WeaponKind + "\"");
+                if (i.Slot == EquipSlot.Weapon && i.WeaponKind == null) p.Add("item " + i.Id + ": a weapon with no weapon kind");
                 if (i.Icon == null) p.Add("item " + i.Id + ": no icon");
                 if (i.GroundModel == null) p.Add("item " + i.Id + ": no ground model");
             }

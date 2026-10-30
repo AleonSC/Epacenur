@@ -11,7 +11,8 @@ namespace Epacenur.Core
         Defensive,   // Defence: +3 effective Defence
     }
 
-    /// RuneScape's melee formulas (OSRS), simplified: no prayers or potions.
+    /// RuneScape's melee formulas (OSRS). Accuracy compares your Attack and your attack bonus for the
+    /// style's attack type (stab, slash or crush) with the target's Defence and its defence against that type.
     public static class CombatRules
     {
         public const double XpPerDamage = 4.0, HitpointsXpPerDamage = 4.0 / 3.0;

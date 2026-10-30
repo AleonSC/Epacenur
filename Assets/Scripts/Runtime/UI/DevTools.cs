@@ -24,7 +24,7 @@ namespace Epacenur.Runtime
             this.hud = hud;
             if (!placed)
             {
-                rect = new Rect(hud.W - 310f, 40f, 300f, 10f);
+                rect = new Rect(hud.W - Minimap.Size - 330f, 10f, 300f, 10f);
                 placed = true;
             }
             rect = GUILayout.Window(1, rect, DrawWindow, "Dev tools (F1)");

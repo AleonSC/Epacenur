@@ -41,6 +41,8 @@ namespace Epacenur.Runtime
             // Where you stand in each world (by world id): map (MapId) and tile.
             public string[] placeWorlds;
             public int[] placeMaps, placeX, placeZ;
+            public bool hasGrave;
+            public Grave grave;
 
             // Older formats (read only).
             public int[] itemIds, bankIds, equipIds, toolIds;
@@ -84,7 +86,7 @@ namespace Epacenur.Runtime
                 tileZ = game.Player.CurrentTile.Z,
                 map = (int)game.World.Map,
                 worldVersion = WorldVersion,
-                style = (int)game.Style,
+                style = game.StyleIndex,
                 pouch = game.Inventory.PouchCoins,
                 hp = game.Health.Current,
                 prayerPoints = game.Prayer.Points,
@@ -133,6 +135,8 @@ namespace Epacenur.Runtime
             d.placeX = xs.ToArray();
             d.placeZ = zs.ToArray();
             PlayerPrefs.SetString(KeyFor(game.Character), JsonUtility.ToJson(d));
+            d.hasGrave = game.Grave != null;
+            d.grave = game.Grave;
             var piles = new PileList();
             piles.items.AddRange(game.World.Piles);
             PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(piles));
@@ -200,7 +204,7 @@ namespace Epacenur.Runtime
             for (int i = 0; d.equipped != null && i < d.equipped.Length && i < Equipment.SlotCount; i++)
                 if (db.Item(d.equipped[i]) != null)
                     game.Equipment.Set((EquipSlot)i, new ItemStack(d.equipped[i], 1));
-            game.Style = (CombatStyle)Mathf.Clamp(d.style, 0, 2);
+            game.StyleIndex = System.Math.Max(0, System.Math.Min(d.style, 3));
             if (d.tools != null)
                 foreach (var id in d.tools)
                     if (db.Item(id) != null)
@@ -210,6 +214,7 @@ namespace Epacenur.Runtime
             game.Prayer.SetMax(game.Skills.GetLevel(SkillIds.Prayer));
             game.Prayer.SetPoints(d.prayerPoints);
             game.Inventory.SetPouch(d.pouch);
+            game.Grave = d.hasGrave ? d.grave : null;
 
             int place = d.placeWorlds == null ? -1 : Array.IndexOf(d.placeWorlds, game.WorldInfo.id);
             if (place >= 0)

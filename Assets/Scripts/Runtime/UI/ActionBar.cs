@@ -15,7 +15,6 @@ namespace Epacenur.Runtime
             var e = Event.current;
             var p = G.Player;
             float now = Time.time;
-            bool armed = G.Equipment.IsWearing(EquipSlot.Weapon) && G.Equipment.IsWearing(EquipSlot.Shield);
             Gui.Fill(r, new Color(0.24f, 0.2f, 0.15f, 0.92f));
             AbilityDef tip = null;
             for (int i = 0; i < Abilities.All.Length; i++)
@@ -30,9 +29,9 @@ namespace Epacenur.Runtime
                 Gui.Shadowed(inner, "<b><size=15>" + abbr + "</size></b>", Gui.Centered);
                 Gui.Shadowed(new Rect(slot.x + 3f, slot.y + 1f, 12f, 14f), "<color=#ffffff>" + (i + 1) + "</color>", Gui.Small);
 
-                // Unusable: no level, or no sword and shield.
+                // Unusable: no level.
                 bool hasLevel = p.HasLevelFor(def);
-                if (!hasLevel || !armed)
+                if (!hasLevel)
                     Gui.Fill(inner, new Color(0f, 0f, 0f, 0.55f));
                 if (!hasLevel)
                     Gui.Shadowed(new Rect(slot.x, slot.yMax - 15f, slot.width, 14f), "<color=#ff6060>Lv " + def.Level + "</color>", Gui.Centered);

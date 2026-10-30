@@ -31,7 +31,7 @@ namespace Epacenur.Runtime
         /// First person: one attack per click, no faster than the weapon's speed.
         void FirstPersonAttack(Npc npc)
         {
-            if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead || !CanFight())
+            if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead)
                 return;
             swingCooldown = G.Equipment.AttackTicks * GameTime.TickSeconds;
             SwingT = 1f;
@@ -41,15 +41,14 @@ namespace Epacenur.Runtime
 
         // ---- Combat (both modes) ----
 
-        /// For now you need both a sword and a shield worn to fight.
-        bool CanFight()
+        /// Accuracy and max hit with the current weapon and attack style against a monster.
+        void Rolls(Npc npc, out double hitChance, out int maxHit)
         {
-            if (!G.Equipment.IsWearing(EquipSlot.Weapon) || !G.Equipment.IsWearing(EquipSlot.Shield))
-            {
-                GameLog.Add("You need to wield a sword and shield to fight.");
-                return false;
-            }
-            return true;
+            var style = G.CurrentStyle;
+            var b = G.Equipment.Bonuses;
+            hitChance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Attack), b.Attack(style.Type), style.Style,
+                npc.Def.DefenceLevel, npc.Def.Bonuses.Defence(style.Type), G.Prayer.AttackMultiplier);
+            maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillIds.Strength), b.Strength, style.Style, G.Prayer.StrengthMultiplier);
         }
 
         void StartAttack(Npc npc)
@@ -57,8 +56,6 @@ namespace Epacenur.Runtime
             if (npc == attackTarget && !npc.IsDead)
                 return;  // already on it: clicking again changes nothing
             CancelAction();
-            if (!CanFight())
-                return;
             attackTarget = npc;
             npc.Engage(transform.position);
         }
@@ -109,33 +106,30 @@ namespace Epacenur.Runtime
             lastTarget = npc;
             nextAttackAt = Time.time + G.Equipment.AttackTicks * GameTime.TickSeconds;
             attackAnim = 0.4f;
-            var eq = G.Equipment;
-            var style = G.Style;
-            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Attack), eq.AttackBonus, style, npc.Def.DefenceLevel, npc.Def.DefenceBonus, G.Prayer.AttackMultiplier);
-            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillIds.Strength), eq.StrengthBonus, style, G.Prayer.StrengthMultiplier);
+            Rolls(npc, out double chance, out int maxHit);
             int damage = Mathf.Min(CombatRules.RollDamage(G.Rng, chance, maxHit), npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
-            CombatRules.AwardXp(G.Skills, style, damage);
+            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage);
             if (killed)
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");
             return killed;
         }
 
         /// A monster swings at you: Protect from Melee blocks it; otherwise it rolls against your Defence.
-        /// If you're standing idle (tile mode, sword and shield worn) you fight back, like RuneScape's auto retaliate.
+        /// If you're standing idle (tile mode) you fight back, like RuneScape's auto retaliate.
         public void TakeMonsterHit(Npc npc)
         {
             int damage = 0;
             if (!G.Prayer.ProtectsFromMelee)
             {
-                double chance = CombatRules.MonsterHitChance(npc.Def, G.Skills.GetLevel(SkillIds.Defence), G.Equipment.DefenceBonus, G.Style, G.Prayer.DefenceMultiplier);
+                double chance = CombatRules.MonsterHitChance(npc.Def, G.Skills.GetLevel(SkillIds.Defence),
+                    G.Equipment.Bonuses.Defence(npc.Def.AttackType), G.CurrentStyle.Style, G.Prayer.DefenceMultiplier);
                 damage = CombatRules.RollDamage(G.Rng, chance, npc.Def.MaxHit);
             }
             G.HurtPlayer(damage);
 
             bool idle = attackTarget == null && Activity == null && pathIndex >= path.Count;
-            bool armed = G.Equipment.IsWearing(EquipSlot.Weapon) && G.Equipment.IsWearing(EquipSlot.Shield);
-            if (Mode == ViewMode.Tile && idle && armed && !npc.IsDead)
+            if (Mode == ViewMode.Tile && idle && !npc.IsDead)
             {
                 attackTarget = npc;
                 npc.Engage(transform.position);
@@ -163,7 +157,7 @@ namespace Epacenur.Runtime
                 GameLog.Add("You need " + ContentDb.Current.Skill(def.Skill).Name + " level " + def.Level + " to use " + def.Name + ".");
                 return;
             }
-            if (!Cooldowns.IsReady(id, Time.time) || !CanFight())
+            if (!Cooldowns.IsReady(id, Time.time))
                 return;
 
             Npc target = AbilityTarget(def.Effect == AbilityEffect.Charge);
@@ -263,9 +257,7 @@ namespace Epacenur.Runtime
 
         int RollAbility(AbilityDef def, Npc npc)
         {
-            var eq = G.Equipment;
-            double chance = CombatRules.HitChance(G.Skills.GetLevel(SkillIds.Attack), eq.AttackBonus, G.Style, npc.Def.DefenceLevel, npc.Def.DefenceBonus, G.Prayer.AttackMultiplier);
-            int maxHit = CombatRules.MaxHit(G.Skills.GetLevel(SkillIds.Strength), eq.StrengthBonus, G.Style, G.Prayer.StrengthMultiplier);
+            Rolls(npc, out double chance, out int maxHit);
             return Abilities.RollDamage(G.Rng, def, chance, maxHit, (double)npc.Hitpoints / npc.Def.Hitpoints);
         }
 
@@ -275,7 +267,7 @@ namespace Epacenur.Runtime
                 return;
             damage = Mathf.Min(damage, npc.Hitpoints);
             bool killed = npc.TakeHit(damage);
-            CombatRules.AwardXp(G.Skills, G.Style, damage);
+            CombatRules.AwardXp(G.Skills, G.CurrentStyle.Style, damage);
             if (killed)
             {
                 GameLog.Add("You defeat the " + npc.Def.Name.ToLowerInvariant() + ".");

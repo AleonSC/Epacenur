@@ -23,6 +23,7 @@ namespace Epacenur.Runtime
         readonly ActionBar actionBar = new ActionBar();
         readonly StatusBars statusBars = new StatusBars();
         readonly DevTools devTools = new DevTools();
+        readonly Minimap minimap = new Minimap();
         readonly OptionMenu menu = new OptionMenu();
         bool showHelp = true;
 
@@ -61,13 +62,16 @@ namespace Epacenur.Runtime
                 if (Window.At == null || Input.GetKeyDown(KeyCode.Escape) || G.Player.FlatDistance(Window.At) > 2.2f)
                     CloseWindow();
             }
+            if (Input.GetKeyDown(KeyCode.Escape))
+                G.Player.CancelUse();
         }
 
         Game G => Game.Instance;
 
         public void OpenBank(Interactable at) => OpenWindow(new BankWindow(), at);
         public void OpenShop(ShopKeeper keeper) => OpenWindow(new ShopWindow(keeper.Shop), keeper);
-        public void OpenMaking(StationObject station) => OpenWindow(new MakeWindow(station), station);
+        /// The make window at a station; `prefer`: an item used on it, to show only what's made with that.
+        public void OpenMaking(StationObject station, string prefer) => OpenWindow(new MakeWindow(station, prefer), station);
 
         public void OpenWindow(Window window, Interactable at)
         {
@@ -100,10 +104,20 @@ namespace Epacenur.Runtime
                 return false;
             var m = MouseGui;
             return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m)
-                || StatusRect.Contains(m) || LogOutRect.Contains(m) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
+                || StatusRect.Contains(m) || LogOutRect.Contains(m) || Minimap.RectFor(this).Contains(m) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
         }
 
-        Rect LogOutRect => new Rect(W - 90f, 8f, 80f, 24f);
+        Rect LogOutRect => new Rect(W - 90f, Minimap.RectFor(this).yMax + 4f, 80f, 24f);
+
+        /// Under the minimap: how long your gravestone has left.
+        void DrawGraveTimer()
+        {
+            var g = G.Grave;
+            if (g == null)
+                return;
+            string text = g.world == G.WorldInfo.id ? "Gravestone: <color=#ffffff>" + Gravestone.Time(g) + "</color>" : "Gravestone in another world";
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<color=#c0c0c8>" + text + "</color>", Gui.RightSmall);
+        }
         bool confirmLogOut;
 
         /// Top right: save and go back to the main menu (two clicks).
@@ -144,8 +158,10 @@ namespace Epacenur.Runtime
             Window?.Draw(this, WindowRect);
             if (G.Player.Mode == ViewMode.FirstPerson)
                 overlays.DrawCrosshair(this);
-            devTools.Draw(this);
+            minimap.Draw(this);
             DrawLogOut();
+            DrawGraveTimer();
+            devTools.Draw(this);
             menu.Draw();
         }
     }

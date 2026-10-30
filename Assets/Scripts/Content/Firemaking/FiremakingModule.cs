@@ -35,7 +35,7 @@ namespace Epacenur.Content
             });
 
             // A lit fire is a station (the game draws its flickering flames itself).
-            db.Add(new StationDef { Id = Fire, Name = "Fire", Action = "Cook", Examine = "A hot fire.", Kind = StationKind.MakeAll });
+            db.Add(new StationDef { Id = Fire, Name = "Fire", Action = "Cook", Examine = "A hot fire.", Kind = StationKind.Make });
         }
     }
 }

@@ -27,10 +27,43 @@ namespace Epacenur.Runtime
         {
             builtIn.Clear();
             extra.Clear();
+            useRules.Clear();
         }
 
         /// The handler for an extra verb an item lists in ItemDef.Verbs, e.g. "Rub" for an amulet.
         public static void Register(string verb, Action<int> run) => extra[verb] = run;
+
+        // ---- Use one item on another ----
+
+        static readonly List<Func<int, int, bool>> useRules = new List<Func<int, int, bool>>();
+
+        /// A rule for using one inventory item on another: given (used slot, target slot), does it and returns
+        /// true if it applies. Rules are tried both ways round.
+        public static void RegisterUse(Func<int, int, bool> rule) => useRules.Add(rule);
+
+        static void MakeUseRules()
+        {
+            if (useRules.Count > 0)
+                return;
+            // A tinderbox on logs lights them.
+            RegisterUse((a, b) =>
+            {
+                var tool = G.Inventory[a].Def;
+                if (tool.ToolType != "tinderbox" || ContentDb.Current.Burnable(G.Inventory[b].ItemId) == null)
+                    return false;
+                G.Player.LightFromInventory(b);
+                return true;
+            });
+        }
+
+        public static void UseOnItem(int used, int target)
+        {
+            MakeUseRules();
+            foreach (var rule in useRules)
+                if (rule(used, target) || rule(target, used))
+                    return;
+            GameLog.Add("Nothing interesting happens.");
+        }
 
         static void Add(string name, Func<ItemDef, bool> applies, Action<int> run, Func<ItemDef, bool> onClick)
             => AddNamed(d => name, applies, run, onClick);
@@ -45,7 +78,7 @@ namespace Epacenur.Runtime
                 return;
             Func<ItemDef, bool> always = d => true;
             AddNamed(d => d.Slot == EquipSlot.Weapon ? Verbs.Wield : Verbs.Wear, d => d.Slot != EquipSlot.None,
-                slot => G.Equipment.Equip(G.Inventory, slot), always);
+                Wear, always);
             Add(Verbs.AddToPouch, d => d.Id == ItemIds.Coins, slot => G.Inventory.AddToPouch(slot), always);
             Add(Verbs.Bury, d => d.BuryXp > 0, slot => G.Player.Bury(slot), always);
             Add(Verbs.Eat, d => d.Heals > 0, slot => G.Player.Eat(slot), always);
@@ -54,6 +87,12 @@ namespace Epacenur.Runtime
             Add(Verbs.AddToToolBelt, d => d.IsTool, AddToToolBelt, d => !G.ToolBelt.Has(d.Id));
             Add(Verbs.Light, d => ContentDb.Current.Burnable(d.Id) != null, slot => G.Player.LightFromInventory(slot),
                 d => ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox") != null);
+        }
+
+        static void Wear(int slot)
+        {
+            if (!G.Equipment.Equip(G.Inventory, slot, out string problem) && problem != null)
+                GameLog.Add(problem);
         }
 
         static void AddToToolBelt(int slot)
@@ -66,7 +105,7 @@ namespace Epacenur.Runtime
         }
 
         /// Left-click on an inventory item: does its main verb. False when it has none (the HUD then
-        /// picks the item up to swap it with another slot).
+        /// picks it to Use on something).
         public static bool Click(int slot)
         {
             MakeBuiltIn();
@@ -99,6 +138,7 @@ namespace Epacenur.Runtime
             foreach (var verb in def.Verbs)
                 if (extra.TryGetValue(verb, out var run))
                     o.Add(new MenuOption(verb, name, guard(run)));
+            o.Add(new MenuOption(Verbs.Use, name, guard(s => G.Player.BeginUse(s))));
             o.Add(new MenuOption(Verbs.Drop, name, guard(drop)));
             o.Add(new MenuOption(Verbs.Examine, name, () => GameLog.Add(def.Examine)));
             return o;

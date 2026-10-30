@@ -31,7 +31,9 @@ public static class CoreRulesSuite
         Check(dup, "two items with one id are refused");
         var broken = new ContentDb();
         broken.Add(new RecipeDef { Id = "r", Skill = "nope", Product = "nothing", Inputs = new Ingredient[0] });
-        Check(broken.Validate().Count == 2, "a recipe naming a missing skill and item is caught");
+        var brokenProblems = broken.Validate();
+        Check(brokenProblems.Exists(m => m.Contains("no skill \"nope\"")) && brokenProblems.Exists(m => m.Contains("no item \"nothing\"")),
+            "a recipe naming a missing skill and item is caught");
         bool icons = true;
         foreach (var it in db.Items) if (it.Icon == null || it.GroundModel == null) icons = false;
         Check(icons, "every item has an icon and a ground model");
@@ -160,7 +162,10 @@ public static class CoreRulesSuite
         inv.Add(Logs);
         Check(eq.Equip(inv, 0) && eq.Equip(inv, 1) && !eq.Equip(inv, 2), "wield the sword and shield, but not logs");
         Check(eq.IsWearing(EquipSlot.Weapon) && eq.IsWearing(EquipSlot.Shield) && inv.FreeSlots == 27, "both worn, out of the inventory");
-        Check(eq.AttackBonus == 4 && eq.StrengthBonus == 5 && eq.DefenceBonus == 5, "bonuses add up");
+        var bon = eq.Bonuses;
+        Check(bon.StabAttack == 4 && bon.SlashAttack == 3 && bon.CrushAttack == -2 && bon.Strength == 5 && bon.StabDefence == 4 && bon.SlashDefence == 7,
+            "bonuses add up per attack type (sword + shield)");
+        Check(eq.WeaponKind == CombatModule.Sword && db.WeaponKind(eq.WeaponKind).Styles[0].Type == AttackType.Stab, "a sword stabs first");
         inv.Add(Sword);
         int swordSlot = 0;
         for (int i = 0; i < Inventory.Size; i++) if (!inv[i].IsEmpty && inv[i].ItemId == Sword) swordSlot = i;
@@ -180,6 +185,56 @@ public static class CoreRulesSuite
         for (int i = 0; i < 200; i++)
             if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || id != Coins || n < 1 || n > 30) allCoins = false;
         Check(allCoins, "goblins always drop 1-30 coins");
+
+        // Two-handed weapons and shields.
+        var eq2 = new Equipment();
+        var inv2 = new Inventory();
+        inv2.Add(Shield);
+        inv2.Add(SmithingModule.Bronze2h);
+        eq2.Equip(inv2, 0);
+        Check(eq2.Equip(inv2, 1) && !eq2.IsWearing(EquipSlot.Shield) && inv2.Count(Shield) == 1 && eq2.AttackTicks == 7,
+            "a two-handed sword takes the shield off (and is slow: 7 ticks)");
+        int shieldSlot = 0;
+        for (int i = 0; i < Inventory.Size; i++) if (inv2[i].ItemId == Shield) shieldSlot = i;
+        Check(eq2.Equip(inv2, shieldSlot) && !eq2.IsWearing(EquipSlot.Weapon) && inv2.Count(SmithingModule.Bronze2h) == 1, "...and a shield takes it off");
+        inv2.Clear();
+        eq2.Clear();
+        inv2.Add(SmithingModule.Bronze2h);
+        eq2.Set(EquipSlot.Shield, new ItemStack(Shield, 1));
+        eq2.Set(EquipSlot.Weapon, new ItemStack(Sword, 1));
+        inv2.Add(Logs, 27);
+        Check(!eq2.Equip(inv2, 0, out string why2) && why2 != null && eq2.IsWearing(EquipSlot.Shield), "no room for the shield: the two-handed sword stays put");
+        Check(db.WeaponKind(WeaponKindIds.Unarmed).Styles.Length == 3 && new Equipment().WeaponKind == WeaponKindIds.Unarmed, "unarmed: punch, kick, block");
+        double crushOnGob = CombatRules.HitChance(1, Item(SmithingModule.BronzeMace).Bonuses.CrushAttack, CombatStyle.Accurate, 1, -2);
+        double crushWithSword = CombatRules.HitChance(1, Item(Sword).Bonuses.CrushAttack, CombatStyle.Accurate, 1, -2);
+        Check(crushOnGob > crushWithSword, "a mace crushes better than a sword");
+
+        info("Death");
+        var dinv = new Inventory();
+        var deq = new Equipment();
+        dinv.Add(Logs, 3);
+        dinv.Add(Coins, 0);
+        dinv.Add(SmithingModule.BronzePlatebody);
+        deq.Set(EquipSlot.Weapon, new ItemStack(SmithingModule.Bronze2h, 1));
+        deq.Set(EquipSlot.Head, new ItemStack(SmithingModule.BronzeFullHelm, 1));
+        dinv.WithdrawFromPouch(0);
+        var kept = new System.Collections.Generic.List<ItemStack>();
+        var lost = new System.Collections.Generic.List<ItemStack>();
+        Death.Split(dinv, deq, Death.KeptItems, kept, lost);
+        bool keptRight = kept.Count == 3 && kept.Exists(k => k.ItemId == SmithingModule.BronzePlatebody) && kept.Exists(k => k.ItemId == SmithingModule.Bronze2h)
+            && kept.Exists(k => k.ItemId == SmithingModule.BronzeFullHelm);
+        info("  kept: " + string.Join(", ", kept.ConvertAll(k => k.ItemId + " x" + k.Count).ToArray()) + "; lost: " + string.Join(", ", lost.ConvertAll(k => k.ItemId + " x" + k.Count).ToArray()));
+        Check(keptRight && lost.TrueForAll(l => l.ItemId == Logs) && lost.Count == 3, "dying keeps the 3 most valuable items (platebody, 2h, helm); logs are lost");
+        Check(dinv.FreeSlots == Inventory.Size && !deq.IsWearing(EquipSlot.Weapon), "...and everything comes off");
+        var sinv2 = new Inventory();
+        sinv2.Add(SmithingModule.BronzeBar, 5);
+        kept.Clear();
+        lost.Clear();
+        Death.Split(sinv2, new Equipment(), 3, kept, lost);
+        int keptBars = 0, lostBars = 0;
+        foreach (var k in kept) keptBars += k.Count;
+        foreach (var l in lost) lostBars += l.Count;
+        Check(keptBars == 3 && lostBars == 2, "it's 3 items, not 3 stacks or slots");
 
         info("Abilities");
         Check(Abilities.All.Length == 9, "nine basic melee abilities for a 9-slot bar");
@@ -317,7 +372,7 @@ public static class CoreRulesSuite
         Check(Making.Problem(plate, sinv, 18, false) == "You need a hammer to do that.", "smithing needs a hammer");
         Check(Making.Make(plate, sinv, 18, srng, out failed) == SmithingModule.BronzePlatebody && sinv.Count(SmithingModule.BronzeBar) == 0 && sinv.Count(SmithingModule.BronzePlatebody) == 1, "a platebody takes 5 bars");
         Check(Making.Problem(helm, sinv, 99, true) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
-        Check(db.RecipesAt(SmithingModule.Anvil).Count == 3 && db.RecipesAt(SmithingModule.Furnace).Count == 1, "1 furnace recipe, 3 anvil recipes");
+        Check(db.RecipesAt(SmithingModule.Anvil).Count == 8 && db.RecipesAt(SmithingModule.Furnace).Count == 1, "1 furnace recipe, 8 anvil recipes (5 weapons, 3 armour)");
         Check(Item(SmithingModule.BronzeFullHelm).Slot == EquipSlot.Head && Item(SmithingModule.BronzePlatebody).Slot == EquipSlot.Body && Item(SmithingModule.BronzePlatelegs).Slot == EquipSlot.Legs, "armour goes on head, body and legs");
         Check(ToolBelt.IsTool(MiningModule.BronzePickaxe) && ToolBelt.IsTool(SmithingModule.Hammer), "pickaxe and hammer go on the tool belt");
 

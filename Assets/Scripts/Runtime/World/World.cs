@@ -79,6 +79,10 @@ namespace Epacenur.Runtime
         readonly Dictionary<long, int> regionChunks = new Dictionary<long, int>();
         Transform backdrop;
         Material groundMat;
+        // The minimap's colours: per loaded chunk (overworld) or for the whole dev plot.
+        readonly Dictionary<long, Color32[]> chunkColours = new Dictionary<long, Color32[]>();
+        Color32[] devColours;
+        readonly HashSet<Tile> devWater = new HashSet<Tile>();
 
         /// Items lying on the ground anywhere in this world (both maps), by chunk ("dev" for the dev plot).
         /// They stay until picked up, loaded or not, and are saved with the world.
@@ -140,6 +144,7 @@ namespace Epacenur.Runtime
                 return;
             var p = player.transform.position;
             backdrop.position = new Vector3(p.x, -0.3f, p.z);
+            UpdateGravestone();
             if (Map != MapId.Overworld)
                 return;
             var tile = player.CurrentTile;
@@ -222,6 +227,7 @@ namespace Epacenur.Runtime
             var owner = NewOwner("Chunk " + cx + ", " + cz);
             chunks[key] = owner;
             chunkGrid.Load(cx, cz, Overworld.IsBlocked);
+            chunkColours[key] = ChunkColours(cx, cz);
             building = owner;
             OverworldBuilder.BuildChunk(this, cx, cz, GroundMaterial());
             ShowPiles(key);
@@ -247,6 +253,7 @@ namespace Epacenur.Runtime
             if (!chunks.TryGetValue(key, out var owner))
                 return;
             chunks.Remove(key);
+            chunkColours.Remove(key);
             TakeDown(owner);
             chunkGrid.Unload(cx, cz);
             long rkey = RegionKey(cx, cz);
@@ -271,6 +278,9 @@ namespace Epacenur.Runtime
             foreach (var owner in regions.Values)
                 TakeDown(owner);
             chunks.Clear();
+            chunkColours.Clear();
+            devColours = null;
+            devWater.Clear();
             regions.Clear();
             regionChunks.Clear();
             chunkGrid.Clear();
@@ -361,6 +371,7 @@ namespace Epacenur.Runtime
                 area.Build(this);
             }
             ShowPiles(DevPiles);
+            DevColours();
         }
 
         /// A walled area's ground: a slab whose top is at y = 0, edges on tile boundaries, with a faint line round each tile.
@@ -406,7 +417,10 @@ namespace Epacenur.Runtime
         {
             for (int x = area.x; x < area.x + area.width; x++)
                 for (int z = area.y; z < area.y + area.height; z++)
+                {
                     Grid.SetBlocked(new Tile(x, z), true);
+                    devWater.Add(new Tile(x, z));
+                }
             var center = new Vector3(area.x + (area.width - 1) * 0.5f, 0.025f, area.y + (area.height - 1) * 0.5f);
             Visuals.Prim(PrimitiveType.Cube, BuildRoot, center, new Vector3(area.width, 0.03f, area.height), new Color(0.2f, 0.42f, 0.7f));
             // A sandy bank round the edge.
@@ -508,6 +522,121 @@ namespace Epacenur.Runtime
             var item = Own(GroundItem.Create(pile, owner.Root, rng), owner);
             GroundItems.Add(item);
             return item;
+        }
+
+        /// Leaves items on the ground anywhere, loaded or not (a gravestone collapsing).
+        public void PlacePile(string itemId, int count, MapId map, Tile tile)
+        {
+            if (map == Map && OwnerAt(tile) != null)
+            {
+                SpawnGroundItem(itemId, count, tile);
+                return;
+            }
+            AddPile(new GroundPile { item = itemId, count = count, x = tile.X, z = tile.Z, map = (int)map });
+        }
+
+        /// The square of the town nearest a tile (where you wake up after dying), searching a few regions out.
+        public Tile NearestTown(Tile t)
+        {
+            int rx = Overworld.RegionOf(t.X), rz = Overworld.RegionOf(t.Z);
+            Tile best = MainSpawn;
+            int bestSteps = int.MaxValue;
+            for (int dx = -6; dx <= 6; dx++)
+                for (int dz = -6; dz <= 6; dz++)
+                {
+                    var plan = Overworld.Plan(rx + dx, rz + dz);
+                    if (plan.Kind != RegionKind.Town || plan.Center.StepsTo(t) >= bestSteps)
+                        continue;
+                    best = plan.Center;
+                    bestSteps = plan.Center.StepsTo(t);
+                }
+            return best;
+        }
+
+        // ---- Minimap colours ----
+
+        static readonly Color32 MapGrass = new Color32(74, 122, 52, 255), MapTree = new Color32(36, 82, 30, 255),
+            MapWater = new Color32(52, 98, 170, 255), MapWall = new Color32(120, 105, 90, 255), MapFloor = new Color32(140, 104, 68, 255),
+            MapPath = new Color32(160, 132, 90, 255), MapCamp = new Color32(118, 92, 62, 255), MapRock = new Color32(120, 116, 110, 255),
+            MapBlocked = new Color32(90, 90, 95, 255);
+
+        static Color32 TerrainColour(Terrain t)
+        {
+            switch (t)
+            {
+                case Terrain.Tree: return MapTree;
+                case Terrain.Water: return MapWater;
+                case Terrain.Wall: return MapWall;
+                case Terrain.Floor: case Terrain.Door: return MapFloor;
+                case Terrain.Path: return MapPath;
+                case Terrain.Camp: return MapCamp;
+                case Terrain.Rock: return MapRock;
+                default: return MapGrass;
+            }
+        }
+
+        Color32[] ChunkColours(int cx, int cz)
+        {
+            int size = Overworld.ChunkSize;
+            var c = new Color32[size * size];
+            for (int x = 0; x < size; x++)
+                for (int z = 0; z < size; z++)
+                    c[x * size + z] = TerrainColour(Overworld.At(new Tile(cx * size + x, cz * size + z)));
+            return c;
+        }
+
+        void DevColours()
+        {
+            devColours = new Color32[DevArea.Width * DevArea.Height];
+            for (int x = 0; x < DevArea.Width; x++)
+                for (int z = 0; z < DevArea.Height; z++)
+                {
+                    var t = new Tile(x, z);
+                    devColours[x * DevArea.Height + z] = devWater.Contains(t) ? MapWater : devGrid.IsWalkable(t) ? MapGrass : MapBlocked;
+                }
+        }
+
+        /// A tile's colour on the minimap; false where nothing is loaded.
+        public bool TryMapColour(Tile t, out Color32 c)
+        {
+            c = default(Color32);
+            if (Map == MapId.DevPlot)
+            {
+                if (devColours == null || t.X < 0 || t.Z < 0 || t.X >= DevArea.Width || t.Z >= DevArea.Height)
+                    return false;
+                c = devColours[t.X * DevArea.Height + t.Z];
+                return true;
+            }
+            int size = Overworld.ChunkSize, cx = chunkGrid.ChunkOf(t.X), cz = chunkGrid.ChunkOf(t.Z);
+            if (!chunkColours.TryGetValue(ChunkedGrid.Key(cx, cz), out var colours))
+                return false;
+            c = colours[(t.X - cx * size) * size + (t.Z - cz * size)];
+            return true;
+        }
+
+        // ---- Your gravestone ----
+
+        Gravestone gravestone;
+
+        /// Shows your gravestone while its spot is loaded (and takes it away once it's gone).
+        void UpdateGravestone()
+        {
+            var g = Game.Instance.Grave;
+            bool here = g != null && g.world == Game.Instance.WorldInfo.id && g.map == (int)Map && OwnerAt(g.Tile) != null;
+            if (!here)
+            {
+                if (gravestone != null)
+                    Destroy(gravestone.gameObject);
+                gravestone = null;
+                return;
+            }
+            if (gravestone == null || gravestone.Tile != g.Tile)
+            {
+                if (gravestone != null)
+                    Destroy(gravestone.gameObject);
+                var owner = OwnerAt(g.Tile);
+                gravestone = Own(Gravestone.Create(g, owner.Root), owner);
+            }
         }
 
         /// Picked up (or lit): gone for good.

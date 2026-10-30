@@ -50,7 +50,18 @@ namespace Epacenur.Runtime
         public Health Health { get; private set; }
         /// Prayer points and active prayers (the maximum follows the Prayer level).
         public PrayerBook Prayer { get; private set; }
-        public CombatStyle Style = CombatStyle.Accurate;
+        /// The chosen attack style, by its place in the weapon's list (the first is used if a new weapon has fewer).
+        public int StyleIndex;
+
+        /// The attack style in use with the wielded weapon (or unarmed).
+        public WeaponStyle CurrentStyle
+        {
+            get
+            {
+                var kind = ContentDb.Current.WeaponKind(Equipment.WeaponKind) ?? ContentDb.Current.WeaponKind(WeaponKindIds.Unarmed);
+                return kind.Styles[StyleIndex >= 0 && StyleIndex < kind.Styles.Length ? StyleIndex : 0];
+            }
+        }
         public readonly System.Random Rng = new System.Random();
         public World World { get; private set; }
         public PlayerController Player { get; private set; }
@@ -207,17 +218,99 @@ namespace Epacenur.Runtime
             Health.Damage(damage);
             Player.ShowDamage(damage);
             if (Health.IsDead)
+                Die();
+        }
+
+        /// Your gravestone, if you have one (in this world or another), or null.
+        public Grave Grave { get; set; }
+
+        /// Dying: you keep your 3 most valuable items; the rest go into a gravestone where you fell, and you
+        /// wake up in the nearest town (or at the dev plot's start) with full health.
+        void Die()
+        {
+            var tile = Player.CurrentTile;
+            var map = World.Map;
+            var kept = new List<ItemStack>();
+            var lost = new List<ItemStack>();
+            Death.Split(Inventory, Equipment, Death.KeptItems, kept, lost);
+            foreach (var k in kept)
+                Inventory.Add(k.ItemId, k.Count);
+            GameLog.Add("Oh dear, you are dead!");
+            if (lost.Count > 0)
             {
-                GameLog.Add("Oh dear, you are dead!");
-                Health.Set(Health.Max);
-                Prayer.DeactivateAll();
-                Prayer.Recharge();
-                World.Travel(MapId.Overworld, World.Spawn);
+                CollapseGrave();  // an older gravestone gives way to the new one
+                Grave = new Grave { world = WorldInfo.id, map = (int)map, x = tile.X, z = tile.Z, secondsLeft = Death.GraveSeconds };
+                foreach (var l in lost)
+                {
+                    Grave.items.Add(l.ItemId);
+                    Grave.counts.Add(l.Count);
+                }
+                GameLog.Add("You kept your " + Death.KeptItems + " most valuable items. The rest are in a gravestone where you died: get back to it within "
+                    + Gravestone.Time(Grave) + ".");
             }
+            Health.Set(Health.Max);
+            Prayer.DeactivateAll();
+            Prayer.Recharge();
+            if (map == MapId.DevPlot)
+                World.Travel(MapId.DevPlot, World.DevSpawn);
+            else
+                World.Travel(MapId.Overworld, World.NearestTown(tile));
+        }
+
+        /// "Reclaim items" at your gravestone: as much as fits goes back into your inventory.
+        public void ReclaimGrave()
+        {
+            var g = Grave;
+            if (g == null)
+                return;
+            int taken = 0;
+            for (int i = g.items.Count - 1; i >= 0; i--)
+            {
+                int n = Inventory.Add(g.items[i], g.counts[i]);
+                taken += n;
+                g.counts[i] -= n;
+                if (g.counts[i] <= 0)
+                {
+                    g.items.RemoveAt(i);
+                    g.counts.RemoveAt(i);
+                }
+            }
+            if (g.IsEmpty)
+            {
+                Grave = null;
+                GameLog.Add("You take back all your items. The gravestone crumbles away.");
+            }
+            else
+            {
+                GameLog.Add(taken > 0 ? "You take back what you can carry; the rest waits in the gravestone." : "You don't have enough inventory space.");
+            }
+        }
+
+        /// The gravestone's time is up (or you died again): its items are left on the ground where it stood.
+        void CollapseGrave()
+        {
+            var g = Grave;
+            if (g == null)
+                return;
+            Grave = null;
+            if (g.world != WorldInfo.id)
+                return;  // in another world: those items are lost
+            for (int i = 0; i < g.items.Count; i++)
+                World.PlacePile(g.items[i], g.counts[i], (MapId)g.map, g.Tile);
         }
 
         void Update()
         {
+            // Your gravestone's time only runs while you're in its world.
+            if (Grave != null && Grave.world == WorldInfo.id)
+            {
+                Grave.secondsLeft -= Time.deltaTime;
+                if (Grave.secondsLeft <= 0f)
+                {
+                    CollapseGrave();
+                    GameLog.Add("Your gravestone has collapsed. Your items are lying on the ground where you died.");
+                }
+            }
             Prayer.SetMax(Skills.GetLevel(SkillIds.Prayer));
             tickTimer += Time.deltaTime;
             while (tickTimer >= GameTime.TickSeconds)

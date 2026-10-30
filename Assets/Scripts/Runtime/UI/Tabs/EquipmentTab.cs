@@ -67,19 +67,32 @@ namespace Epacenur.Runtime
                 }
             }
 
-            // Bonuses and attack style.
-            float y0 = top + 5 * rowH - 4f;
-            GUI.Label(new Rect(body.x, y0, body.width, 18f),
-                "Att <color=#ffff00>+" + eq.AttackBonus + "</color>  Str <color=#ffff00>+" + eq.StrengthBonus + "</color>  Def <color=#ffff00>+" + eq.DefenceBonus + "</color>", Gui.Small);
-            GUI.Label(new Rect(body.x, y0 + 16f, body.width, 18f), "Attack style (trains):", Gui.Small);
-            string[] styles = { "Attack", "Strength", "Defence" };
-            float bw = (body.width - 8f) / 3f;
-            for (int i = 0; i < 3; i++)
-                if (GUI.Toggle(new Rect(body.x + i * (bw + 4f), y0 + 34f, bw, 22f), (int)G.Style == i, styles[i], GUI.skin.button))
-                    G.Style = (CombatStyle)i;
+            // Bonuses (attack and defence for stab / slash / crush, strength, speed) and the attack styles.
+            float y0 = top + 5 * rowH - 6f;
+            var b = eq.Bonuses;
+            GUI.Label(new Rect(body.x, y0, body.width, 16f), "         <color=#c8c0a8>Stab   Slash   Crush</color>", Gui.Small);
+            GUI.Label(new Rect(body.x, y0 + 13f, body.width, 16f), "Attack   " + Bonus(b.StabAttack) + "   " + Bonus(b.SlashAttack) + "   " + Bonus(b.CrushAttack), Gui.Small);
+            GUI.Label(new Rect(body.x, y0 + 26f, body.width, 16f), "Defence " + Bonus(b.StabDefence) + "   " + Bonus(b.SlashDefence) + "   " + Bonus(b.CrushDefence), Gui.Small);
+            GUI.Label(new Rect(body.x, y0 + 39f, body.width, 16f), "Strength " + Bonus(b.Strength) + "    Speed <color=#ffff00>"
+                + (eq.AttackTicks * GameTime.TickSeconds).ToString("0.0") + " s</color>", Gui.Small);
+            var kind = ContentDb.Current.WeaponKind(eq.WeaponKind);
+            var current = G.CurrentStyle;
+            float bw = (body.width - 3f * (kind.Styles.Length - 1)) / kind.Styles.Length;
+            for (int i = 0; i < kind.Styles.Length; i++)
+            {
+                var st = kind.Styles[i];
+                var r = new Rect(body.x + i * (bw + 3f), y0 + 56f, bw, 22f);
+                if (GUI.Toggle(r, st == current, st.Name, Gui.TabStyle))
+                    G.StyleIndex = i;
+                if (r.Contains(e.mousePosition))
+                    tooltip = st.Name + ": " + st.Type.ToString().ToLowerInvariant() + ", trains " + ContentDb.Current.Skill(CombatRules.TrainedSkill(st.Style)).Name;
+            }
             if (tooltip != null)
                 Gui.Tooltip(new Rect(e.mousePosition.x - 150f, e.mousePosition.y + 16f, 200f, 20f), tooltip, Gui.Small);
         }
+
+        /// "+4" in yellow, "-2" in red.
+        static string Bonus(int n) => (n < 0 ? "<color=#ff6060>" : "<color=#ffff00>+") + n + "</color>";
 
         static List<MenuOption> Options(EquipSlot slot, ItemDef def)
         {
