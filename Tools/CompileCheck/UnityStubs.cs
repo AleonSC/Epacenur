@@ -79,7 +79,7 @@ namespace UnityEngine
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
     public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void SetPixels32(Color32[] c) { } public Color32[] GetPixels32() => null; public void Apply() { } }
-    public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
+    public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); public static implicit operator Color(Color32 c) => default(Color); }
     public struct Vector4 { public float x, y, z, w; public Vector4(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; } public static Vector4 zero => default(Vector4); }
     public struct Bounds { public Bounds(Vector3 c, Vector3 size) { } }
     public class Shader : Object { public bool isSupported; public static void SetGlobalVector(string n, Vector4 v) { } public static void SetGlobalFloat(string n, float v) { } }

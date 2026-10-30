@@ -1,11 +1,12 @@
+using System.Collections.Generic;
 using Epacenur.Core;
 using UnityEngine;
 
 namespace Epacenur.Runtime
 {
     /// The minimap (top right): the ground round you from above, turned with the camera like RuneScape's,
-    /// with dots for monsters (yellow), items on the ground (red), banks, shops and altars, fishing spots and
-    /// your gravestone. North is marked on the rim. Click it to walk there (tile mode).
+    /// with dots for monsters (yellow), items on the ground (red) and your gravestone, and icons (MapIcons) for
+    /// banks, shops, altars, mine shafts, fishing spots and the like. North is marked on the rim. Click it to walk there (tile mode).
     public sealed class Minimap
     {
         public const float Size = 150f;           // on screen, HUD units
@@ -37,6 +38,7 @@ namespace Epacenur.Runtime
             {
                 Render();
                 GUI.DrawTexture(r, tex);
+                DrawIcons(r);
                 DrawCompass(r);
             }
             else if (e.type == EventType.MouseDown && e.button == 0 && Inside(r, e.mousePosition) && G.Player.Mode == ViewMode.Tile)
@@ -97,12 +99,6 @@ namespace Epacenur.Runtime
             var w = G.World;
             foreach (var g in w.GroundItems)
                 if (g != null) Dot(g.transform.position, 1, new Color32(230, 40, 30, 255));
-            foreach (var st in w.Stations)
-                if (st != null && !(st is Fire)) Dot(st.transform.position, 2, StationColour(st.Def.Kind));
-            foreach (var k in w.ShopKeepers)
-                if (k != null) Dot(k.transform.position, 2, new Color32(250, 150, 40, 255));
-            foreach (var n in w.Nodes)
-                if (n != null && n.Def.Look == NodeLook.FishingSpot) Dot(n.transform.position, 1, new Color32(120, 230, 255, 255));
             foreach (var npc in w.Npcs)
                 if (npc != null && !npc.IsDead) Dot(npc.transform.position, 1, new Color32(250, 240, 40, 255));
             var grave = G.Grave;
@@ -115,8 +111,37 @@ namespace Epacenur.Runtime
             tex.Apply();
         }
 
-        static Color32 StationColour(StationKind kind) =>
-            kind == StationKind.Bank ? new Color32(255, 215, 60, 255) : kind == StationKind.Altar ? new Color32(250, 250, 250, 255) : new Color32(150, 200, 255, 255);
+        readonly List<MapIcons.Feature> features = new List<MapIcons.Feature>();
+        const float IconSize = 13f;
+
+        /// The map icons round you (MapIcons): banks, shops, altars, mine shafts... from the overworld's plans for
+        /// the regions round you (or what's built, on the dev plot and in dungeons), and the fishing spots.
+        void DrawIcons(Rect r)
+        {
+            var w = G.World;
+            features.Clear();
+            if (w.Map == MapId.Overworld)
+            {
+                int rx = Overworld.RegionOf(Mathf.RoundToInt(px)), rz = Overworld.RegionOf(Mathf.RoundToInt(pz));
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dz = -1; dz <= 1; dz++)
+                        MapIcons.Features(w.Overworld.Plan(rx + dx, rz + dz), features);
+            }
+            else
+                MapIcons.Built(w, features);
+            foreach (var n in w.Nodes)
+                if (n != null && n.Def.Look == NodeLook.FishingSpot)
+                    features.Add(new MapIcons.Feature(World.TileAt(n.transform.position), MapIcon.Fishing));
+            float s = Mathf.Sin(yaw), c = Mathf.Cos(yaw), scale = r.width / Pixels, reach = r.width / 2f - 9f;
+            foreach (var f in features)
+            {
+                float dx = f.At.X - px, dz = f.At.Z - pz;
+                float sx = (c * dx - s * dz) / TilesPerPixel * scale, sy = (s * dx + c * dz) / TilesPerPixel * scale;
+                if (sx * sx + sy * sy > reach * reach)
+                    continue;
+                MapIcons.Draw(new Vector2(r.center.x + sx, r.center.y - sy), f.Icon, IconSize);
+            }
+        }
 
         /// A square dot `radius` pixels out from a world position's spot, if it's inside the circle.
         void Dot(Vector3 world, int radius, Color32 colour)
