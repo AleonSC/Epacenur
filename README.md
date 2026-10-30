@@ -112,7 +112,11 @@ outlines), ponds, forests, highlands (tan).*
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so
   neighbours are at least 3 regions apart, and about 1 cell in 5 has none, leaving wide wilds. About 1 in 4 is a **city**: more
   houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
-  with an altar, a **smithy**, a **workshop** and **houses**, joined by dirt roads, and its own made-up name.
+  with an altar, a **smithy**, a **workshop**, a **farm** and **houses**, joined by dirt roads, and its own made-up name.
+- **Dirt** (roads, town squares, and the trampled ground of camps and cave mouths) is painted for each chunk
+  (`Runtime/World/DirtPaths.cs`): mottled brown earth with pebbles, its edge wandering and fraying into a band of worn, yellowed
+  grass that fades into the ground's own colour. The painting is spread over a few frames (3 ms a frame for all of it), so
+  streaming chunks in doesn't stutter.
 - **Safety and the wilderness**: within 48 tiles of a town's square (80 for a city) is **safe**. Beyond, the **wilderness**
   begins: **wilderness level 1** at the edge, one more every 6 tiles further from the nearest town, up to 60, then falling again
   as you near the next town. The rings' edges wander a little. Under the minimap you see **Safe** (and which town) or the

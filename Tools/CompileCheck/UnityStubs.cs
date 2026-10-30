@@ -81,7 +81,7 @@ namespace UnityEngine
     public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
     public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
-    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector2[] uv; public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
+    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector3[] normals; public Vector2[] uv; public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
     public sealed class MeshFilter : Component { public Mesh sharedMesh; }
     public sealed class MeshRenderer : Renderer { }
     public sealed class MeshCollider : Collider { public Mesh sharedMesh; }
