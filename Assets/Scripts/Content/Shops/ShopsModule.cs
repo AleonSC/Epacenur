@@ -30,6 +30,8 @@ namespace Epacenur.Content
                     new ShopStock(FletchingModule.Bowstring, 200),
                     new ShopStock(FletchingModule.Shortbow, 5),
                     new ShopStock(FletchingModule.BronzeArrow, 1000),
+                    new ShopStock(CraftingModule.Needle, 5),
+                    new ShopStock(CraftingModule.Thread, 200),
                 },
             });
         }

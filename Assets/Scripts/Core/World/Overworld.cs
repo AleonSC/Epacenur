@@ -43,13 +43,13 @@ namespace Epacenur.Core
     /// The endless overworld, worked out from a seed: the same tile always comes out the same, so it can be
     /// built a chunk at a time as you walk. It's split into square regions; each is a town, a goblin camp
     /// or wild countryside (the one you start in is always a town). Over that lies the countryside itself:
-    /// forests and rocky ground where smooth noise is high, and ponds.
+    /// forests, rocky ground and flax fields where smooth noises are high, and ponds.
     public sealed class Overworld
     {
         public const int RegionSize = 64, ChunkSize = 16;
         public const int TownClearRadius = 15;  // no trees or ponds this close to a town square
         public readonly int Seed;
-        readonly ValueNoise forest, ponds, rocky;
+        readonly ValueNoise forest, ponds, rocky, fields;
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
 
         public Overworld(int seed)
@@ -58,6 +58,7 @@ namespace Epacenur.Core
             forest = new ValueNoise(seed);
             ponds = new ValueNoise(seed + 101);
             rocky = new ValueNoise(seed + 202);
+            fields = new ValueNoise(seed + 303);
         }
 
         /// The town square you start in.
@@ -109,6 +110,8 @@ namespace Epacenur.Core
                 var moved = b.Moved(plan.Bounds.X, plan.Bounds.Z);
                 plan.Buildings.Add(moved);
                 plan.Blocked.Add(moved.Feature);
+                if (moved.HasFeature2)
+                    plan.Blocked.Add(moved.Feature2);
             }
         }
 
@@ -193,6 +196,9 @@ namespace Epacenur.Core
             if (rocky.Sample(t.X / 20.0, t.Z / 20.0) > 0.74)
                 return roll < 0.5 ? Terrain.Rock : Terrain.Grass;
             double n0 = forest.Sample(t.X / 14.0, t.Z / 14.0);
+            // Flax fields in open country (not in forests).
+            if (n0 < 0.42 && fields.Sample(t.X / 12.0, t.Z / 12.0) > 0.7)
+                return roll < 0.75 ? Terrain.Flax : Terrain.Grass;
             double chance = n0 > 0.58 ? 0.85 : n0 > 0.42 ? 0.3 : 0.04;
             return roll < chance ? Terrain.Tree : Terrain.Grass;
         }

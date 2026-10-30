@@ -15,9 +15,10 @@ namespace Epacenur.Core
         Path,   // dirt road
         Camp,   // trampled ground in a goblin camp
         Rock,   // a rock with ore in it
+        Flax,   // a plant to pick (fields in the countryside)
     }
 
-    public enum BuildingKind { Bank, Shop, Chapel, House }
+    public enum BuildingKind { Bank, Shop, Chapel, House, Smithy, Workshop }
 
     /// A rectangle of tiles: lower-left corner and size.
     public struct Area
@@ -39,12 +40,15 @@ namespace Epacenur.Core
         public Area Footprint;  // walls run round its edge
         public Tile Door;       // a gap in the wall, facing the town square
         public Tile Feature;    // inside, against the back wall: the bank booth, shop keeper or altar (houses: a table)
+        public bool HasFeature2;
+        public Tile Feature2;   // a smithy's anvil (next to its furnace), a workshop's tanning rack (next to its spinning wheel)
 
         /// The same building moved by (dx, dz) tiles.
         public Building Moved(int dx, int dz) => new Building
         {
             Kind = Kind, Footprint = new Area(Footprint.X + dx, Footprint.Z + dz, Footprint.Width, Footprint.Height),
             Door = new Tile(Door.X + dx, Door.Z + dz), Feature = new Tile(Feature.X + dx, Feature.Z + dz),
+            HasFeature2 = HasFeature2, Feature2 = new Tile(Feature2.X + dx, Feature2.Z + dz),
         };
     }
 
@@ -80,7 +84,7 @@ namespace Epacenur.Core
 
         static void PlaceBuildings(TownLayout w, Random rng)
         {
-            var kinds = new List<BuildingKind> { BuildingKind.Bank, BuildingKind.Shop, BuildingKind.Chapel };
+            var kinds = new List<BuildingKind> { BuildingKind.Bank, BuildingKind.Shop, BuildingKind.Chapel, BuildingKind.Smithy, BuildingKind.Workshop };
             int houses = 3 + rng.Next(3);
             for (int i = 0; i < houses; i++)
                 kinds.Add(BuildingKind.House);
@@ -124,13 +128,14 @@ namespace Epacenur.Core
                     w.Map[x, z] = edge ? Terrain.Wall : Terrain.Floor;
                 }
             int dx = w.Spawn.X - a.Center.X, dz = w.Spawn.Z - a.Center.Z;
-            Tile door, feature;
+            Tile door, feature, feature2;
             if (Math.Abs(dx) >= Math.Abs(dz))
             {
                 int doorX = dx > 0 ? a.XMax - 1 : a.X;
                 int backX = dx > 0 ? a.X + 1 : a.XMax - 2;
                 door = new Tile(doorX, a.Center.Z);
                 feature = new Tile(backX, a.Center.Z);
+                feature2 = new Tile(backX, a.Center.Z - 2);
             }
             else
             {
@@ -138,9 +143,12 @@ namespace Epacenur.Core
                 int backZ = dz > 0 ? a.Z + 1 : a.ZMax - 2;
                 door = new Tile(a.Center.X, doorZ);
                 feature = new Tile(a.Center.X, backZ);
+                feature2 = new Tile(a.Center.X + 2, backZ);
             }
             w.Map[door.X, door.Z] = Terrain.Door;
-            return new Building { Kind = kind, Footprint = a, Door = door, Feature = feature };
+            // A smithy and a workshop each hold two things, side by side against the back wall.
+            bool two = kind == BuildingKind.Smithy || kind == BuildingKind.Workshop;
+            return new Building { Kind = kind, Footprint = a, Door = door, Feature = feature, HasFeature2 = two, Feature2 = feature2 };
         }
 
         /// Dirt roads: from each door to the square, and out from the square to the four edges (where

@@ -24,7 +24,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 13 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "13 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 14 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "14 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -94,7 +94,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 15 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 17 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -104,9 +104,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 16 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 18 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 15 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 17 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -489,6 +489,24 @@ public static class CoreRulesSuite
             + dangerous + " of " + wildFar + " far-out wild regions have aggressive monsters");
         Check(db.Npc(CombatModule.HillGiant).AlwaysDrops[0] == PrayerModule.BigBones && db.Item(PrayerModule.BigBones).BuryXp == 15, "hill giants drop big bones (15 xp)");
 
+        info("Crafting");
+        var cinv3 = new Inventory();
+        cinv3.Add(CombatModule.Cowhide, 3);
+        cinv3.Add(Coins, 2);
+        var tan = db.Recipe("tan_leather");
+        Check(Making.Make(tan, cinv3, 1, new Random(1), out ff, out times) == CraftingModule.Leather && times == 2 && cinv3.Count(CraftingModule.Leather) == 2
+            && cinv3.Count(Coins) == 0 && cinv3.Count(CombatModule.Cowhide) == 1, "tanning costs a coin a hide (2 coins tan 2 of 3 hides)");
+        var spin = db.Recipe("spin_bowstring");
+        Check(spin.Station == CraftingModule.SpinningWheel && spin.Product == FletchingModule.Bowstring && spin.Level == 10, "flax spins into bowstrings at Crafting 10");
+        var body2 = db.Recipe("craft_" + CraftingModule.LeatherBody);
+        Check(body2.ToolType == "needle" && body2.Level == 14 && body2.Xp == 25 && Item(CraftingModule.LeatherBody).Slot == EquipSlot.Body
+            && Item(CraftingModule.LeatherVambraces).Bonuses.RangedAttack == 4, "a leather body needs a needle and Crafting 14; vambraces help rangers");
+        int flaxTiles = 0;
+        for (int x = -100; x < 100; x++)
+            for (int z = -100; z < 100; z++)
+                if (sow.At(new Tile(x, z)) == Terrain.Flax) flaxTiles++;
+        Check(flaxTiles > 20 && Spawning.NodeAt(sow, new Tile(0, 0), Terrain.Flax).Id == CraftingModule.FlaxPlant, "flax fields in the countryside (" + flaxTiles + " plants near the start)");
+
         info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })
         {
@@ -542,17 +560,23 @@ public static class CoreRulesSuite
             var home = ow.Plan(0, 0);
             bool kinds = home.Kind == RegionKind.Town && home.Buildings.Exists(b => b.Kind == BuildingKind.Bank)
                 && home.Buildings.Exists(b => b.Kind == BuildingKind.Shop) && home.Buildings.Exists(b => b.Kind == BuildingKind.Chapel)
-                && home.Buildings.Exists(b => b.Kind == BuildingKind.House);
+                && home.Buildings.Exists(b => b.Kind == BuildingKind.House) && home.Buildings.Exists(b => b.Kind == BuildingKind.Smithy)
+                && home.Buildings.Exists(b => b.Kind == BuildingKind.Workshop);
             bool doors = home.Buildings.TrueForAll(b =>
             {
                 var o = WorldGen.OutsideDoor(b);
                 if (!reach[b.Door.X - lo, b.Door.Z - lo] || !reach[o.X - lo, o.Z - lo]) return false;
-                foreach (var n in new[] { new Tile(b.Feature.X + 1, b.Feature.Z), new Tile(b.Feature.X - 1, b.Feature.Z), new Tile(b.Feature.X, b.Feature.Z + 1), new Tile(b.Feature.X, b.Feature.Z - 1) })
-                    if (reach[n.X - lo, n.Z - lo]) return true;
-                return false;
+                foreach (var f in b.HasFeature2 ? new[] { b.Feature, b.Feature2 } : new[] { b.Feature })
+                {
+                    bool ok = false;
+                    foreach (var n in new[] { new Tile(f.X + 1, f.Z), new Tile(f.X - 1, f.Z), new Tile(f.X, f.Z + 1), new Tile(f.X, f.Z - 1) })
+                        if (reach[n.X - lo, n.Z - lo]) ok = true;
+                    if (!ok) return false;
+                }
+                return true;
             });
             Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 20,
-                "seed " + seed + ": same every time, a home town with bank + shop + chapel + houses, doors and counters reachable, "
+                "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop and houses, doors and counters reachable, "
                 + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks, " + water + " water tiles, "
                 + stranded + " walled-in tiles");
         }

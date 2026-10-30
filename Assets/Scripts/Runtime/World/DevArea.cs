@@ -30,6 +30,8 @@ namespace Epacenur.Runtime
         public static readonly Tile Altar = new Tile(26, 13);
         public static readonly Tile Furnace = new Tile(24, 13);
         public static readonly Tile Anvil = new Tile(22, 13);
+        public static readonly Tile SpinningWheel = new Tile(20, 13);
+        public static readonly Tile TanningRack = new Tile(18, 13);
 
         public static List<SkillArea> CreateAreas()
         {
@@ -39,6 +41,7 @@ namespace Epacenur.Runtime
                 new GoblinArea { Plot = new RectInt(18, 26, 12, 16) },
                 new FishingArea { Plot = new RectInt(32, 26, 13, 16) },
                 new FiremakingArea { Plot = new RectInt(3, 14, 13, 9) },
+                new FlaxArea { Plot = new RectInt(32, 14, 13, 9) },
             };
         }
     }
@@ -125,6 +128,21 @@ namespace Epacenur.Runtime
             // One spot of each kind.
             foreach (var spot in new[] { FishingModule.NetSpot, FishingModule.LureSpot, FishingModule.CageSpot, FishingModule.HarpoonSpot })
                 world.AddNode(spot, shore[rng.Next(shore.Count)], rng, shore);
+        }
+    }
+
+    /// Flax plants to pick (spin them at the spinning wheel by the furnace).
+    public sealed class FlaxArea : SkillArea
+    {
+        public override string Name => "Flax";
+        public override Color GroundColor => new Color(0.4f, 0.5f, 0.3f);
+
+        public override void Build(World world)
+        {
+            var rng = new System.Random(55);
+            for (int x = Plot.x + 1; x < Plot.xMax - 1; x += 2)
+                for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 2)
+                    world.AddNode(CraftingModule.FlaxPlant, new Tile(x, z), rng);
         }
     }
 

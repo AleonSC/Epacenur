@@ -54,6 +54,8 @@ namespace Epacenur.Runtime
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Tree)?.Id ?? WoodcuttingModule.Tree, t, rng);
                     else if (terrain[x, z] == Terrain.Rock)
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Rock)?.Id ?? MiningModule.CopperRock, t, rng);
+                    else if (terrain[x, z] == Terrain.Flax)
+                        world.AddNode(Spawning.NodeAt(ow, t, Terrain.Flax)?.Id ?? CraftingModule.FlaxPlant, t, rng);
                 }
 
             // A fishing spot on a pond's shore, moving along the part of it in this chunk.
@@ -179,7 +181,7 @@ namespace Epacenur.Runtime
         {
             var root = world.BuildRoot;
             var a = b.Footprint;
-            bool stone = b.Kind == BuildingKind.Bank || b.Kind == BuildingKind.Chapel;
+            bool stone = b.Kind == BuildingKind.Bank || b.Kind == BuildingKind.Chapel || b.Kind == BuildingKind.Smithy;
             var wallColour = stone ? Stone : Timber;
             const float height = 1.7f, thick = 0.45f;
 
@@ -221,6 +223,16 @@ namespace Epacenur.Runtime
                 case BuildingKind.Chapel:
                     world.AddStation(PrayerModule.Altar, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
                     world.AddLabel(signAt, "Chapel", Gold);
+                    break;
+                case BuildingKind.Smithy:
+                    world.AddStation(SmithingModule.Furnace, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddStation(SmithingModule.Anvil, b.Feature2).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddLabel(signAt, "Smithy", Gold);
+                    break;
+                case BuildingKind.Workshop:
+                    world.AddStation(CraftingModule.SpinningWheel, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddStation(CraftingModule.TanningRack, b.Feature2).transform.localRotation = Quaternion.LookRotation(-toDoor);
+                    world.AddLabel(signAt, "Workshop", Gold);
                     break;
                 default:
                     Table(root, feature);

@@ -61,7 +61,7 @@ namespace Epacenur.Runtime
         public override string Status => ContentDb.Current.Skill(node.Def.Skill).Name + "...";
         public override Transform Target => node != null ? node.transform : null;
         public override ItemDef Tool => node != null ? FindTool(node.Def) : null;
-        public override ArmPose Pose => node.Def.Look == NodeLook.FishingSpot ? ArmPose.NetOut : ArmPose.Swing;
+        public override ArmPose Pose => node.Def.Look == NodeLook.FishingSpot ? ArmPose.NetOut : node.Def.Look == NodeLook.Plant ? ArmPose.HoldOut : ArmPose.Swing;
         protected override int Interval => node.Def.AttemptTicks;
 
         static ItemDef FindTool(NodeDef def) => def.ToolType == null ? null : ToolBelt.Find(G.ToolBelt, G.Inventory, def.ToolType, G.Skills);
@@ -259,7 +259,8 @@ namespace Epacenur.Runtime
             }
             else
             {
-                G.Skills.AddXp(r.Skill, r.Xp * times);
+                if (r.Xp > 0)
+                    G.Skills.AddXp(r.Skill, r.Xp * times);
                 if (r.SuccessMessage != null)
                     GameLog.Add(r.SuccessMessage);
             }

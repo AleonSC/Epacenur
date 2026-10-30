@@ -237,6 +237,18 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
   OSRS levels: shortbow 5, longbow 10, oak 20/25, willow 35/40, maple 50/55, yew 65/70; arrows bronze 1 ... adamant 60.
 - The general store sells knives, bowstrings, shortbows and bronze arrows. The melee abilities need a melee weapon (or none).
 
+## Crafting
+
+- **Flax** grows in fields in open country (and on the dev plot's Flax plot): **Pick** it, no tool needed.
+- Every town now has a **workshop** with a **spinning wheel** and a **tanning rack**, and a **smithy** with a **furnace**
+  and an **anvil**, so you can smelt and smith out in the world too.
+- **Spin** flax into **bowstrings** at the spinning wheel (Crafting 10, 15 xp): no more buying them for your bows.
+- **Tan** cowhides into **leather** at the tanning rack: 1 coin each, all at once.
+- **Sew leather armour** with a **needle** and a **thread** (use the needle on leather; each item uses a thread). OSRS levels
+  and xp: gloves 1, boots 7, coif 9, vambraces 11, body 14, chaps 18. Leather is light armour that suits rangers: the coif,
+  vambraces, body and chaps add some ranged accuracy as well as defence (and defend best against arrows).
+- The general store sells needles and thread.
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and
