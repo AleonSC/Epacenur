@@ -8,12 +8,70 @@ namespace Epacenur.Runtime
     {
         static Material baseMaterial;
         static readonly Dictionary<Color, Material> cache = new Dictionary<Color, Material>();
+        static readonly Dictionary<string, Material> swayCache = new Dictionary<string, Material>();
+        static readonly Dictionary<string, Shader> shaders = new Dictionary<string, Shader>();
+        static Texture2D waterTex;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
             baseMaterial = null;
             cache.Clear();
+            swayCache.Clear();
+            shaders.Clear();
+            waterTex = null;
+        }
+
+        /// One of the game's own shaders (Assets/Resources/Epacenur), or null if it can't be used here (then
+        /// things fall back to the plain material, still and unanimated).
+        public static Shader OwnShader(string name)
+        {
+            if (shaders.TryGetValue(name, out var s))
+                return s;
+            s = Resources.Load<Shader>("Epacenur/" + name);
+            if (s != null && !s.isSupported)
+                s = null;
+            return shaders[name] = s;
+        }
+
+        /// A material for plants that sway in the wind (shared by everything of that colour and sway). `rooted`:
+        /// the mesh's uv.y says how free each vertex is (grass); otherwise it all moves alike (a tree's crown).
+        public static Material SwayMat(Color c, float sway, bool rooted)
+        {
+            string key = c.r + "," + c.g + "," + c.b + "," + c.a + "/" + sway + rooted;
+            if (swayCache.TryGetValue(key, out var m) && m != null)
+                return m;
+            var shader = OwnShader("Sway");
+            if (shader == null)
+                return swayCache[key] = Mat(c);
+            m = new Material(shader) { color = c, enableInstancing = true };
+            m.SetFloat("_Glossiness", 0.08f);
+            m.SetFloat("_Sway", sway);
+            m.SetFloat("_Rooted", rooted ? 1f : 0f);
+            return swayCache[key] = m;
+        }
+
+        /// Water whose ripples drift the way its rivers run (shared by all water of that colour).
+        public static Material WaterMat(Color c)
+        {
+            string key = "water" + c.r + "," + c.g + "," + c.b;
+            if (swayCache.TryGetValue(key, out var m) && m != null)
+                return m;
+            var shader = OwnShader("Water");
+            if (shader == null)
+                return swayCache[key] = Mat(c);
+            m = swayCache[key] = new Material(shader) { color = c };
+            if (waterTex == null)
+                waterTex = GroundTexture(15, 0.5f, 0.3f, 260, 0.45f, 1.5f, 2, 6);
+            m.mainTexture = waterTex;
+            return m;
+        }
+
+        /// Unlit, see-through, coloured by vertex colour (rain, snow), or null without the shader.
+        public static Material ParticleMat(Color c)
+        {
+            var shader = OwnShader("Particle");
+            return shader == null ? null : new Material(shader) { color = c };
         }
 
         /// A matte material of one colour (shared by everything of that colour).

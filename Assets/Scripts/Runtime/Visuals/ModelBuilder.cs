@@ -39,14 +39,18 @@ namespace Epacenur.Runtime
             var root = new GameObject(name).transform;
             root.SetParent(parent, false);
             if (model != null)
-                Fill(model, root);
+                Fill(model, root, false);
             return root;
         }
 
-        static void Fill(Model model, Transform root)
+        /// Children by this name sway in the wind (a tree's crown).
+        public const string Swaying = "crown";
+        const float CrownSway = 0.07f;
+
+        static void Fill(Model model, Transform root, bool sway)
         {
             // The solid parts (with those of unnamed children): one shared, merged mesh.
-            var b = Bake(model);
+            var b = Bake(model, sway);
             if (b.Mesh != null)
             {
                 root.gameObject.AddComponent<MeshFilter>().sharedMesh = b.Mesh;
@@ -58,7 +62,7 @@ namespace Epacenur.Runtime
             {
                 if (c.Name == null)
                     continue;
-                Fill(c.Model, ChildTransform(c, root));
+                Fill(c.Model, ChildTransform(c, root), sway || c.Name == Swaying);
             }
         }
 
@@ -114,7 +118,7 @@ namespace Epacenur.Runtime
         }
 
         /// The model's solid parts, and its unnamed children's, merged into one mesh with a sub-mesh per colour.
-        static Baked Bake(Model model)
+        static Baked Bake(Model model, bool sway)
         {
             if (baked.TryGetValue(model, out var b))
                 return b;
@@ -131,7 +135,7 @@ namespace Epacenur.Runtime
                     var one = new Mesh();
                     one.CombineMeshes(kv.Value.ToArray(), true, true);
                     parts[i] = new CombineInstance { mesh = one, transform = Matrix4x4.identity };
-                    b.Materials[i] = Visuals.Mat(kv.Key);
+                    b.Materials[i] = sway ? Visuals.SwayMat(kv.Key, CrownSway, false) : Visuals.Mat(kv.Key);
                     i++;
                 }
                 b.Mesh = new Mesh { name = "Model" };

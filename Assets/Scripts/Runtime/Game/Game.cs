@@ -171,6 +171,8 @@ namespace Epacenur.Runtime
             Rig = CameraRig.Create(cam, Player);
             // A new world starts on a fresh morning.
             Clock = new DayNight(Sun, cam, state.hasTime ? state.time : 0.3f, state.day);
+            Weather = WeatherFx.Create(gameObject, WorldInfo.seed * 31 + System.Environment.TickCount % 1000);
+            gameObject.AddComponent<AmbientLife>();
             Hud = gameObject.AddComponent<Hud>();
 
             Skills.XpGained += (id, tenths) => Hud.AddXpDrop(id, tenths);
@@ -214,6 +216,8 @@ namespace Epacenur.Runtime
         public static Light Sun { get; private set; }
         /// The time of day in this world.
         public DayNight Clock { get; private set; }
+        /// The weather.
+        public WeatherFx Weather { get; private set; }
 
         public static Camera SetUpScene()
         {

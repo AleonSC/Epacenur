@@ -19,10 +19,11 @@ namespace Epacenur.Runtime
         sealed class Builder
         {
             public readonly List<Vector3> Verts = new List<Vector3>();
+            public readonly List<Vector2> Free = new List<Vector2>();  // y: how freely each vertex sways (0 rooted, 1 a tip)
             public readonly Dictionary<Color, List<int>> Tris = new Dictionary<Color, List<int>>();
 
             /// A thin two-sided triangle from a base (with a half-width across `side`) up to a tip.
-            public void Blade(Vector3 a, Vector3 side, Vector3 tip, Color c)
+            public void Blade(Vector3 a, Vector3 side, Vector3 tip, Color c, float footFree = 0f)
             {
                 if (!Tris.TryGetValue(c, out var t))
                     Tris[c] = t = new List<int>();
@@ -30,6 +31,9 @@ namespace Epacenur.Runtime
                 Verts.Add(a - side);
                 Verts.Add(a + side);
                 Verts.Add(tip);
+                Free.Add(new Vector2(0f, footFree));
+                Free.Add(new Vector2(1f, footFree));
+                Free.Add(new Vector2(0.5f, 1f));
                 t.Add(i); t.Add(i + 1); t.Add(i + 2);
                 t.Add(i + 1); t.Add(i); t.Add(i + 2);
             }
@@ -37,10 +41,12 @@ namespace Epacenur.Runtime
             /// A little four-pointed flower head facing up, two-sided.
             public void Head(Vector3 at, float r, Color c)
             {
-                Blade(at + new Vector3(0f, 0f, -r), new Vector3(r, 0f, 0f), at + new Vector3(0f, 0.01f, r), c);
-                Blade(at + new Vector3(-r, 0f, 0f), new Vector3(0f, 0f, r), at + new Vector3(r, 0.01f, 0f), c);
+                Blade(at + new Vector3(0f, 0f, -r), new Vector3(r, 0f, 0f), at + new Vector3(0f, 0.01f, r), c, 1f);
+                Blade(at + new Vector3(-r, 0f, 0f), new Vector3(0f, 0f, r), at + new Vector3(r, 0.01f, 0f), c, 1f);
             }
         }
+
+        const float GrassSway = 0.2f, BushSway = 0.04f;  // how far the wind bends them (tiles, in a full gale)
 
         public static void Build(Overworld ow, Terrain[,] terrain, int x0, int z0, float[] heights, Transform root, System.Random rng)
         {
@@ -154,6 +160,7 @@ namespace Epacenur.Runtime
         {
             var mesh = new Mesh { name = "Grass", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             mesh.vertices = b.Verts.ToArray();
+            mesh.uv = b.Free.ToArray();
             // Lit as if facing up, like the ground they grow from (both sides alike).
             var normals = new Vector3[b.Verts.Count];
             for (int i = 0; i < normals.Length; i++)
@@ -165,7 +172,7 @@ namespace Epacenur.Runtime
             foreach (var kv in b.Tris)
             {
                 mesh.SetTriangles(kv.Value, s);
-                mats[s++] = Visuals.Mat(kv.Key);
+                mats[s++] = Visuals.SwayMat(kv.Key, GrassSway, true);
             }
             mesh.RecalculateBounds();
             var go = new GameObject("Grass");
@@ -188,7 +195,7 @@ namespace Epacenur.Runtime
                 var one = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
                 one.CombineMeshes(kv.Value.ToArray(), true, true);
                 parts[i] = new CombineInstance { mesh = one, transform = Matrix4x4.identity };
-                mats[i++] = Visuals.Mat(kv.Key);
+                mats[i++] = Visuals.SwayMat(kv.Key, BushSway, false);
             }
             var mesh = new Mesh { name = "Bushes", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             mesh.CombineMeshes(parts, false, false);

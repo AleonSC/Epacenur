@@ -1061,7 +1061,7 @@ public static class CoreRulesSuite
             bool finite = true;
             foreach (var v in samples) { loudest = Math.Max(loudest, Math.Abs(v)); if (float.IsNaN(v) || float.IsInfinity(v)) finite = false; }
             double seconds = (double)samples.Length / Synth.Rate;
-            if (!finite || Math.Abs(loudest - Synth.Peak) > 1e-3 || seconds < 0.02 || seconds > 1.5 || Math.Abs(samples[samples.Length - 1]) > 1e-3)
+            if (!finite || Math.Abs(loudest - Synth.Peak) > 1e-3 || seconds < 0.02 || seconds > (snd == Sound.Rain || snd == Sound.Thunder ? 4.5 : 1.5) || Math.Abs(samples[samples.Length - 1]) > 1e-3)
             {
                 allSound = false;
                 worst = snd.ToString();
@@ -1322,6 +1322,46 @@ public static class CoreRulesSuite
             && tsKinds.ContainsKey(Biome.Wasteland) && tsKinds[Biome.Wasteland].Contains(WoodcuttingModule.DeadTree)
             && !tsKinds[Biome.Meadow].Contains(WoodcuttingModule.Pine) && tsPines * 2 > tsHighTrees,
             "birches and blossom in the meadows, dead trees in the wasteland, and the highlands mostly pines (" + tsPines + " of " + tsHighTrees + ")");
+        // ---- Weather ----
+        var wx = new Weather(9);
+        var wxSeen = new System.Collections.Generic.HashSet<Sky>();
+        bool wxRange = true;
+        for (int i = 0; i < 20000; i++)
+        {
+            wx.Advance(5);
+            wxSeen.Add(wx.Now);
+            var o = wx.Overall;
+            foreach (var v in new[] { o.Clouds, o.Rain, o.Mist, o.Wind, o.Storm }) if (v < 0 || v > 1) wxRange = false;
+        }
+        Check(wxSeen.Count == 5 && wxRange, "over a long while every kind of weather comes round, and all of it stays in range");
+        Check(Weather.NextAfter(Sky.Storm, 0.99) != Sky.Clear && Weather.NextAfter(Sky.Clear, 0.5) != Sky.Storm, "storms come out of rain, and blow over into rain or cloud");
+        wx.Set(Sky.Rain);
+        var wxLow = wx.At(Biome.Meadow, 5, 0.5, 0, 0);
+        var wxHigh = wx.At(Biome.Highlands, 40, 0.5, 0, 0);
+        var wxDry = wx.At(Biome.Wasteland, 5, 0.5, 0, 0);
+        Check(wxLow.Rain > 0.5 && wxLow.Snow == 0 && wxHigh.Snow > 0.5 && wxHigh.Rain == 0 && wxDry.Rain < wxLow.Rain * 0.5,
+            "rain falls as snow high in the mountains, and the wasteland stays drier");
+        wx.Set(Sky.Clear);
+        double wxMarsh = 0, wxMeadow = 0;
+        for (int i = 0; i < 50; i++) { wxMarsh += wx.At(Biome.Marsh, 5, 0.5, i * 37, i * 11).Mist; wxMeadow += wx.At(Biome.Meadow, 5, 0.5, i * 37, i * 11).Mist; }
+        Check(wxMarsh > 0 && wxMeadow == 0 && wx.At(Biome.Meadow, 5, 0.27, 0, 0).Mist >= 0 , "marshes are misty when it's clear elsewhere");
+        wx.Set(Sky.Fog);
+        double wxThin = 1, wxThick = 0;
+        for (int i = 0; i < 200; i++) { double m = wx.At(Biome.Meadow, 20, 0.5, i * 23, i * 17).Mist; wxThin = Math.Min(wxThin, m); wxThick = Math.Max(wxThick, m); }
+        Check(wxThick > wxThin + 0.3, "fog lies in banks, thick in places and thin in others (" + wxThin.ToString("0.00") + " to " + wxThick.ToString("0.00") + ")");
+        var wxRiver = new Overworld(2024);
+        double wxFast = 0, wxPond = 0;
+        for (int x = -600; x < 600; x += 3)
+            for (int z = -600; z < 600; z += 3)
+            {
+                var t = new Tile(x, z);
+                if (wxRiver.At(t) != Terrain.Water) continue;
+                wxRiver.RiverFlow(x, z, out double fx, out double fz);
+                double sp = Math.Sqrt(fx * fx + fz * fz);
+                bool inRiver = wxRiver.RiverDistance(x, z, out _) < Overworld.RiverWidth * 2.5;
+                if (inRiver) wxFast = Math.Max(wxFast, sp); else wxPond = Math.Max(wxPond, sp);
+            }
+        Check(wxFast > 0.5 && wxPond < 0.05, "rivers run (" + wxFast.ToString("0.0") + " tiles a second); ponds lie still");
         var mkCity = new Overworld(12345).Plan(0, 0);
         Check(mkCity.City && mkCity.HasTradingPost && mkCity.Blocked.Contains(mkCity.TradingPost), "the starting city has a trading post on its square");
 

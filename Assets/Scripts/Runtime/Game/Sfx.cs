@@ -100,6 +100,9 @@ namespace Epacenur.Runtime
             }
         }
 
+        /// A sound's clip (for something that plays it itself, like the rain's loop).
+        public static AudioClip ClipFor(Sound sound) => Clip(sound);
+
         static AudioClip Clip(Sound sound)
         {
             if (clips.TryGetValue(sound, out var clip) && clip != null)

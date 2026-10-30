@@ -63,6 +63,11 @@ namespace Epacenur.Runtime
         /// Underground (in a dungeon): no sun or sky, only the torches, your own light and a little ambient glow.
         public bool Underground;
 
+        /// The weather (WeatherFx sets these, 0..1): how overcast (a greyer, duller sky, softer shadows), how
+        /// misty or thick with rain (the fog closes in), and a lightning flash.
+        public float Overcast, Mist, Flash;
+        static readonly Color CloudSky = new Color(0.56f, 0.6f, 0.65f), MistColour = new Color(0.74f, 0.76f, 0.78f);
+
         void Apply()
         {
             if (Underground)
@@ -75,16 +80,23 @@ namespace Epacenur.Runtime
                 sun.intensity = 0f;
                 return;
             }
-            RenderSettings.fogStartDistance = 70f;
-            RenderSettings.fogEndDistance = 140f;
+            // Mist and rain pull the fog in close.
+            RenderSettings.fogStartDistance = Mathf.Lerp(70f, 3f, Mist);
+            RenderSettings.fogEndDistance = Mathf.Lerp(140f, 34f, Mist);
             float h = Height;
             float day = Smooth(-0.12f, 0.25f, h);            // 0 at night, 1 in full day
             float dusk = 1f - Mathf.Clamp01(Mathf.Abs(h + 0.02f) / 0.22f);  // near the horizon
             var sky = Color.Lerp(NightSky, DaySky, day);
-            sky = Color.Lerp(sky, DuskSky, dusk * 0.65f);
+            sky = Color.Lerp(sky, DuskSky, dusk * 0.65f * (1f - Overcast * 0.7f));
+            // Clouds grey the sky over; mist whitens it (by day).
+            float light = 0.18f + 0.82f * day;
+            sky = Color.Lerp(sky, CloudSky * light, Overcast * 0.8f);
+            sky = Color.Lerp(sky, MistColour * light, Mist * 0.6f);
+            sky = Color.Lerp(sky, new Color(0.9f, 0.92f, 1f), Flash * 0.7f);
             cam.backgroundColor = sky;
             RenderSettings.fogColor = sky;
-            RenderSettings.ambientLight = Color.Lerp(NightAmbient, DayAmbient, day);
+            RenderSettings.ambientLight = Color.Lerp(NightAmbient, DayAmbient, day) * (1f - Overcast * 0.2f) + Color.white * (Flash * 0.6f);
+            sun.shadowStrength = 1f - Overcast * 0.75f;
 
             // The sun swings from east to west; after dark the moon takes over, low in the south.
             float yaw = Time * 360f - 90f;
@@ -92,13 +104,13 @@ namespace Epacenur.Runtime
             {
                 sun.transform.rotation = Quaternion.Euler(Mathf.Max(4f, h * 65f), yaw, 0f);
                 sun.color = Color.Lerp(LowSunColour, SunColour, Smooth(0f, 0.35f, h));
-                sun.intensity = 1.1f * Smooth(-0.05f, 0.15f, h);
+                sun.intensity = 1.1f * Smooth(-0.05f, 0.15f, h) * (1f - Overcast * 0.65f);
             }
             else
             {
                 sun.transform.rotation = Quaternion.Euler(Mathf.Max(12f, -h * 50f), yaw + 180f, 0f);
                 sun.color = MoonColour;
-                sun.intensity = 0.28f * Smooth(-0.05f, -0.25f, h);
+                sun.intensity = 0.28f * Smooth(-0.05f, -0.25f, h) * (1f - Overcast * 0.7f);
             }
         }
 

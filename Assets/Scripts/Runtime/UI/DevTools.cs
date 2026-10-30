@@ -69,6 +69,14 @@ namespace Epacenur.Runtime
             }
             GUILayout.Space(6f);
 
+            GUILayout.Label("<b>Weather</b> (now: " + G.Weather.Weather.Now + ")", Gui.Rich);
+            GUILayout.BeginHorizontal();
+            foreach (Sky sky in System.Enum.GetValues(typeof(Sky)))
+                if (GUILayout.Button(sky.ToString()))
+                    G.Weather.Weather.Set(sky);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(6f);
+
             GUILayout.Label("<b>Inventory</b>", Gui.Rich);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Empty it")) { G.Inventory.Clear(); hud.Panel.Inventory.ClearSelection(); }

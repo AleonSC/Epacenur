@@ -784,6 +784,23 @@ namespace Epacenur.Core
             return Math.Abs(v) / Math.Max(g, 0.0004);
         }
 
+        public const double RiverSpeed = 1.2;  // tiles a second, in a river's middle
+
+        /// Which way and how fast a river's water runs at a point (tiles a second): along the river (one way
+        /// all along it), fastest in its middle, still in ponds and away from rivers.
+        public void RiverFlow(double x, double z, out double fx, out double fz)
+        {
+            fx = fz = 0;
+            double gx = (riverField.At(x + 8, z) - riverField.At(x - 8, z)) / 16, gz = (riverField.At(x, z + 8) - riverField.At(x, z - 8)) / 16;
+            double g = Math.Sqrt(gx * gx + gz * gz);
+            if (g < 1e-7)
+                return;
+            double dist = RiverDistance(x, z, out double strength);
+            double p = strength * RiverAllowed(x, z) * Math.Max(0, 1 - dist / (RiverWidth * 2.5));
+            fx = -gz / g * p * RiverSpeed;
+            fz = gx / g * p * RiverSpeed;
+        }
+
         /// A smoother measure of the same for shaping valleys: how far the noise is from the river's value, in
         /// tiles at a typical slope of the noise (it never changes faster than the noise does, so no cliffs).
         double ValleyDistance(double x, double z) => Math.Abs(riverField.At(x, z) - 0.5) / 0.004;

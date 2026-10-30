@@ -8,6 +8,7 @@ namespace Epacenur.Core
     {
         Click, Open, Chop, Mine, Splash, Pick, Hit, Miss, Hurt, Kill, LevelUp, Pickup, Drop, Eat, Bury, Fire,
         Smith, Craft, Build, Remove, Coins, Spell, Arrow, Prayer, Teleport, Death, Error,
+        Rain, Thunder,
     }
 
     /// Makes the sound effects: mono samples (-1..1) at Rate samples a second.
@@ -182,6 +183,29 @@ namespace Epacenur.Core
                     b = Buffer(0.2);
                     Tone(b, 0, 0.07, 150, 150, 0.5, Wave.Square, 0.002, 0.04);
                     Tone(b, 0.1, 0.07, 150, 150, 0.5, Wave.Square, 0.002, 0.04);
+                    break;
+                case Sound.Rain:  // a steady hiss with drops pattering in it, made to loop
+                {
+                    b = Buffer(3.2);
+                    HighNoise(b, rng, 0, 3.2, 0.35, 0.001, 1000);
+                    Noise(b, rng, 0, 3.2, 0.25, 0.3, 1000);
+                    for (int i = 0; i < 90; i++)
+                        Noise(b, rng, rng.NextDouble() * 3.1, 0.012, 0.5 + rng.NextDouble() * 0.5, 0.8, 0.004);
+                    // Fade the end into the start, so it loops without a seam.
+                    int fade = Rate / 5, n = b.Length - fade;
+                    for (int k = 0; k < fade; k++)
+                    {
+                        float w = (float)k / fade;
+                        b[k] = b[k] * w + b[n + k] * (1 - w);
+                    }
+                    Array.Resize(ref b, n);
+                    break;
+                }
+                case Sound.Thunder:  // a sharp crack rolling away into a long, low rumble
+                    b = Buffer(4.0);
+                    Noise(b, rng, 0, 0.35, 0.8, 0.45, 0.12);
+                    Noise(b, rng, 0.05, 3.9, 1.0, 0.025, 1.3);
+                    Noise(b, rng, 0.6, 2.5, 0.6, 0.04, 0.8);
                     break;
                 default:
                     b = Buffer(0.05);

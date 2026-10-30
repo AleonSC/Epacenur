@@ -142,6 +142,7 @@ namespace Epacenur.Runtime
         {
             int size = terrain.GetLength(0);
             var verts = new List<Vector3>();
+            var flow = new List<Vector2>();  // water: which way and how fast it runs, for its ripples
             var tris = new List<int>();
             for (int x = 0; x < size; x++)
                 for (int z = 0; z < size; z++)
@@ -155,6 +156,11 @@ namespace Epacenur.Runtime
                         float px = cx + c.x, pz = cz + c.y;
                         double y = water ? ow.WaterSurface(px, pz) : ow.Elevation(px, pz) + lift;
                         verts.Add(new Vector3(px, (float)y, pz));
+                        if (water)
+                        {
+                            ow.RiverFlow(px, pz, out double fx, out double fz);
+                            flow.Add(new Vector2((float)fx, (float)fz));
+                        }
                     }
                     tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
                     tris.Add(start + 2); tris.Add(start + 1); tris.Add(start + 3);
@@ -163,6 +169,8 @@ namespace Epacenur.Runtime
                 return;
             var mesh = new Mesh { name = water ? "Water" : "Shore" };
             mesh.vertices = verts.ToArray();
+            if (water)
+                mesh.uv2 = flow.ToArray();
             mesh.triangles = tris.ToArray();
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -170,7 +178,7 @@ namespace Epacenur.Runtime
             go.layer = World.FarLayer;
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = Visuals.Mat(colour);
+            go.AddComponent<MeshRenderer>().sharedMaterial = water ? Visuals.WaterMat(colour) : Visuals.Mat(colour);
             go.AddComponent<OwnedMesh>().Mesh = mesh;
         }
 

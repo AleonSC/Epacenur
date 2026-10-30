@@ -11,16 +11,16 @@ namespace UnityEngine
     public class Component : Object { public GameObject gameObject; public Transform transform; public string tag;
         public T GetComponent<T>() => default(T); public T GetComponentInParent<T>() => default(T); public T[] GetComponentsInChildren<T>() => null; public T[] GetComponentsInChildren<T>(bool inactive) => null; }
     public class Behaviour : Component { public bool enabled; }
-    public class MonoBehaviour : Behaviour { }
+    public class MonoBehaviour : Behaviour { public void Invoke(string m, float t) { } }
     public sealed class GameObject : Object { public GameObject() { } public GameObject(string n) { } public Transform transform; public int layer; public string tag;
         public static GameObject CreatePrimitive(PrimitiveType t) => null; public T AddComponent<T>() where T : Component => null; public T GetComponent<T>() => default(T); public void SetActive(bool v) { } public bool activeSelf; }
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
-    public class Transform : Component { public Matrix4x4 worldToLocalMatrix, localToWorldMatrix; public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
+    public class Transform : Component { public Matrix4x4 worldToLocalMatrix, localToWorldMatrix; public Vector3 position, localPosition, localScale, forward, right, up; public Transform parent; public Quaternion rotation, localRotation;
         public void SetParent(Transform p, bool w) { } public void SetPositionAndRotation(Vector3 p, Quaternion r) { }
         public int childCount => 0; public Transform GetChild(int i) => null; }
     public struct Vector2 { public static Vector2 zero, one; public static Vector2 operator *(Vector2 a, float f) => a; public float x, y; public Vector2(float x, float y) { this.x = x; this.y = y; }
         public static Vector2 operator /(Vector2 a, float b) => a; public static Vector2 operator -(Vector2 a, Vector2 b) => a; public static Vector2 operator +(Vector2 a, Vector2 b) => a; public float magnitude => 0f; }
-    public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
+    public struct Vector3 { public float x, y, z; public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; } public static Vector3 Cross(Vector3 a, Vector3 b) => a;
         public static Vector3 zero, up, down, forward, back, left, right, one; public float magnitude => 0f; public float sqrMagnitude => 0f; public Vector3 normalized => this;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float b) => a; public static Vector3 operator *(float b, Vector3 a) => a;
@@ -31,7 +31,7 @@ namespace UnityEngine
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity; public static Quaternion Euler(Vector3 e) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
-    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public static Color operator +(Color a, Color b) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); public static Matrix4x4 identity; public static Matrix4x4 TRS(Vector3 p, Quaternion q, Vector3 s) => default(Matrix4x4); public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b) => a; }
     public struct CombineInstance { public Mesh mesh; public int subMeshIndex; public Matrix4x4 transform; }
@@ -64,24 +64,28 @@ namespace UnityEngine
     public sealed class AudioListener : Behaviour { }
     public enum AudioRolloffMode { Logarithmic, Linear, Custom }
     public sealed class AudioClip : Object { public static AudioClip Create(string n, int samples, int channels, int rate, bool stream) => null; public bool SetData(float[] d, int offset) => true; }
-    public sealed class AudioSource : Behaviour { public AudioClip clip; public float volume, pitch, spatialBlend, minDistance, maxDistance, dopplerLevel; public bool playOnAwake;
+    public sealed class AudioSource : Behaviour { public AudioClip clip; public bool loop, isPlaying; public float volume, pitch, spatialBlend, minDistance, maxDistance, dopplerLevel; public bool playOnAwake;
         public AudioRolloffMode rolloffMode; public void Play() { } public void Stop() { } }
     public enum LightType { Spot, Directional, Point }
     public enum LightShadows { None, Hard, Soft }
-    public sealed class Light : Behaviour { public LightType type; public float intensity, range; public Color color; public LightShadows shadows; }
+    public sealed class Light : Behaviour { public LightType type; public float intensity, range, shadowStrength; public Color color; public LightShadows shadows; }
     public static class QualitySettings { public static float shadowDistance; }
     public enum FogMode { Linear = 1 }
     public static class RenderSettings { public static Rendering.AmbientMode ambientMode; public static Color ambientLight, fogColor; public static bool fog; public static FogMode fogMode; public static float fogStartDistance, fogEndDistance; }
-    public class Renderer : Component { public bool enabled; public Material sharedMaterial; public Material[] sharedMaterials; public Rendering.ShadowCastingMode shadowCastingMode; }
+    public class Renderer : Component { public bool enabled, receiveShadows; public Material sharedMaterial; public Material[] sharedMaterials; public Rendering.ShadowCastingMode shadowCastingMode; }
     public class Texture : Object { public TextureWrapMode wrapMode; public FilterMode filterMode; public int anisoLevel; }
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Repeat, Clamp }
     public enum FilterMode { Point, Bilinear }
     public sealed class Texture2D : Texture { public Texture2D(int w, int h, TextureFormat f, bool mip) { } public static Texture2D whiteTexture; public void SetPixels(Color[] c) { } public void SetPixels32(Color32[] c) { } public Color32[] GetPixels32() => null; public void Apply() { } }
     public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
-    public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
+    public struct Vector4 { public float x, y, z, w; public Vector4(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; } public static Vector4 zero => default(Vector4); }
+    public struct Bounds { public Bounds(Vector3 c, Vector3 size) { } }
+    public class Shader : Object { public bool isSupported; public static void SetGlobalVector(string n, Vector4 v) { } public static void SetGlobalFloat(string n, float v) { } }
+    public static class Resources { public static T Load<T>(string path) where T : Object => null; }
+    public class Material : Object { public Material(Material m) { } public Material(Shader s) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
-    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector3[] normals; public Vector2[] uv; public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
+    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector3[] normals; public Vector2[] uv, uv2; public Color[] colors; public Bounds bounds; public void MarkDynamic() { } public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
     public sealed class MeshFilter : Component { public Mesh sharedMesh; }
     public sealed class MeshRenderer : Renderer { }
     public sealed class MeshCollider : Collider { public Mesh sharedMesh; }

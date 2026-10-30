@@ -95,6 +95,19 @@ outlines), ponds, forests, highlands (tan).*
 - **Day and night**: a day lasts 24 minutes of play (an in-game hour a minute). The sun rises in the east and sets in the west,
   the sky and fog turn orange at dawn and dusk and dark blue at night, when a dim blue moon lights the world. The day and time
   show under the minimap, and each world remembers its time of day.
+- **Weather** (`Core/World/Weather.cs`, shown by `Runtime/Game/WeatherFx.cs`): one sky over the land that turns every few
+  minutes, easing over 45 seconds: **clear**, **cloudy**, **rain**, **storms** (out of rain: lightning flashes, and thunder a
+  moment later, quieter the further off) and **fog**. The chat box says when it turns. Clouds grey the sky and soften the
+  shadows; mist and rain pull the fog in close. Where you are shapes it: **marshes** are misty even when it's clear elsewhere,
+  the **wasteland** stays dry, rain falls as **snow** high in the mountains (and the peaks get a little snow from any cloud),
+  mornings are misty in the valleys, and fog lies in **banks** that drift across the land on the wind. Rain and snow fall
+  round you (not indoors), and the rain patters (quieter indoors). The dev tools set the weather.
+- **Wind**: it blows one way, wandering slowly, and gusts; stronger in storms and up in the highlands, weaker in woodland. The
+  **grass, flowers and bushes bend and flutter** in it, and **trees' crowns sway** (`Assets/Resources/Epacenur/Sway.shader`).
+- **Rivers flow**: ripples drift along each river the way it runs, fastest in its middle, while ponds lie almost still
+  (`Water.shader`, with each river's flow from `Overworld.RiverFlow`).
+- **Wildlife**: **butterflies** flutter over meadows and woods on calm, dry days; **flocks of birds** cross the sky in a V now
+  and then; **fireflies** blink over the grass on calm nights (`Runtime/Game/AmbientLife.cs`). None in a storm or underground.
 - **Lamp posts** line the roads of every town (up to 12, the ones round the square first). They light up a little before
   sunset and go out after sunrise, each casting a warm glow round it.
 - **Town buildings** are made procedurally (`Runtime/World/TownBuildings.cs`), each town in its own style: walls of
@@ -114,7 +127,19 @@ outlines), ponds, forests, highlands (tan).*
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so
   neighbours are at least 3 regions apart, and about 1 cell in 5 has none, leaving wide wilds. About 1 in 4 is a **city**: more
   houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
-  with an altar, a **smithy**, a **workshop**, a **farm** and **houses**, joined by dirt roads, and its own made-up name.
+  with an altar, a **smithy**, a **workshop**, a **farm** and **houses**, joined by dirt roads, a **well** (use it to fill your
+  empty vials with water) and its own made-up name. Cities have a **trading post** on the square (see below) and four market
+  stalls (towns two).
+- **Town walls**: a **city** is walled in **stone**, a few tiles out from everything built, with round towers at the corners and
+  a **gatehouse** (pillars and a lintel hung with banners) wherever a road goes through. About half of towns have a **wooden
+  palisade** of sharpened stakes; the rest are open.
+- **Roads between towns**: a dirt road winds from each town to each of its neighbours (east, west, north and south), joining
+  the town's own road out. Roads cross rivers on bridges of their own, widen to go round anything in their way, and keep dry
+  (no ponds by them); camps, shrines, quarries and courses aren't put on them. A **signpost** stands by each road just outside
+  town: **Read** it for where the road leads, and how deep into the wilderness it goes on the way.
+- **Ruins and landmarks** (about 1 in 3 stretches of wild country): an **old watchtower**, a **ruined cottage** (walk in through
+  its broken walls), a **statue** of some forgotten hero, a **rune obelisk** or a **cairn**, each named over it and on the
+  world map. Never by a river, in a lake or on a road (`Core/World/Roads.cs`; built by `Runtime/World/Landmarks.cs`).
 - **Dirt** (roads, town squares, and the trampled ground of camps and cave mouths) is painted for each chunk
   (`Runtime/World/DirtPaths.cs`): mottled brown earth with the ground's earthy grain and a few pebbles, its edge wandering and
   fraying into a band of worn, yellowed grass that fades into the ground. Away from the dirt it's painted with the ground's own
@@ -137,7 +162,9 @@ outlines), ponds, forests, highlands (tan).*
   and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its wilderness level; it's
   named on the world map, e.g. "Iron quarry"); the rest are a mix. No monsters live there.
 - **Trees** each have their own shape: plain trees round, oaks broad and lumpy, willows hung with long fronds, maples in autumn
-  reds and golds, yews in dark tiers. All have roots flaring into the ground.
+  reds and golds, yews in dark tiers. All have roots flaring into the ground. Plain trees have kin by biome (logs like a plain
+  tree's): pale **birches** in meadows and woods, pink **blossom trees** in meadows, tall tiered **pines** (most of the trees in the
+  highlands) and bare **dead trees** in the wasteland.
 - **Countryside**: **forests** where a smooth noise is high, flax fields, and **ponds**, each with a
   moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
   shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
@@ -240,6 +267,23 @@ so they don't take up slots.
 - Stock drifts back to normal by one every 6 seconds, and items players sold slowly disappear.
 - New saves start with **100 coins**. The dev tools can add 1,000 more.
 - The sword and shield can be wielded, the tinderbox lights fires and the net catches fish (see below).
+
+## Trading post
+
+- Every **city** has a trading post on its square: a **trading clerk** at a booth, with the board of offers behind.
+  **Trade** with the clerk to open it (`Core/Economy/Market.cs`, `Runtime/UI/Windows/TradingPostWindow.cs`).
+- Put up to **6 offers** at once. **Buy...**: search for any tradeable item by name. **Sell**: click an item in your inventory.
+  Set how many and the **price each** (-5% / Market / +5% buttons), then **Confirm offer**. Buying puts the coins for all of it
+  by; selling takes the items.
+- Offers **trade over time** with the rest of the land's traders, at the **market price or better for you** (buy under your
+  price and you get the difference back). Cheap things trade by the hundred a minute, dear ones a few at a time. Price above the
+  market (to buy) or below it (to sell) and it trades faster, up to 3 times; much worse than the market and nobody bites.
+- **Prices follow supply**: selling lots pushes an item's price down and buying lots pushes it up, easing back over an hour or
+  so; each item's price also wanders slowly on its own, and some fetch more than their value, some less. The form shows whether
+  it's rising or falling.
+- **Collect** what's traded from the board (into your inventory, the rest to the bank); **Abort** an offer to get back what
+  hasn't traded. The chat box tells you when an offer finishes. Offers **keep trading while you're away** (up to half a day's
+  worth), and are saved with your character. Coins and worthless things can't be traded.
 
 ## Items on the ground
 
@@ -375,7 +419,7 @@ content module.
 - **Pickpocket** the people in towns (right-click, or left-click: it's their first option): **men and women** (level 1),
   **farmers** (10), and further out **warriors** (25), **guards** (40) and **knights** (55), with OSRS xp and coins. You keep at it
   until you're caught: they hit you for a hitpoint or two and you're **stunned** for 5 seconds.
-- **Market stalls**: every town square has two. **Steal-from** them: **bakery** (5, bread), **silk** (20), **herb** (35, grimy herbs)
+- **Market stalls**: every town square has two (a city's four). **Steal-from** them: **bakery** (5, bread), **silk** (20), **herb** (35, grimy herbs)
   and **rune** (50, runes) stalls, the better ones in towns further out. Their goods come back after a while.
 
 **Herblore**
