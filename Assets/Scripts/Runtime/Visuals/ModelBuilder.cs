@@ -169,7 +169,7 @@ namespace Epacenur.Runtime
         }
 
         /// A self-lit material (flames, a furnace's mouth).
-        static Material GlowMaterial(Color c)
+        public static Material GlowMaterial(Color c)
         {
             if (glowCache.TryGetValue(c, out var m) && m != null)
                 return m;

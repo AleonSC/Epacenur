@@ -100,6 +100,13 @@ outlines), ponds, forests, highlands (tan).*
   and a ridge along the door's wall. Windows with frames, sills, shutters and sometimes flower boxes; an open door, with an
   awning over a shop's or workshop's door and columns round the bank's; chimneys (the smithy's glows); the chapel is taller,
   with stained glass and a bell tower. Walls are solid, and the roof hides when you're inside (in tile mode).
+- **Furnished inside** (laid out in `Core/World/TownFurniture.cs`, drawn by `Runtime/World/TownInteriors.cs`): houses have a
+  bed, often a hearth (with the chimney rising from it), a cupboard or shelves, a chest and barrels, sacks or crates; the bank
+  strongboxes heaped with coins, a bookcase, a clerk's desk and a candle stand; the general store stocked shelves, barrels,
+  crates and sacks; the chapel rows of pews either side of its aisle and candle stands by the altar; the smithy a quenching
+  trough, a coal bin, a weapon rack and a grindstone; the workshop baskets of wool, a hide on a stretching frame, shelves and
+  crates. A rug runs from the door to the back. Furniture stands against the walls (tall pieces never in front of a window),
+  blocks its tiles, and always leaves the way to the door, the counters and stations, and every bit of floor clear.
 - **Regions** of 64 × 64 tiles each hold a town or city, a **camp** (about 1 in 5: a clearing with tents and its occupants),
   a shrine, a quarry, an agility course or plain countryside.
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so

@@ -221,6 +221,9 @@ namespace Epacenur.Core
                 plan.Blocked.Add(moved.Feature);
                 if (moved.HasFeature2)
                     plan.Blocked.Add(moved.Feature2);
+                foreach (var f in moved.Furniture)
+                    foreach (var t in f.Tiles)
+                        plan.Blocked.Add(t);
             }
         }
 

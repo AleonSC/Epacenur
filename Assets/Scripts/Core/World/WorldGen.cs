@@ -47,6 +47,7 @@ namespace Epacenur.Core
         public Tile Feature;    // inside, against the back wall: the bank booth, shop keeper or altar (houses: a table)
         public bool HasFeature2;
         public Tile Feature2;   // a smithy's anvil (next to its furnace), a workshop's tanning rack (next to its spinning wheel)
+        public List<FurniturePiece> Furniture = new List<FurniturePiece>();  // what else is inside (Furnisher)
 
         /// The same building moved by (dx, dz) tiles.
         public Building Moved(int dx, int dz) => new Building
@@ -54,6 +55,7 @@ namespace Epacenur.Core
             Kind = Kind, Footprint = new Area(Footprint.X + dx, Footprint.Z + dz, Footprint.Width, Footprint.Height),
             Door = new Tile(Door.X + dx, Door.Z + dz), Feature = new Tile(Feature.X + dx, Feature.Z + dz),
             HasFeature2 = HasFeature2, Feature2 = new Tile(Feature2.X + dx, Feature2.Z + dz),
+            Furniture = Furniture.ConvertAll(f => f.Moved(dx, dz)),
         };
     }
 
@@ -95,6 +97,8 @@ namespace Epacenur.Core
                 }
             PlaceLamps(w);
             PlacePatches(w);
+            foreach (var b in w.Buildings)
+                b.Furniture = Furnisher.Furnish(b, seed);
             return w;
         }
 

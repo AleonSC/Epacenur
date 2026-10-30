@@ -42,7 +42,7 @@ namespace Epacenur.Runtime
             public float RightSign => AlongX ? (Outward.z > 0 ? 1f : -1f) : (Outward.x > 0 ? -1f : 1f);
         }
 
-        /// Builds a building's shell (the things in it are OverworldBuilder's). `townSeed`: the town's look.
+        /// Builds a building's shell and its furniture (TownInteriors; the stations and people in it are OverworldBuilder's). `townSeed`: the town's look.
         public static void Build(Transform root, Building b, int townSeed)
         {
             var a = b.Footprint;
@@ -112,9 +112,18 @@ namespace Epacenur.Runtime
                 BellTower(top, length, y0 + height, ridge);
             else if (b.Kind == BuildingKind.Smithy)
                 Chimney(top, length / 2f - 0.7f, span / 4f, y0, ridge + 0.9f, 0.8f, true);
-            else if (b.Kind == BuildingKind.House && rng.Next(10) < 6)
-                Chimney(top, (rng.Next(2) == 0 ? 1 : -1) * (length / 2f - 0.6f), 0f, y0, ridge + 0.5f, 0.5f, false);
+            else
+            {
+                // A house's chimney rises from its hearth, behind the fireplace.
+                var hearth = b.Furniture.Find(f => f.Kind == Furniture.Hearth);
+                if (hearth != null)
+                {
+                    float dx = hearth.CentreX - hearth.Facing.X * 0.55f - top.localPosition.x, dz = hearth.CentreZ - hearth.Facing.Z * 0.55f - top.localPosition.z;
+                    Chimney(top, ridgeAlongX ? dx : -dz, ridgeAlongX ? dz : dx, y0, ridge + 0.5f, 0.6f, false);
+                }
+            }
             top.gameObject.AddComponent<RoofHider>().Footprint = a;
+            TownInteriors.Build(root, b, y0);
         }
 
         // ---- Walls ----
