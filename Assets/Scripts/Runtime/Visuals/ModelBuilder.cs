@@ -4,13 +4,30 @@ using UnityEngine;
 
 namespace Epacenur.Runtime
 {
-    /// Builds the models content describes (Core: Model) out of Unity primitives.
+    /// Builds the models content describes (Core: Model) out of Unity's primitive shapes. Each model's solid
+    /// parts are merged into one mesh (a sub-mesh per colour), worked out once per model and shared by everything
+    /// built from it: one renderer instead of one per part, which is far cheaper with thousands of trees about.
+    /// Glowing parts (flames: they flicker) and named children (a tree's crown: it shakes) stay objects of their own.
     public static class ModelBuilder
     {
         static readonly Dictionary<Color, Material> glowCache = new Dictionary<Color, Material>();
+        static readonly Dictionary<Model, Baked> baked = new Dictionary<Model, Baked>();
+        static readonly Dictionary<PrimitiveType, Mesh> shapes = new Dictionary<PrimitiveType, Mesh>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => glowCache.Clear();
+        static void ResetStatics()
+        {
+            glowCache.Clear();
+            baked.Clear();
+            shapes.Clear();
+        }
+
+        /// A model's solid parts merged: the mesh and a material for each of its sub-meshes (null mesh: none).
+        sealed class Baked
+        {
+            public Mesh Mesh;
+            public Material[] Materials;
+        }
 
         public static Color ToColor(Rgb c) => new Color(c.R, c.G, c.B);
         public static Vector3 ToVector(Vec3 v) => new Vector3(v.X, v.Y, v.Z);
@@ -28,27 +45,127 @@ namespace Epacenur.Runtime
 
         static void Fill(Model model, Transform root)
         {
-            foreach (var p in model.Parts)
+            // The solid parts (with those of unnamed children): one shared, merged mesh.
+            var b = Bake(model);
+            if (b.Mesh != null)
             {
-                var go = Visuals.Prim(ToPrimitive(p.Shape), root, ToVector(p.Position), ToVector(p.Scale), ToColor(p.Colour));
-                go.transform.localRotation = Quaternion.Euler(ToVector(p.Rotation));
-                if (p.Glow)
-                {
-                    var r = go.GetComponent<Renderer>();
-                    r.sharedMaterial = GlowMaterial(ToColor(p.Colour));
-                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    go.name = "Glow";
-                }
+                root.gameObject.AddComponent<MeshFilter>().sharedMesh = b.Mesh;
+                root.gameObject.AddComponent<MeshRenderer>().sharedMaterials = b.Materials;
             }
+            AddGlows(model, root);
+            // Named children stay objects of their own (they're found by name and moved).
             foreach (var c in model.Children)
             {
-                var child = new GameObject(c.Name ?? "Part").transform;
-                child.SetParent(root, false);
-                child.localPosition = ToVector(c.Position);
-                child.localRotation = Quaternion.Euler(ToVector(c.Rotation));
-                child.localScale = Vector3.one * (c.Scale == 0f ? 1f : c.Scale);
-                Fill(c.Model, child);
+                if (c.Name == null)
+                    continue;
+                Fill(c.Model, ChildTransform(c, root));
             }
+        }
+
+        static Transform ChildTransform(ModelChild c, Transform parent)
+        {
+            var child = new GameObject(c.Name ?? "Part").transform;
+            child.SetParent(parent, false);
+            child.localPosition = ToVector(c.Position);
+            child.localRotation = Quaternion.Euler(ToVector(c.Rotation));
+            child.localScale = Vector3.one * (c.Scale == 0f ? 1f : c.Scale);
+            return child;
+        }
+
+        /// The glowing parts of a model and its unnamed children, each its own object named "Glow" (flames flicker).
+        static void AddGlows(Model model, Transform root)
+        {
+            foreach (var p in model.Parts)
+            {
+                if (!p.Glow)
+                    continue;
+                var go = Visuals.Prim(ToPrimitive(p.Shape), root, ToVector(p.Position), ToVector(p.Scale), ToColor(p.Colour));
+                go.transform.localRotation = Quaternion.Euler(ToVector(p.Rotation));
+                var r = go.GetComponent<Renderer>();
+                r.sharedMaterial = GlowMaterial(ToColor(p.Colour));
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                go.name = "Glow";
+            }
+            foreach (var c in model.Children)
+                if (c.Name == null && HasGlow(c.Model))
+                    AddGlows(c.Model, ChildTransform(c, root));
+        }
+
+        static bool HasGlow(Model m)
+        {
+            foreach (var p in m.Parts)
+                if (p.Glow)
+                    return true;
+            foreach (var c in m.Children)
+                if (c.Name == null && HasGlow(c.Model))
+                    return true;
+            return false;
+        }
+
+        /// The model's solid parts, and its unnamed children's, merged into one mesh with a sub-mesh per colour.
+        static Baked Bake(Model model)
+        {
+            if (baked.TryGetValue(model, out var b))
+                return b;
+            var byColour = new Dictionary<Color, List<CombineInstance>>();
+            Collect(model, Matrix4x4.identity, byColour);
+            b = new Baked();
+            if (byColour.Count > 0)
+            {
+                var parts = new CombineInstance[byColour.Count];
+                b.Materials = new Material[byColour.Count];
+                int i = 0;
+                foreach (var kv in byColour)
+                {
+                    var one = new Mesh();
+                    one.CombineMeshes(kv.Value.ToArray(), true, true);
+                    parts[i] = new CombineInstance { mesh = one, transform = Matrix4x4.identity };
+                    b.Materials[i] = Visuals.Mat(kv.Key);
+                    i++;
+                }
+                b.Mesh = new Mesh { name = "Model" };
+                b.Mesh.CombineMeshes(parts, false, false);
+                b.Mesh.RecalculateBounds();
+                foreach (var p in parts)
+                    Object.Destroy(p.mesh);
+            }
+            baked[model] = b;
+            return b;
+        }
+
+        static void Collect(Model model, Matrix4x4 m, Dictionary<Color, List<CombineInstance>> byColour)
+        {
+            foreach (var p in model.Parts)
+            {
+                if (p.Glow)
+                    continue;
+                var c = ToColor(p.Colour);
+                if (!byColour.TryGetValue(c, out var list))
+                    byColour[c] = list = new List<CombineInstance>();
+                list.Add(new CombineInstance
+                {
+                    mesh = PrimitiveMesh(ToPrimitive(p.Shape)),
+                    transform = m * Matrix4x4.TRS(ToVector(p.Position), Quaternion.Euler(ToVector(p.Rotation)), ToVector(p.Scale)),
+                });
+            }
+            foreach (var ch in model.Children)
+            {
+                if (ch.Name != null)
+                    continue;
+                float s = ch.Scale == 0f ? 1f : ch.Scale;
+                Collect(ch.Model, m * Matrix4x4.TRS(ToVector(ch.Position), Quaternion.Euler(ToVector(ch.Rotation)), Vector3.one * s), byColour);
+            }
+        }
+
+        /// Unity's mesh for a primitive shape (taken once from a throwaway primitive).
+        static Mesh PrimitiveMesh(PrimitiveType type)
+        {
+            if (shapes.TryGetValue(type, out var mesh) && mesh != null)
+                return mesh;
+            var go = GameObject.CreatePrimitive(type);
+            mesh = go.GetComponent<MeshFilter>().sharedMesh;
+            Object.Destroy(go);
+            return shapes[type] = mesh;
         }
 
         /// A self-lit material (flames, a furnace's mouth).
