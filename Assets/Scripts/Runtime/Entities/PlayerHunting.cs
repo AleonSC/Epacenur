@@ -39,6 +39,28 @@ namespace Epacenur.Runtime
             GameLog.Add("You lay the " + def.Name.ToLowerInvariant() + ". Step away and wait for something to come along.");
         }
 
+        Light lantern;
+
+        /// Underground you carry a little light of your own (just enough to see the room you're in).
+        public void SetLantern(bool on)
+        {
+            if (lantern == null)
+            {
+                if (!on)
+                    return;
+                lantern = new GameObject("Lantern").AddComponent<Light>();
+                lantern.transform.SetParent(transform, false);
+                lantern.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+                lantern.type = LightType.Point;
+                lantern.color = new Color(1f, 0.85f, 0.65f);
+                lantern.range = 7f;
+                lantern.intensity = 1.1f;
+                lantern.shadows = LightShadows.None;
+            }
+            if (lantern.enabled != on)
+                lantern.enabled = on;
+        }
+
         /// Harvest a grown patch, one at a time, until it's empty or you're full.
         public void StartHarvest(PatchObject patch)
         {

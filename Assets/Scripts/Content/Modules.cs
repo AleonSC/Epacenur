@@ -26,6 +26,7 @@ namespace Epacenur.Content
             new ThievingModule(),
             new HerbloreModule(),
             new SlayerModule(),
+            new DungeonsModule(),
             new HunterModule(),
             new FarmingModule(),
             new ConstructionModule(),

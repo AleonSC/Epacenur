@@ -79,6 +79,8 @@ namespace Epacenur.Runtime
         {
             var old = Read(KeyFor(game.Character));
             var skills = ContentDb.Current.Skills;
+            // In a dungeon you're saved outside its cave mouth (dungeons aren't kept to come back to inside).
+            game.World.SurfacePlace(game.Player.CurrentTile, out MapId spotMap, out Tile spot);
             var d = new Data
             {
                 format = Format,
@@ -86,9 +88,9 @@ namespace Epacenur.Runtime
                 xpTenths = new string[skills.Count],
                 items = new string[Inventory.Size],
                 counts = new int[Inventory.Size],
-                tileX = game.Player.CurrentTile.X,
-                tileZ = game.Player.CurrentTile.Z,
-                map = (int)game.World.Map,
+                tileX = spot.X,
+                tileZ = spot.Z,
+                map = (int)spotMap,
                 worldVersion = WorldVersion,
                 style = game.StyleIndex,
                 autocast = game.Autocast?.Id,
@@ -135,9 +137,9 @@ namespace Epacenur.Runtime
                     zs.Add(old.placeZ[i]);
                 }
             worlds.Add(game.WorldInfo.id);
-            maps.Add((int)game.World.Map);
-            xs.Add(game.Player.CurrentTile.X);
-            zs.Add(game.Player.CurrentTile.Z);
+            maps.Add((int)spotMap);
+            xs.Add(spot.X);
+            zs.Add(spot.Z);
             d.placeWorlds = worlds.ToArray();
             d.placeMaps = maps.ToArray();
             d.placeX = xs.ToArray();

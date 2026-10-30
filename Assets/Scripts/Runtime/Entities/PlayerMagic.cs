@@ -49,7 +49,8 @@ namespace Epacenur.Runtime
                     }
                     Magic.UseRunes(spell, G.Inventory, G.Equipment);
                     G.Skills.AddXp(SkillIds.Magic, spell.Xp);
-                    TeleportTo(spell, G.World.Map == MapId.Overworld ? G.World.NearestTown(CurrentTile) : G.World.MainSpawn);
+                    G.World.SurfacePlace(CurrentTile, out MapId from, out Tile at);
+                    TeleportTo(spell, from == MapId.Overworld ? G.World.NearestTown(at) : G.World.MainSpawn);
                     break;
                 case SpellKind.Alchemy:
                     G.Hud.Panel.ShowInventory();  // (this puts down anything picked, so first)

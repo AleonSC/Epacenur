@@ -11,6 +11,7 @@ namespace Epacenur.Runtime
     {
         public string item;
         public int count, x, z, map;
+        public long cave;  // in a dungeon: its cave (a region key)
         public Tile Tile => new Tile(x, z);
     }
 

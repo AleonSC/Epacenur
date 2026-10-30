@@ -58,8 +58,25 @@ namespace Epacenur.Runtime
         /// How high the sun is: 1 overhead at noon, 0 on the horizon, -1 at midnight.
         float Height => Mathf.Sin((Time - SunriseAt) * Mathf.PI * 2f);
 
+        static readonly Color CaveDark = new Color(0.01f, 0.01f, 0.015f), CaveAmbient = new Color(0.1f, 0.1f, 0.12f);
+
+        /// Underground (in a dungeon): no sun or sky, only the torches, your own light and a little ambient glow.
+        public bool Underground;
+
         void Apply()
         {
+            if (Underground)
+            {
+                cam.backgroundColor = CaveDark;
+                RenderSettings.fogColor = CaveDark;
+                RenderSettings.fogStartDistance = 6f;
+                RenderSettings.fogEndDistance = 30f;
+                RenderSettings.ambientLight = CaveAmbient;
+                sun.intensity = 0f;
+                return;
+            }
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 140f;
             float h = Height;
             float day = Smooth(-0.12f, 0.25f, h);            // 0 at night, 1 in full day
             float dusk = 1f - Mathf.Clamp01(Mathf.Abs(h + 0.02f) / 0.22f);  // near the horizon

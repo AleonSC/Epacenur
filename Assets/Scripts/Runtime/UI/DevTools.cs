@@ -144,6 +144,8 @@ namespace Epacenur.Runtime
                 Teleport(MapId.DevPlot, G.World.DevSpawn, "You teleport to the dev plot.");
             if (GUILayout.Button("Teleport to main world"))
                 Teleport(MapId.Overworld, G.World.MainSpawn, "You teleport to the town square.");
+            if (GUILayout.Button("Into Epacenur caves"))
+                G.World.GoUnderground(G.World.Overworld.Plan(0, -1));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             foreach (var area in plots)

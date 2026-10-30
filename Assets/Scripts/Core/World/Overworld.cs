@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace Epacenur.Core
 {
-    public enum RegionKind { Wild, Town, Camp, Shrine, Quarry, Course }
+    /// Dungeon is never a region's kind: monsters use it for "underground, in a dungeon" (NpcSpawnRule.Region).
+    public enum RegionKind { Wild, Town, Camp, Shrine, Quarry, Course, Cave, Dungeon }
 
     /// The kind of country a tile is in: what grows there, how wet it is, the colour of the ground.
     public enum Biome { Meadow, Woodland, Marsh, Highlands, Wasteland }
@@ -40,6 +41,7 @@ namespace Epacenur.Core
         public double LevelHeight; public bool HasLevelHeight;  // the height it's levelled at (Overworld.LevelHeight)                                   // towns, camps, shrines, quarries, courses: kept flat (hills rise beyond it)
         public Tile Altar;                                   // shrines: where the altar stands
         public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
+        public Tile CaveMouth;                               // caves: the way into the dungeon
         public Tile CourseCorner;                            // agility courses: the south-west corner of the loop
         public List<ObstaclePlacement> Obstacles;            // agility courses: where each obstacle goes
         public readonly HashSet<Tile> Essence = new HashSet<Tile>();  // shrines: rune essence boulders round the paving
@@ -59,6 +61,8 @@ namespace Epacenur.Core
                 return Terrain.Stone;
             if (Kind == RegionKind.Course && AgilityCourse.OnLoop(CourseCorner, t) && !Blocked.Contains(t))
                 return Terrain.Path;
+            if (Kind == RegionKind.Cave && Camp.Contains(t) && !Blocked.Contains(t))
+                return Terrain.Camp;
             if (Kind == RegionKind.Shrine && Essence.Contains(t))
                 return Terrain.Essence;
             if (Kind == RegionKind.Quarry && Camp.Contains(t))
@@ -71,7 +75,7 @@ namespace Epacenur.Core
         {
             if (Kind == RegionKind.Town)
                 return t.StepsTo(Center) <= (City ? Overworld.CityClearRadius : Overworld.TownClearRadius);
-            if (Kind == RegionKind.Course)
+            if (Kind == RegionKind.Course || Kind == RegionKind.Cave)
                 return Level.Contains(t);
             if (Kind == RegionKind.Camp || Kind == RegionKind.Shrine || Kind == RegionKind.Quarry)
                 return t.X >= Camp.X - 3 && t.X < Camp.XMax + 3 && t.Z >= Camp.Z - 3 && t.Z < Camp.ZMax + 3;
@@ -162,14 +166,17 @@ namespace Epacenur.Core
             // courses and wild country.
             var settlement = SettlementOf(rx, rz);
             bool here = settlement != null && settlement.RX == rx && settlement.RZ == rz;
-            bool starter = (rz == 0 && (rx == 1 || rx == -1)) || (rx == 0 && rz == 1 && !here);
+            bool starter = (rz == 0 && (rx == 1 || rx == -1)) || (rx == 0 && (rz == 1 || rz == -1) && !here);
             plan.City = here && settlement.City;
             // Round the start: a shrine to the east, an agility course to the west and a quarry (copper and tin) to the north.
             // Quarries are the only places with ore, so there are more of them than of the rest.
             plan.Kind = here ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine : rx == -1 && rz == 0 ? RegionKind.Course
-                : rx == 0 && rz == 1 ? RegionKind.Quarry
+                : rx == 0 && rz == 1 ? RegionKind.Quarry : rx == 0 && rz == -1 ? RegionKind.Cave
                 : roll < 0.22 ? RegionKind.Camp : roll < 0.31 ? RegionKind.Shrine : roll < 0.44 ? RegionKind.Quarry : roll < 0.5 ? RegionKind.Course
                 : RegionKind.Wild;
+            // Caves up in the mountains: a mouth into a dungeon.
+            if (plan.Kind == RegionKind.Wild && !here && hillsField.At(plan.Center.X, plan.Center.Z) > 7 && Hash(rx, rz, 9) < 0.45)
+                plan.Kind = RegionKind.Cave;
             // Not in a lake: a camp, shrine, quarry or course needs dry ground under its middle. (Ponds have no pits,
             // so dry ground there always runs on out of the lake, and its ground is kept clear of water.)
             if (!here && !starter && plan.Kind != RegionKind.Wild && PondNoise(plan.Center.X, plan.Center.Z) > PondLevel(plan.Center.X, plan.Center.Z) - 0.1)
@@ -182,6 +189,8 @@ namespace Epacenur.Core
                 PlanShrine(plan);
             else if (plan.Kind == RegionKind.Course)
                 PlanCourse(plan);
+            else if (plan.Kind == RegionKind.Cave)
+                PlanCave(plan);
             else if (plan.Kind == RegionKind.Quarry)
                 PlanQuarry(plan);
             plans[key] = plan;
@@ -282,6 +291,28 @@ namespace Epacenur.Core
             plan.Cart = new Tile(q.X + q.Width / 2, q.ZMax - 1);
             plan.Blocked.Add(plan.Cart);
             plan.Level = new Area(q.X - 3, q.Z - 3, q.Width + 6, q.Height + 6);
+        }
+
+        /// A cave mouth (a blocked tile you enter by from the south) on a patch of trampled ground.
+        void PlanCave(RegionPlan plan)
+        {
+            int dx = (int)(Hash(plan.RX, plan.RZ, 10) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 11) * 16) - 8;
+            plan.CaveMouth = new Tile(plan.Center.X + dx, plan.Center.Z + dz);
+            plan.Blocked.Add(plan.CaveMouth);
+            foreach (var side in new[] { new Tile(-1, 0), new Tile(1, 0), new Tile(-1, 1), new Tile(0, 1), new Tile(1, 1) })
+                plan.Blocked.Add(new Tile(plan.CaveMouth.X + side.X, plan.CaveMouth.Z + side.Z));  // the rocks round it
+            plan.Camp = new Area(plan.CaveMouth.X - 3, plan.CaveMouth.Z - 4, 7, 6);
+            plan.Level = new Area(plan.CaveMouth.X - 5, plan.CaveMouth.Z - 6, 11, 10);
+        }
+
+        /// Where you stand to go into a cave: just south of its mouth.
+        public static Tile CaveApproach(RegionPlan plan) => new Tile(plan.CaveMouth.X, plan.CaveMouth.Z - 1);
+
+        /// The dungeon under a cave: its layout (the same every time) and how dangerous it is (the wilderness level at its mouth).
+        public DungeonLayout Dungeon(RegionPlan plan, out int danger)
+        {
+            danger = Danger(plan.CaveMouth);
+            return Dungeons.Generate((int)(Hash(plan.RX, plan.RZ, 81) * int.MaxValue));
         }
 
         /// A loop of path with five obstacles along it (which course: Spawning, by wilderness level).

@@ -14,9 +14,9 @@ namespace Epacenur.Runtime
         public object Owner;
     }
 
-    /// The two places you can be: the endless overworld, and the dev plot for testing skills. Nothing
-    /// connects them; the dev tools teleport between them.
-    public enum MapId { Overworld = 0, DevPlot = 1 }
+    /// The places you can be: the endless overworld, the dungeon under a cave mouth (World.CurrentCave), and
+    /// the dev plot for testing skills (the dev tools teleport you there and back).
+    public enum MapId { Overworld = 0, DevPlot = 1, Dungeon = 2 }
 
     /// The map you're on and everything on it.
     ///
@@ -127,7 +127,23 @@ namespace Epacenur.Runtime
 
         public MapId Map { get; private set; }
         public Overworld Overworld { get; private set; }
-        public WalkGrid Grid => Map == MapId.DevPlot ? (WalkGrid)devGrid : baseGrid;
+        public WalkGrid Grid => Map != MapId.Overworld ? (WalkGrid)devGrid : baseGrid;
+
+        /// In a dungeon: the cave it's under, and its layout and wilderness level.
+        public RegionPlan CurrentCave { get; private set; }
+        public DungeonLayout CurrentDungeon { get; private set; }
+        public int DungeonDanger { get; private set; }
+
+        /// The size of the dev plot or dungeon (the overworld has none).
+        public int FixedWidth => Map == MapId.Dungeon ? CurrentDungeon.Width : DevArea.Width;
+        public int FixedHeight => Map == MapId.Dungeon ? CurrentDungeon.Height : DevArea.Height;
+
+        /// Where you are as the overworld sees it: in a dungeon, outside its cave mouth (for saving, dying, teleports).
+        public void SurfacePlace(Tile here, out MapId map, out Tile tile)
+        {
+            map = Map == MapId.Dungeon ? MapId.Overworld : Map;
+            tile = Map == MapId.Dungeon ? Overworld.CaveApproach(CurrentCave) : here;
+        }
         /// The bases built in this world (the overworld's).
         public BaseSet Bases { get; private set; }
         /// Where you start: the overworld's first town square.
@@ -183,6 +199,13 @@ namespace Epacenur.Runtime
             var patch = Own(PatchObject.Create(tile, kind, owner.Root), owner);
             Grid.SetBlocked(tile, true);
             return patch;
+        }
+
+        /// The way into a cave's dungeon.
+        public CaveMouth AddCaveMouth(RegionPlan cave, string name)
+        {
+            var owner = OwnerAt(cave.CaveMouth);
+            return Own(CaveMouth.Create(cave, name, owner.Root), owner);
         }
 
         /// A hunter's trap laid on a tile.
@@ -260,9 +283,11 @@ namespace Epacenur.Runtime
             activeBases = map == MapId.Overworld ? Bases : null;
             heights.Clear();
             at = GroundTile(at);
-            SetOrigin(map == MapId.DevPlot ? new Tile(0, 0) : Snap(at));
+            SetOrigin(map != MapId.Overworld ? new Tile(0, 0) : Snap(at));
             if (map == MapId.DevPlot)
                 BuildDevPlot();
+            else if (map == MapId.Dungeon)
+                BuildDungeon();
             else
             {
                 LoadAround(at, radius, int.MaxValue);
@@ -443,6 +468,9 @@ namespace Epacenur.Runtime
                 TakeDown(dev);
             dev = null;
             devGrid = null;
+            if (dungeonWalls != null)
+                ModelBuilder.Forget(dungeonWalls);  // its merged mesh isn't needed once you've left
+            dungeonWalls = null;
             Areas.Clear();
         }
 
@@ -475,7 +503,7 @@ namespace Epacenur.Runtime
         {
             if (building != null)
                 return building;
-            if (Map == MapId.DevPlot)
+            if (Map != MapId.Overworld)
                 return dev;
             tile = GroundTile(tile);
             chunks.TryGetValue(ChunkedGrid.Key(chunkGrid.ChunkOf(tile.X), chunkGrid.ChunkOf(tile.Z)), out var owner);
@@ -553,6 +581,119 @@ namespace Epacenur.Runtime
             float t = band * 0.13f;
             return new Color(c.r + (wild.r - c.r) * t, c.g + (wild.g - c.g) * t, c.b + (wild.b - c.b) * t);
         }
+
+        // ---- Dungeons ----
+
+        long CaveKey => Map == MapId.Dungeon && CurrentCave != null ? ChunkedGrid.Key(CurrentCave.RX, CurrentCave.RZ) : 0;
+
+        /// Down a cave mouth: into its dungeon, beside the ladder.
+        public void GoUnderground(RegionPlan cave)
+        {
+            CurrentCave = cave;
+            CurrentDungeon = Overworld.Dungeon(cave, out int danger);
+            DungeonDanger = danger;
+            Enter(MapId.Dungeon, CurrentDungeon.Ladder, 1);
+            Game.Instance.Player.Teleport(CurrentDungeon.Ladder);
+        }
+
+        /// Up the ladder: back out of the cave mouth.
+        public void GoUp() => Travel(MapId.Overworld, Overworld.CaveApproach(CurrentCave));
+
+        static readonly Color DungeonFloor = new Color(0.22f, 0.2f, 0.19f), DungeonLine = new Color(0.18f, 0.16f, 0.15f);
+        static readonly Rgb Rockface = new Rgb(0.3f, 0.28f, 0.26f), RockTop = new Rgb(0.2f, 0.19f, 0.18f);
+        Model dungeonWalls;
+
+        /// The dungeon: dark stone floor, walls of rock round every room and corridor, torches, the ladder up,
+        /// a group of monsters in most rooms and the boss in the furthest.
+        void BuildDungeon()
+        {
+            var d = CurrentDungeon;
+            devGrid = new TileGrid(d.Width, d.Height);
+            dev = NewOwner("Dungeon");
+            BuildGround(new RectInt(0, 0, d.Width, d.Height), DungeonFloor, DungeonLine);
+            // Rock walls: a block on every rock tile next to floor (one merged mesh, solid to walk into).
+            if (dungeonWalls != null)
+                ModelBuilder.Forget(dungeonWalls);
+            dungeonWalls = new Model();
+            for (int x = 0; x < d.Width; x++)
+                for (int z = 0; z < d.Height; z++)
+                {
+                    var t = new Tile(x, z);
+                    if (d.IsFloor(t))
+                        continue;
+                    devGrid.SetBlocked(t, true);
+                    bool edge = false;
+                    for (int dx = -1; dx <= 1 && !edge; dx++)
+                        for (int dz = -1; dz <= 1 && !edge; dz++)
+                            if (d.IsFloor(new Tile(x + dx, z + dz)))
+                                edge = true;
+                    if (edge)
+                    {
+                        float h = 2.6f + (float)((x * 7 + z * 13) % 5) * 0.15f;
+                        dungeonWalls.Cube(x, h / 2f, z, 1.02f, h, 1.02f, Rockface).Cube(x, h, z, 1.04f, 0.1f, 1.04f, RockTop);
+                    }
+                }
+            var walls = ModelBuilder.Build(dungeonWalls, dev.Root, "Walls");
+            var wallMesh = walls.GetComponent<MeshFilter>();
+            if (wallMesh != null)
+                walls.gameObject.AddComponent<MeshCollider>().sharedMesh = wallMesh.sharedMesh;
+
+            foreach (var t in d.Torches)
+                Torch(t);
+            var ladder = new Tile(d.Ladder.X, d.Ladder.Z + 1);
+            if (!d.IsFloor(ladder))
+                ladder = new Tile(d.Ladder.X + 1, d.Ladder.Z);
+            Own(LadderObject.Create(ladder, dev.Root), dev);
+            devGrid.SetBlocked(ladder, true);
+            AddLabel(Local(ladder) + Vector3.up * 2.6f, "Ladder up", new Color(1f, 0.85f, 0.3f));
+
+            // Monsters: a group in each room but the ladder's and the boss's.
+            var rng = new System.Random((int)(Overworld.Hash(CurrentCave.RX, CurrentCave.RZ, 82) * int.MaxValue));
+            var groups = Dungeons.Groups(DungeonDanger, d.Rooms.Count - 2, rng, out NpcDef boss);
+            int g = 0;
+            for (int i = 0; i < d.Rooms.Count && g < groups.Count; i++)
+            {
+                if (i == d.LadderRoom || i == d.BossRoom)
+                    continue;
+                var room = d.Rooms[i];
+                var home = new RectInt(room.X, room.Z, room.Width, room.Height);
+                for (int k = 0; k < groups[g].Count; k++)
+                    AddNpc(groups[g].Npc, new Tile(room.X + rng.Next(room.Width), room.Z + rng.Next(room.Height)), home);
+                g++;
+            }
+            if (boss != null)
+            {
+                var room = d.Rooms[d.BossRoom];
+                AddNpc(boss, room.Center, new RectInt(room.X, room.Z, room.Width, room.Height));
+                AddLabel(Local(room.Center) + Vector3.up * 0.2f, boss.Name + "'s lair", new Color(1f, 0.5f, 0.4f));
+            }
+            ShowPiles(DungeonPiles(CaveKey));
+            devColours = new Color32[d.Width * d.Height];
+            for (int x = 0; x < d.Width; x++)
+                for (int z = 0; z < d.Height; z++)
+                    devColours[x * d.Height + z] = d.IsFloor(new Tile(x, z)) ? new Color32(70, 64, 58, 255) : new Color32(20, 18, 16, 255);
+        }
+
+        /// A torch on a rock wall: a flame and a warm flickering light.
+        void Torch(Tile t)
+        {
+            var go = new GameObject("Torch");
+            go.transform.SetParent(dev.Root, false);
+            go.transform.localPosition = Local(t) + new Vector3(0f, 1.7f, -0.55f);
+            ModelBuilder.Build(TorchModel, go.transform);
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(go.transform, false);
+            light.transform.localPosition = new Vector3(0f, 0.3f, -0.4f);
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.65f, 0.35f);
+            light.range = 9f;
+            light.intensity = 1.6f;
+            light.shadows = LightShadows.None;
+        }
+
+        static readonly Model TorchModel = new Model()
+            .Cylinder(0f, 0f, 0f, 0.07f, 0.25f, 0.07f, new Rgb(0.35f, 0.22f, 0.12f)).Turn(-25f, 0f, 0f)
+            .Sphere(0f, 0.3f, -0.12f, 0.18f, 0.28f, 0.18f, new Rgb(1f, 0.6f, 0.15f)).Glowing();
 
         // ---- The dev plot ----
 
@@ -711,10 +852,15 @@ namespace Epacenur.Runtime
             return npc;
         }
 
-        long PileKey(int map, Tile t)
+        /// Items in a dungeon are kept by its cave (a region key), apart from everything else.
+        static long DungeonPiles(long cave) => long.MinValue + 1 + (cave & 0x3FFFFFFFFFFFFFFFL);
+
+        long PileKey(int map, Tile t, long cave = 0)
         {
             if (map == (int)MapId.DevPlot)
                 return DevPiles;
+            if (map == (int)MapId.Dungeon)
+                return DungeonPiles(cave);
             t = Map == MapId.Overworld ? GroundTile(t) : Bases.GroundTile(t);
             return ChunkedGrid.Key(chunkGrid.ChunkOf(t.X), chunkGrid.ChunkOf(t.Z));
         }
@@ -722,7 +868,7 @@ namespace Epacenur.Runtime
         void AddPile(GroundPile p)
         {
             Piles.Add(p);
-            long key = PileKey(p.map, p.Tile);
+            long key = PileKey(p.map, p.Tile, p.cave);
             if (!pilesByChunk.TryGetValue(key, out var list))
                 pilesByChunk[key] = list = new List<GroundPile>();
             list.Add(p);
@@ -754,7 +900,7 @@ namespace Epacenur.Runtime
                         g.Pile.count += count;
                         return g;
                     }
-            var pile = new GroundPile { item = itemId, count = count, x = tile.X, z = tile.Z, map = (int)Map };
+            var pile = new GroundPile { item = itemId, count = count, x = tile.X, z = tile.Z, map = (int)Map, cave = CaveKey };
             AddPile(pile);
             var item = Own(GroundItem.Create(pile, owner.Root, rng), owner);
             GroundItems.Add(item);
@@ -897,11 +1043,11 @@ namespace Epacenur.Runtime
         public bool TryMapColour(Tile t, out Color32 c)
         {
             c = default(Color32);
-            if (Map == MapId.DevPlot)
+            if (Map != MapId.Overworld)
             {
-                if (devColours == null || t.X < 0 || t.Z < 0 || t.X >= DevArea.Width || t.Z >= DevArea.Height)
+                if (devColours == null || t.X < 0 || t.Z < 0 || t.X >= FixedWidth || t.Z >= FixedHeight)
                     return false;
-                c = devColours[t.X * DevArea.Height + t.Z];
+                c = devColours[t.X * FixedHeight + t.Z];
                 return true;
             }
             int size = Overworld.ChunkSize, cx = chunkGrid.ChunkOf(t.X), cz = chunkGrid.ChunkOf(t.Z);
@@ -941,7 +1087,7 @@ namespace Epacenur.Runtime
         {
             GroundItems.Remove(item);
             Piles.Remove(item.Pile);
-            if (pilesByChunk.TryGetValue(PileKey(item.Pile.map, item.Tile), out var list))
+            if (pilesByChunk.TryGetValue(PileKey(item.Pile.map, item.Tile, item.Pile.cave), out var list))
                 list.Remove(item.Pile);
             Destroy(item.gameObject);
         }

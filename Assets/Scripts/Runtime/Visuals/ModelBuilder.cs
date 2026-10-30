@@ -102,6 +102,17 @@ namespace Epacenur.Runtime
             return false;
         }
 
+        /// Frees the merged mesh made for a model that won't be built again (a dungeon's walls, once you leave).
+        public static void Forget(Model model)
+        {
+            if (baked.TryGetValue(model, out var b))
+            {
+                if (b.Mesh != null)
+                    Object.Destroy(b.Mesh);
+                baked.Remove(model);
+            }
+        }
+
         /// The model's solid parts, and its unnamed children's, merged into one mesh with a sub-mesh per colour.
         static Baked Bake(Model model)
         {

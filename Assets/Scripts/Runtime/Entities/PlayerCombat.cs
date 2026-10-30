@@ -216,15 +216,17 @@ namespace Epacenur.Runtime
 
         /// A monster swings at you: Protect from Melee blocks it; otherwise it rolls against your Defence.
         /// If you're standing idle (tile mode) you fight back, like RuneScape's auto retaliate.
-        public void TakeMonsterHit(Npc npc)
+        public void TakeMonsterHit(Npc npc) => TakeMonsterHit(npc, npc.Def.AttackType, npc.Def.MaxHit);
+
+        /// A monster's attack of a given type and max hit (a boss's special is a different type from its usual).
+        public void TakeMonsterHit(Npc npc, AttackType type, int maxHit)
         {
             int damage = 0;
-            bool melee = npc.Def.AttackType != AttackType.Ranged && npc.Def.AttackType != AttackType.Magic;
-            if (!(melee && G.Prayer.ProtectsFromMelee))
+            if (!G.Prayer.Protects(type))
             {
                 double chance = CombatRules.MonsterHitChance(npc.Def, G.Level(SkillIds.Defence),
-                    G.Equipment.Bonuses.Defence(npc.Def.AttackType), G.CurrentStyle.Style, G.Prayer.DefenceMultiplier);
-                damage = CombatRules.RollDamage(G.Rng, chance, npc.Def.MaxHit);
+                    G.Equipment.Bonuses.Defence(type), G.CurrentStyle.Style, G.Prayer.DefenceMultiplier);
+                damage = CombatRules.RollDamage(G.Rng, chance, maxHit);
             }
             G.HurtPlayer(damage);
 

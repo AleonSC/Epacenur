@@ -153,12 +153,12 @@ namespace Epacenur.Runtime
         {
             var cam = G.Rig.Cam;
             var p = G.Player;
-            if (G.Prayer.ProtectsFromMelee)
+            if (G.Prayer.Protection.HasValue)
             {
                 // The protection prayer's symbol over your head (top of the view in first person).
                 Vector3 over = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 2.5f);
                 Vector2 at = p.Mode == ViewMode.Tile && over.z > 0f ? ToGui(hud, over) : new Vector2(hud.W / 2f, 40f);
-                PrayerTab.DrawIcon(new Rect(at.x - 11f, at.y - 11f, 22f, 22f), Prayers.Get(PrayerId.ProtectFromMelee));
+                PrayerTab.DrawIcon(new Rect(at.x - 11f, at.y - 11f, 22f, 22f), Prayers.Get(G.Prayer.Protection.Value));
             }
             if (p.Mode == ViewMode.Tile && (!G.Health.IsFull || p.Hitsplats.Count > 0))
             {

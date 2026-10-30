@@ -718,6 +718,39 @@ public static class CoreRulesSuite
         Check(homeLayout.Patches.Count == WorldGen.PatchesPerTown && homeLayout.Buildings.Exists(b => b.Kind == BuildingKind.House),
             "every town has four farming patches and a house for its slayer master");
 
+                info("Dungeons and bosses");
+        var dw = new Overworld(2024);
+        var startCave = dw.Plan(0, -1);
+        Check(startCave.Kind == RegionKind.Cave && !dw.IsBlocked(Overworld.CaveApproach(startCave)) && dw.IsBlocked(startCave.CaveMouth),
+            "just south of the start there's always a cave, and you can walk up to its mouth");
+        var dl = dw.Dungeon(startCave, out int startDanger);
+        var reachAll = Dungeons.Distances(dl, dl.Ladder);
+        bool allRooms = true;
+        foreach (var room in dl.Rooms) if (reachAll[room.Center.X, room.Center.Z] == int.MaxValue) allRooms = false;
+        Check(allRooms && dl.LadderRoom != dl.BossRoom && dl.Rooms.Count == Dungeons.Cells * Dungeons.Cells && dl.IsFloor(dl.Ladder),
+            "a dungeon's 16 rooms all join up, the boss as far from the ladder as can be");
+        int mountainCaves = 0;
+        for (int rx = -15; rx <= 15; rx++) for (int rz = -15; rz <= 15; rz++) if ((rx != 0 || rz != -1) && dw.Plan(rx, rz).Kind == RegionKind.Cave) mountainCaves++;
+        Check(mountainCaves > 0, "more caves up in the mountains (" + mountainCaves + " nearby)");
+        var dgroups = Dungeons.Groups(startDanger, 14, new Random(4), out NpcDef easyBoss);
+        bool easyOk = dgroups.Count == 14 && dgroups.TrueForAll(g => g.Npc.CombatLevel <= 30 && !g.Npc.Boss);
+        Check(easyOk && easyBoss != null && easyBoss.Id == DungeonsModule.CrawlingHorror,
+            "near safety, dungeons hold weaker monsters (" + dgroups[0].Npc.Name + "...) and the Crawling Horror");
+        Dungeons.Groups(45, 5, new Random(4), out NpcDef hardBoss);
+        Check(hardBoss != null && hardBoss.Id == DungeonsModule.PyreLord, "deep in the wilderness, the Pyre Lord");
+        Check(db.Npc(SlayerModule.CrawlingHand).Spawns.TrueForAll(r => r.Region == RegionKind.Dungeon)
+            && db.Npc(SlayerModule.Rockslug).Spawns.TrueForAll(r => r.Region == RegionKind.Dungeon), "crawling hands and rockslugs live in dungeons now");
+        var horrorDef = db.Npc(DungeonsModule.CrawlingHorror);
+        Check(horrorDef.SpecialEvery > 0 && horrorDef.SpecialType != horrorDef.AttackType, "a boss's special attack is a different kind from its usual one");
+        var pp = new PrayerBook(43);
+        pp.Toggle(PrayerId.ProtectFromMagic, 43);
+        Check(pp.Protects(AttackType.Magic) && !pp.Protects(AttackType.Crush) && !pp.Protects(AttackType.Ranged), "Protect from Magic stops spells, not blows");
+        pp.Toggle(PrayerId.ProtectFromMissiles, 43);
+        Check(pp.Protects(AttackType.Ranged) && !pp.Protects(AttackType.Magic), "...and protection prayers replace each other");
+        var vet = new SkillSet();
+        foreach (var id in new[] { SkillIds.Attack, SkillIds.Strength, SkillIds.Defence, SkillIds.Hitpoints }) vet.SetLevel(id, 99);
+        Check(!Slayer.Candidates(db, vet).Exists(n => n.Boss), "bosses are never a slayer task");
+
                 info("Crafting");
         var cinv3 = new Inventory();
         cinv3.Add(CombatModule.Cowhide, 3);

@@ -136,7 +136,7 @@ namespace Epacenur.Core
         public static List<Group> GroupsIn(Overworld ow, RegionPlan plan)
         {
             var groups = new List<Group>();
-            int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Quarry || plan.Kind == RegionKind.Course ? 0
+            int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Quarry || plan.Kind == RegionKind.Course || plan.Kind == RegionKind.Cave ? 0
                 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
             int d = ow.Danger(plan.Center);
             double far = Distance(ow, plan.Center);

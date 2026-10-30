@@ -6,6 +6,7 @@ namespace Epacenur.Core
     public enum PrayerId
     {
         ThickSkin, BurstOfStrength, ClarityOfThought, RockSkin, SuperhumanStrength, ImprovedReflexes, ProtectFromMelee,
+        ProtectFromMagic, ProtectFromMissiles,
     }
 
     /// Prayers in the same group replace each other (only one Defence boost at a time, and so on).
@@ -40,6 +41,10 @@ namespace Epacenur.Core
                 Description = "Increases your Attack by 10%." },
             new PrayerDef { Id = PrayerId.ProtectFromMelee, Name = "Protect from Melee", Level = 43, DrainEffect = 12, Group = PrayerGroup.Protection,
                 Description = "Protects you from monsters' melee attacks." },
+            new PrayerDef { Id = PrayerId.ProtectFromMagic, Name = "Protect from Magic", Level = 37, DrainEffect = 12, Group = PrayerGroup.Protection,
+                Description = "Protects you from monsters' spells." },
+            new PrayerDef { Id = PrayerId.ProtectFromMissiles, Name = "Protect from Missiles", Level = 40, DrainEffect = 12, Group = PrayerGroup.Protection,
+                Description = "Protects you from monsters' arrows and thrown missiles." },
         };
 
         public static PrayerDef Get(PrayerId id) => All[(int)id];
@@ -162,5 +167,15 @@ namespace Epacenur.Core
         public double StrengthMultiplier => 1.0 + Boost(PrayerGroup.Strength);
         public double DefenceMultiplier => 1.0 + Boost(PrayerGroup.Defence);
         public bool ProtectsFromMelee => IsActive(PrayerId.ProtectFromMelee);
+        public bool ProtectsFromMagic => IsActive(PrayerId.ProtectFromMagic);
+        public bool ProtectsFromMissiles => IsActive(PrayerId.ProtectFromMissiles);
+
+        /// Whether a monster's attack of this type is blocked by the protection prayer that's on.
+        public bool Protects(AttackType type) =>
+            type == AttackType.Magic ? ProtectsFromMagic : type == AttackType.Ranged ? ProtectsFromMissiles : ProtectsFromMelee;
+
+        /// The protection prayer that's on, if any.
+        public PrayerId? Protection => ProtectsFromMelee ? PrayerId.ProtectFromMelee : ProtectsFromMagic ? PrayerId.ProtectFromMagic
+            : ProtectsFromMissiles ? PrayerId.ProtectFromMissiles : (PrayerId?)null;
     }
 }

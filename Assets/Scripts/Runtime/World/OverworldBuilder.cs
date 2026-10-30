@@ -243,6 +243,12 @@ namespace Epacenur.Runtime
                     Tent(world, tent);
                 world.AddLabel(World.Local(plan.Camp.Center) + Vector3.up * 0.4f, RegionName(world.Overworld, plan), new Color(1f, 0.6f, 0.5f));
             }
+            else if (plan.Kind == RegionKind.Cave)
+            {
+                string name = RegionName(world.Overworld, plan);
+                world.AddCaveMouth(plan, name);
+                world.AddLabel(World.Local(Overworld.CaveApproach(plan)) + Vector3.up * 3.6f, name, new Color(0.85f, 0.75f, 1f));
+            }
             else if (plan.Kind == RegionKind.Course)
             {
                 var course = Spawning.CourseIn(world.Overworld, plan);
@@ -326,6 +332,14 @@ namespace Epacenur.Runtime
         {
             if (plan.Kind == RegionKind.Town)
                 return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
+            if (plan.Kind == RegionKind.Cave)
+            {
+                string[] names = { "Echo", "Shadow", "Hollow", "Dripstone", "Gloom", "Crag", "Old", "Deep", "Bone", "Ember" };
+                string[] kinds = { " cave", " caverns", " pit", " hole", " delve" };
+                if (plan.RX == 0 && plan.RZ == -1)
+                    return "Epacenur caves";
+                return names[(int)(ow.Hash(plan.RX, plan.RZ, 83) * names.Length)] + kinds[(int)(ow.Hash(plan.RX, plan.RZ, 84) * kinds.Length)];
+            }
             if (plan.Kind == RegionKind.Course)
             {
                 var course = Spawning.CourseIn(ow, plan);

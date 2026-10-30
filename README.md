@@ -451,8 +451,7 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
   the minimap. Finishing one gives **10 Slayer points** (50 every tenth in a row).
 - Right-click the master to spend points: **skip a task** (10 points) or buy a **slayer helmet** (60 points: good defence, and on
   task your accuracy and max hit are 7/6 of normal).
-- Some monsters can only be hurt by slayers: **crawling hands** (Slayer 5, the wilds near safety) and **rockslugs** (Slayer 20,
-  further out).
+- Some monsters can only be hurt by slayers, and they live in the dungeons (see below). Bosses are never a task.
 
 **Hunter**
 - **Lay** a trap from the inventory onto your tile, step away and wait: after a few seconds it's sprung, with a catch or not
@@ -473,6 +472,28 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
   stalls** (Thieving 27) in towns a little way out.
 - Dev tools: **Hunter kit**, **Farming kit** (every seed and a spade), **Grow all patches**, **Slayer points +100**. The dev plot
   has a slayer master and four patches just south of the start.
+
+## Dungeons and bosses
+
+- **Caves** open in the mountains (about half the mountainous regions have one; on the world map in lilac), and one is always
+  just **south of Epacenur** ("Epacenur caves"). **Enter** a cave mouth to climb down into its **dungeon**: 16 rooms joined by
+  winding corridors, the same every time. It's dark down there: torches on the walls and a little light of your own.
+  The **ladder** you arrive by takes you back up; under the minimap you see the cave's name and its wilderness level.
+- Dungeons are where the **slayer monsters** live: **crawling hands** (Slayer 5), **cave bugs** (7), **cave crawlers** (10),
+  **banshees** (15, they scream magic at you), **rockslugs** (20), **pyrefiends** (30, fire from range) and **basilisks** (40), with
+  goblin warrens near safety. Which ones depends on the cave's wilderness level, like everything else.
+- In the room furthest from the ladder waits a **boss**, by wilderness level:
+  - **Crawling Horror** (combat 45, near safety): crushes, and every 4th attack hurls a **bolt of shadow** (magic). Drops the
+    **shadow mace** now and then.
+  - **Rock Behemoth** (85, wilderness 15-35): crushes, and every 5th attack **hurls a boulder** (missiles). Drops the **behemoth
+    shield** (Defence 40).
+  - **Pyre Lord** (130, deeper): casts fire from range, and every 3rd attack **rains embers** (missiles). Drops the **pyre staff**
+    (Magic 50: an endless supply of fire runes).
+  The chat says when a special is coming in: switch your protection prayer. Bosses take two minutes to come back.
+- **New prayers**: **Protect from Magic** (Prayer 37) and **Protect from Missiles** (40), as well as Protect from Melee (43). Only
+  one protection prayer at a time; its symbol shows over your head.
+- Die in a dungeon and your gravestone is at the cave mouth, up top; saving while underground puts you outside the cave next time.
+- Dev tools: **Into Epacenur caves**.
 
 ## Death and gravestones
 

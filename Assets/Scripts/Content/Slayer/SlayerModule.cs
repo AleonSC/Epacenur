@@ -5,7 +5,7 @@ namespace Epacenur.Content
     /// Slayer: a master in every town (in one of its houses) sets you a task, some number of one kind of monster
     /// that suits your combat level. Each kill on task gives Slayer xp (the monster's hitpoints); each finished
     /// task gives points (more every tenth in a row), spent on skipping a task or a slayer helmet. Some monsters
-    /// can only be hurt with a Slayer level: crawling hands (5) and rockslugs (20).
+    /// can only be hurt with a Slayer level: crawling hands (5) and rockslugs (20), down in the dungeons (Dungeons).
     public sealed class SlayerModule : IContentModule
     {
         public const string Skill = Slayer.Skill, Master = "slayer_master", Helmet = "slayer_helmet",
@@ -59,7 +59,7 @@ namespace Epacenur.Content
             });
             hand.AlwaysDrops.Add(PrayerModule.Bones);
             hand.Drops.Add(ItemIds.Coins, 5, 30, 6).Add("grimy_guam", 1, 1, 2).Add(null, 0, 0, 4);
-            hand.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 2, MaxDanger = 22, Weight = 1, MinGroup = 3, MaxGroup = 5 });
+            hand.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Dungeon, MaxDanger = 22, Weight = 3, MinGroup = 3, MaxGroup = 5 });
 
             var slug = new Rgb(0.45f, 0.42f, 0.38f);
             var rockslug = db.Add(new NpcDef
@@ -74,7 +74,7 @@ namespace Epacenur.Content
             });
             rockslug.AlwaysDrops.Add(PrayerModule.Bones);
             rockslug.Drops.Add(ItemIds.Coins, 20, 80, 6).Add("grimy_harralander", 1, 1, 2).Add("grimy_ranarr", 1, 1, 1).Add(MiningModule.IronOre, 1, 3, 3).Add(null, 0, 0, 3);
-            rockslug.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 10, MaxDanger = 40, Weight = 1, MinGroup = 3, MaxGroup = 4 });
+            rockslug.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Dungeon, MinDanger = 6, MaxDanger = 45, Weight = 2, MinGroup = 3, MaxGroup = 4 });
         }
     }
 }

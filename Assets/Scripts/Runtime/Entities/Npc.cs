@@ -203,11 +203,18 @@ namespace Epacenur.Runtime
                 {
                     nextAttack = Time.time + Def.AttackTicks * GameTime.TickSeconds;
                     attackAnim = 0.4f;
-                    if (Def.AttackType == AttackType.Magic)
+                    // A boss's special every few swings: a different kind of attack, harder (pray against it).
+                    bool special = Def.SpecialEvery > 0 && ++attacks % Def.SpecialEvery == 0;
+                    var type = special ? Def.SpecialType : Def.AttackType;
+                    if (special && Def.SpecialMessage != null)
+                        GameLog.Add("<color=#ff8060>" + Def.SpecialMessage + "</color>");
+                    if (type == AttackType.Magic || type == AttackType.Ranged)
+                    {
                         Sfx.PlayAt(Sound.Spell, transform.position + Vector3.up, 0.7f);
                         Projectile.Spell(transform.position + Vector3.up * Def.Height * 0.7f + transform.forward * 0.3f, player.transform, 1.2f,
-                            new Rgb(0.7f, 0.3f, 0.9f));
-                    player.TakeMonsterHit(this);
+                            type == AttackType.Magic ? new Rgb(0.7f, 0.3f, 0.9f) : new Rgb(0.95f, 0.5f, 0.15f));
+                    }
+                    player.TakeMonsterHit(this, type, special ? Def.SpecialMaxHit : Def.MaxHit);
                 }
                 return;
             }
@@ -250,6 +257,8 @@ namespace Epacenur.Runtime
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-8f * Time.deltaTime));
             }
         }
+
+        int attacks;  // swings so far (a boss's special comes every SpecialEvery)
 
         float attackAnim;
 

@@ -477,6 +477,11 @@ namespace Epacenur.Core
         public bool Aggressive;                       // attacks players nearby whose combat level is up to twice its own
         public PickpocketDef Pickpocket;              // townsfolk: can have their pockets picked
         public int SlayerLevel;                       // the Slayer level needed to hurt it at all (0: none)
+        public bool Boss;                             // waits at the end of a dungeon
+        public int SpecialEvery;                      // every this many attacks it uses its special instead (0: none)
+        public AttackType SpecialType = AttackType.Magic;  // ...of this type (pray against it!)
+        public int SpecialMaxHit;
+        public string SpecialMessage;                 // said when it uses it: "The horror hurls a bolt of shadow!"
         public readonly List<NpcSpawnRule> Spawns = new List<NpcSpawnRule>();  // where the overworld puts it
     }
 

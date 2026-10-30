@@ -70,7 +70,7 @@ namespace Epacenur.Runtime
             Gui.Fill(view, new Color(0.05f, 0.05f, 0.05f, 1f));
             GUI.BeginGroup(view);  // clips the map to the view
             var local = new Rect(0f, 0f, view.width, view.height);
-            if (G.World.Map == MapId.DevPlot)
+            if (G.World.Map != MapId.Overworld)
                 DrawDevPlot(local);
             else
                 DrawOverworld(local);
@@ -203,11 +203,16 @@ namespace Epacenur.Runtime
 
         // ---- Dev plot ----
 
+        object devTextureFor;
+
         void DrawDevPlot(Rect v)
         {
-            if (devTexture == null)
+            // The dev plot or the dungeon you're in (made again for each dungeon).
+            object which = G.World.Map == MapId.Dungeon ? (object)G.World.CurrentDungeon : G.World.Map;
+            if (devTexture == null || !Equals(devTextureFor, which))
             {
-                int w = DevArea.Width, h = DevArea.Height;
+                devTextureFor = which;
+                int w = G.World.FixedWidth, h = G.World.FixedHeight;
                 var pixels = new Color32[w * h];
                 for (int y = 0; y < h; y++)
                     for (int x = 0; x < w; x++)
@@ -218,8 +223,8 @@ namespace Epacenur.Runtime
             }
             if (Event.current.type != EventType.Repaint)
                 return;
-            var topLeft = ToView(v, -0.5f, DevArea.Height - 0.5f);
-            GUI.DrawTexture(new Rect(topLeft.x, topLeft.y, DevArea.Width * zoom, DevArea.Height * zoom), devTexture);
+            var topLeft = ToView(v, -0.5f, G.World.FixedHeight - 0.5f);
+            GUI.DrawTexture(new Rect(topLeft.x, topLeft.y, G.World.FixedWidth * zoom, G.World.FixedHeight * zoom), devTexture);
             foreach (var area in G.World.Areas)
             {
                 var p = ToView(v, area.Plot.center.x - 0.5f, area.Plot.yMax);

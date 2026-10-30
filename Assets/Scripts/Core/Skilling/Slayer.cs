@@ -24,7 +24,7 @@ namespace Epacenur.Core
             int combat = CombatRules.CombatLevel(skills), slayer = skills.GetLevel(Skill);
             var list = new List<NpcDef>();
             foreach (var n in db.Npcs)
-                if (n.Spawns.Count > 0 && n.Pickpocket == null && n.SlayerLevel <= slayer && n.CombatLevel <= combat + 10 && n.CombatLevel >= combat / 4)
+                if (n.Spawns.Count > 0 && n.Pickpocket == null && !n.Boss && n.SlayerLevel <= slayer && n.CombatLevel <= combat + 10 && n.CombatLevel >= combat / 4)
                     list.Add(n);
             return list;
         }

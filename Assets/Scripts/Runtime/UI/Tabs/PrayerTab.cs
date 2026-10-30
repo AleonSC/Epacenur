@@ -85,7 +85,22 @@ namespace Epacenur.Runtime
                 Gui.Fill(new Rect(cx - 8f, cy - 9f, 16f, 11f), blue);
                 Gui.Fill(new Rect(cx - 6f, cy + 2f, 12f, 4f), blue);
                 Gui.Fill(new Rect(cx - 4f, cy + 6f, 8f, 3f), blue);
-                Gui.FillRotated(new Rect(cx - 1f, cy - 10f, 2f, 20f), new Color(0.9f, 0.92f, 0.95f), 45f, b.center);
+                if (def.Id == PrayerId.ProtectFromMagic)
+                {
+                    // A spark of magic.
+                    var violet = new Color(0.85f, 0.6f, 1f);
+                    Gui.FillRotated(new Rect(cx - 3.5f, cy - 5.5f, 7f, 7f), violet, 45f, new Vector2(cx, cy - 2f));
+                    Gui.Fill(new Rect(cx - 1f, cy - 2.5f, 2f, 2f), Color.white);
+                }
+                else if (def.Id == PrayerId.ProtectFromMissiles)
+                {
+                    // An arrow.
+                    var shaft = new Color(0.9f, 0.92f, 0.95f);
+                    Gui.FillRotated(new Rect(cx - 0.75f, cy - 9f, 1.5f, 16f), shaft, 45f, b.center);
+                    Gui.FillRotated(new Rect(cx + 3f, cy - 7f, 4f, 4f), shaft, 45f, new Vector2(cx + 5f, cy - 5f));
+                }
+                else
+                    Gui.FillRotated(new Rect(cx - 1f, cy - 10f, 2f, 20f), new Color(0.9f, 0.92f, 0.95f), 45f, b.center);
                 return;
             }
             var skill = def.Group == PrayerGroup.Defence ? SkillIds.Defence : def.Group == PrayerGroup.Strength ? SkillIds.Strength : SkillIds.Attack;

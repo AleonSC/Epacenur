@@ -299,8 +299,8 @@ namespace Epacenur.Runtime
         /// the dev plot's start), with full health.
         void Die()
         {
-            var tile = Player.CurrentTile;
-            var map = World.Map;
+            // Dying in a dungeon: the gravestone's at its cave mouth, up top.
+            World.SurfacePlace(Player.CurrentTile, out MapId map, out Tile tile);
             var kept = new List<ItemStack>();
             var lost = new List<ItemStack>();
             Death.Split(Inventory, Equipment, Death.KeptItems, kept, lost);
@@ -392,6 +392,8 @@ namespace Epacenur.Runtime
                 }
             }
             Prayer.SetMax(Skills.GetLevel(SkillIds.Prayer));
+            Clock.Underground = World.Map == MapId.Dungeon;
+            Player.SetLantern(Clock.Underground);
             Clock.Update(Time.deltaTime);
             // Boosts wear off a level a minute.
             if (Boosts.Any)

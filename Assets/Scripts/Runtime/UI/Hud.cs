@@ -276,6 +276,13 @@ namespace Epacenur.Runtime
         /// Under the minimap: safe (near which town) or the wilderness level, and the biome.
         void DrawZone()
         {
+            if (G.World.Map == MapId.Dungeon)
+            {
+                string cave = OverworldBuilder.RegionName(G.World.Overworld, G.World.CurrentCave);
+                Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 22f, 290f, 20f), "<b><color=#c8b8ff>" + cave + "</color></b>  "
+                    + DangerText(G.World.DungeonDanger), Gui.RightSmall);
+                return;
+            }
             if (zoneDanger < 0)
                 return;
             string where = zoneDanger == 0 && zoneTown != null ? DangerText(0) + " <color=" + Gui.MutedHex + ">- " + zoneTown + "</color>" : DangerText(zoneDanger);
