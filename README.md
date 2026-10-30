@@ -153,14 +153,18 @@ outlines), ponds, forests, highlands (tan).*
   better** (see Tiers). On the safe ground there are only chickens, cows and goblins, none of them aggressive.
 - **Biomes**: the country is **meadow** (open, flax fields, few trees), **woodland** (thick forest), **marsh** (wet, with many
   ponds), **highlands** (up in the hills: few trees) or, deep in the wilderness, **wasteland** (scorched, the odd yew). Each has its
-  own ground colour, browning the deeper into the wilderness you are, and its favourite trees, and ores for the quarries in it:
-  willows in marshes, oaks and maples in woodland, coal and mithril in the highlands, yews and adamantite in the wasteland.
+  own ground colour, browning the deeper into the wilderness you are, and its favourite trees:
+  willows in marshes, oaks and maples in woodland, pines in the highlands, yews and dead trees in the wasteland.
 - **Shapes**: the noises behind it all are layered (fine detail on big shapes) and warped (winding, not round blobs), and never
   repeat however far you go.
-- **Quarries** (about 1 in 8 regions) are **the only places with ore**: there is none out in the countryside. One is always
-  just **north of Epacenur** (copper and tin). Each is an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
-  and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its wilderness level; it's
-  named on the world map, e.g. "Iron quarry"); the rest are a mix. No monsters live there.
+- **Mine shafts** (about 1 in 8 regions) are **the only way to ore**: there is none out in the countryside. Each is a gravel
+  yard with a **shaft** in the middle (a winch frame over a square hole, a rope hanging down into it), spoil heaps and a mine
+  cart. **Climb-down** to the **mine** below: chambers and tunnels lit by torches, full of ore rocks (`Core/World/Mines.cs`).
+  Every mine has a **tier**, and **you only find out which when you get down there**: tier 1 copper, tin and limestone; 2 iron
+  (with some copper, tin and limestone); 3 coal and iron; 4 mithril and coal; 5 adamantite, mithril and coal. Near town most are
+  tier 1 or 2 (with the odd lucky find); the better tiers are likelier the deeper into the wilderness the shaft is. A mine's tier
+  never changes, so you can come back to a good one. The shaft just **north of Epacenur** is always tier 1. No monsters in
+  the mines; climb the ladder to get back up.
 - **Trees** each have their own shape: plain trees round, oaks broad and lumpy, willows hung with long fronds, maples in autumn
   reds and golds, yews in dark tiers. All have roots flaring into the ground. Plain trees have kin by biome (logs like a plain
   tree's): pale **birches** in meadows and woods, pink **blossom trees** in meadows, tall tiered **pines** (most of the trees in the
@@ -220,7 +224,7 @@ outlines), ponds, forests, highlands (tan).*
 - The pickaxe and hammer are on every new character's tool belt (older saves get them once), and the shop sells both for 1 gp.
 - The dev tools add **5 copper + 5 tin**, **5 bronze bars**, or a **pickaxe + hammer**.
 - The trees that were on the dev plot are gone; the main world's forests have plenty. Content: `Assets/Scripts/Content/Mining` and
-  `Assets/Scripts/Content/Smithing`. In the overworld, ore rocks are only in quarries (one with copper and tin is just north of the start).
+  `Assets/Scripts/Content/Smithing`. In the overworld, ore rocks are only down mine shafts (a tier 1 mine, copper and tin, is just north of the start).
 
 ## Money pouch
 
@@ -449,7 +453,7 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 
 - **Materials**: use a **saw** (general store) on **logs** for **planks** (Construction 1) or on oak logs for **oak planks** (15);
   smith **nails** at an anvil (15 from a bronze bar at Smithing 4, 30 from an iron bar at 19; the general store sells them too);
-  mine **limestone** (pale rocks in quarries near towns; some quarries are mostly limestone).
+  mine **limestone** (pale rocks in tier 1 and 2 mines).
 - **Building**: with a **hammer**, press **G** (or **Build** under the minimap) for the build menu, pick a piece, and its ghost
   follows the mouse (the crosshair in first person): **green** where it can go, **red** with what's wrong. **Click** to place it
   (within 12 tiles of you); it costs its materials and gives Construction xp. **R** turns it (Shift+R the other way);
@@ -588,7 +592,7 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 
 - **M**, or **World map** under the minimap: the overworld from above, north up. **Drag** to move round it, **scroll** to zoom
   (in close you see every tile; zoomed out, a whole countryside). Regions you haven't seen yet are **shaded**; the towns,
-  cities (in bigger letters), camps, shrines and quarries you have seen are **named**. The **wilderness is tinted red**, deeper the
+  cities (in bigger letters), camps, shrines and mine shafts you have seen are **named**. The **wilderness is tinted red**, deeper the
   more dangerous, so the safe rings round towns show. You and your gravestone are marked; hover for the place, its wilderness
   level and biome, and the tile. Esc closes it.
 - It's drawn from the world's generator a region at a time (a few each frame) and remembered. What's been seen is saved with

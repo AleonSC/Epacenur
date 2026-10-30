@@ -278,7 +278,8 @@ namespace Epacenur.Runtime
         {
             if (G.World.Map == MapId.Dungeon)
             {
-                string cave = OverworldBuilder.RegionName(G.World.Overworld, G.World.CurrentCave);
+                var dl = G.World.CurrentDungeon;
+                string cave = dl.IsMine ? "Tier " + dl.Tier + " mine" : OverworldBuilder.RegionName(G.World.Overworld, G.World.CurrentCave);
                 Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 22f, 290f, 20f), "<b><color=#c8b8ff>" + cave + "</color></b>  "
                     + DangerText(G.World.DungeonDanger), Gui.RightSmall);
                 return;

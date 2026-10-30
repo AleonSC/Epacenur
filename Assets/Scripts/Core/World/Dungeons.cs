@@ -13,6 +13,9 @@ namespace Epacenur.Core
         public Tile Ladder;                                      // where you arrive, by the ladder up
         public int LadderRoom, BossRoom;
         public readonly List<Tile> Torches = new List<Tile>();   // on a wall beside each room
+        public int Tier;                                         // mines: the mine's tier (0: a monsters' dungeon)
+        public readonly Dictionary<Tile, string> Ores = new Dictionary<Tile, string>();  // mines: the ore rocks, by tile
+        public bool IsMine => Tier > 0;
 
         public bool IsFloor(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height && Floor[t.X, t.Z];
     }
@@ -21,31 +24,31 @@ namespace Epacenur.Core
     {
         public const int Cells = 4, CellSize = 14, Border = 2;
 
-        public static DungeonLayout Generate(int seed)
+        public static DungeonLayout Generate(int seed, int cells = Cells)
         {
             var rng = new Random(seed);
-            var d = new DungeonLayout { Width = Cells * CellSize + Border * 2, Height = Cells * CellSize + Border * 2 };
+            var d = new DungeonLayout { Width = cells * CellSize + Border * 2, Height = cells * CellSize + Border * 2 };
             d.Floor = new bool[d.Width, d.Height];
             // A room in each cell, of its own size and place.
-            for (int cz = 0; cz < Cells; cz++)
-                for (int cx = 0; cx < Cells; cx++)
+            for (int cz = 0; cz < cells; cz++)
+                for (int cx = 0; cx < cells; cx++)
                 {
                     int w = 6 + rng.Next(6), h = 6 + rng.Next(6);
                     int x = Border + cx * CellSize + 1 + rng.Next(CellSize - w - 1), z = Border + cz * CellSize + 1 + rng.Next(CellSize - h - 1);
                     d.Rooms.Add(new Area(x, z, w, h));
                 }
             // Corridors: a random tree over the cells (so every room is reachable), plus a few loops.
-            var linked = new bool[Cells * Cells];
+            var linked = new bool[cells * cells];
             var edges = new List<int[]>();
             var stack = new Stack<int>();
-            int start = rng.Next(Cells * Cells);
+            int start = rng.Next(cells * cells);
             linked[start] = true;
             stack.Push(start);
             while (stack.Count > 0)
             {
                 int c = stack.Peek();
                 var next = new List<int>();
-                foreach (int n in Neighbours(c))
+                foreach (int n in Neighbours(c, cells))
                     if (!linked[n])
                         next.Add(n);
                 if (next.Count == 0)
@@ -60,8 +63,8 @@ namespace Epacenur.Core
             }
             for (int i = 0; i < 3; i++)
             {
-                int c = rng.Next(Cells * Cells);
-                var ns = new List<int>(Neighbours(c));
+                int c = rng.Next(cells * cells);
+                var ns = new List<int>(Neighbours(c, cells));
                 edges.Add(new[] { c, ns[rng.Next(ns.Count)] });
             }
             foreach (var r in d.Rooms)
@@ -94,13 +97,13 @@ namespace Epacenur.Core
             return d;
         }
 
-        static IEnumerable<int> Neighbours(int c)
+        static IEnumerable<int> Neighbours(int c, int cells)
         {
-            int x = c % Cells, z = c / Cells;
+            int x = c % cells, z = c / cells;
             if (x > 0) yield return c - 1;
-            if (x < Cells - 1) yield return c + 1;
-            if (z > 0) yield return c - Cells;
-            if (z < Cells - 1) yield return c + Cells;
+            if (x < cells - 1) yield return c + 1;
+            if (z > 0) yield return c - cells;
+            if (z < cells - 1) yield return c + cells;
         }
 
         static void Carve(DungeonLayout d, Area a)

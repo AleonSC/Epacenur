@@ -266,11 +266,12 @@ namespace Epacenur.Runtime
             }
             else if (plan.Kind == RegionKind.Quarry)
             {
-                // The ore rocks themselves grow with their chunks (Terrain.Rock); here, the spoil heaps and the cart.
+                // A mine head: the shaft down, the spoil heaps and an empty-looking cart (no telling the ore from up here).
                 foreach (var heap in plan.Rubble)
                     Rubble(world, heap, (int)(world.Overworld.Hash(heap.X, heap.Z, 8) * 3));
-                MineCart(world, plan.Cart, Spawning.QuarryOre(world.Overworld, plan));
-                world.AddLabel(World.Local(plan.Cart) + Vector3.up * 1.6f, RegionName(world.Overworld, plan), new Color(0.85f, 0.85f, 0.8f));
+                MineCart(world, plan.Cart, null);
+                world.AddMineShaft(plan);
+                world.AddLabel(World.Local(plan.CaveMouth) + Vector3.up * 3.1f, RegionName(world.Overworld, plan), new Color(0.85f, 0.85f, 0.8f));
             }
             else if (plan.Kind == RegionKind.Wild && plan.Landmark != LandmarkKind.None)
                 Landmarks.Landmark(world, plan);
@@ -350,10 +351,7 @@ namespace Epacenur.Runtime
                 return altar != null ? altar.Name : null;
             }
             if (plan.Kind == RegionKind.Quarry)
-            {
-                var ore = Spawning.QuarryOre(ow, plan);
-                return ore != null ? ore.Name.Replace(" rocks", "") + " quarry" : "Quarry";
-            }
+                return "Mine shaft";
             if (plan.Kind != RegionKind.Camp)
                 return null;
             var groups = Spawning.GroupsIn(ow, plan);

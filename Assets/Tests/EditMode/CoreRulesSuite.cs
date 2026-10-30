@@ -580,25 +580,44 @@ public static class CoreRulesSuite
         Check(essenceRocks >= 2 && essenceRocks == airShrine.Essence.Count && Spawning.NodeAt(rw, new Tile(5, 5), Terrain.Rock).Id != RunecraftingModule.EssenceRock,
             "rune essence boulders ring the altar (" + essenceRocks + " at the air altar), not out in rocky ground");
 
-        int quarries = 0, ownOre = 0, quarryRocks = 0;
-        bool quarryNamed = true;
+        int quarries = 0, mineRocks = 0;
+        bool quarryNamed = true, mineReach = true, mineOwnOre = true;
+        var tierSeen = new System.Collections.Generic.HashSet<int>();
+        int nearHigh = 0, nearAll = 0, farHigh = 0, farAll = 0;
         for (int rx = -12; rx <= 12; rx++)
             for (int rz = -12; rz <= 12; rz++)
             {
                 var plan = rw.Plan(rx, rz);
                 if (plan.Kind != RegionKind.Quarry) continue;
                 quarries++;
-                var ore = Spawning.QuarryOre(rw, plan);
-                if (ore == null || Spawning.GroupsIn(rw, plan).Count != 0) quarryNamed = false;
-                foreach (var t in plan.Rocks)
-                {
-                    if (rw.At(t) != Terrain.Rock) quarryNamed = false;
-                    quarryRocks++;
-                    if (Spawning.NodeAt(rw, t, Terrain.Rock) == ore) ownOre++;
-                }
+                if (plan.Rocks.Count != 0 || Spawning.GroupsIn(rw, plan).Count != 0 || !rw.IsBlocked(plan.CaveMouth) || rw.IsBlocked(Overworld.CaveApproach(plan))) quarryNamed = false;
                 if (rw.At(plan.Cart) != Terrain.Quarry || !rw.IsBlocked(plan.Cart)) quarryNamed = false;
+                var tier = Mines.TierOf(rw, plan);
+                tierSeen.Add(tier.Tier);
+                int dg = rw.Danger(plan.CaveMouth);
+                if (dg < 5) { nearAll++; if (tier.Tier >= 3) nearHigh++; }
+                if (dg >= 25) { farAll++; if (tier.Tier >= 3) farHigh++; }
+                if (Math.Abs(rx) > 4 || Math.Abs(rz) > 4) continue;
+                var mine = rw.Dungeon(plan, out _);
+                if (mine.Tier != tier.Tier || mine.Ores.Count < 15) mineReach = false;
+                var mdist = Dungeons.Distances(mine, mine.Ladder);
+                foreach (var kv in mine.Ores)
+                {
+                    mineRocks++;
+                    if (Array.IndexOf(tier.Rocks, kv.Value) < 0) mineOwnOre = false;
+                    // Every rock can be reached: some tile beside it is floor that isn't another rock, reachable from the ladder.
+                    bool ok = false;
+                    foreach (var n in new[] { new Tile(kv.Key.X + 1, kv.Key.Z), new Tile(kv.Key.X - 1, kv.Key.Z), new Tile(kv.Key.X, kv.Key.Z + 1), new Tile(kv.Key.X, kv.Key.Z - 1) })
+                        if (mine.IsFloor(n) && !mine.Ores.ContainsKey(n) && mdist[n.X, n.Z] != int.MaxValue) ok = true;
+                    if (!ok) mineReach = false;
+                }
             }
-        Check(quarries > 10 && quarryNamed && ownOre > quarryRocks / 2, quarries + " quarries nearby, each mostly one ore (" + ownOre + " of " + quarryRocks + " rocks), with no monsters");
+        Check(quarries > 10 && quarryNamed, quarries + " mine shafts nearby, each a blocked shaft you climb down from beside it, no ore or monsters up top");
+        Check(mineReach && mineOwnOre && mineRocks > 100, "down each shaft a mine full of its tier's ore (" + mineRocks + " rocks), every rock in reach of the way up");
+        Check(tierSeen.Count >= 4 && (double)farHigh / Math.Max(1, farAll) > (double)nearHigh / Math.Max(1, nearAll),
+            "mines come in tiers (" + tierSeen.Count + " seen), the better ones likelier deeper in the wilderness (" + nearHigh + "/" + nearAll + " near town, " + farHigh + "/" + farAll + " deep)");
+        double[] near0 = Mines.Chances(0), deep40 = Mines.Chances(40);
+        Check(near0[0] > near0[2] && near0[4] < 0.01 && deep40[4] > deep40[0] && Math.Abs(System.Linq.Enumerable.Sum(near0) - 1) < 1e-9, "tier 1 likeliest near town, tier 5 deep in the wilderness");
         Check(db.Npc(MagicModule.DarkWizard).AttackType == AttackType.Magic && new Bonuses { MagicDefence = 3 }.Defence(AttackType.Magic) == 3,
             "dark wizards cast spells, which magic defence blocks");
 
@@ -865,15 +884,14 @@ public static class CoreRulesSuite
                 }
                 return true;
             });
-            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 5 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
+            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks == 0 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
                 "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop, farm and houses, doors, counters and farming patches reachable, "
-                + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks (all in quarries, one just north of the start), " + water + " water tiles, "
+                + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " ore rocks up top (they're all down the mine shafts; one just north of the start), " + water + " water tiles, "
                 + stranded + " walled-in tiles");
         }
         var qw = new Overworld(2024);
-        var starterOre = Spawning.QuarryOre(qw, qw.Plan(0, 1)).Id;
-        Check(qw.Plan(0, 1).Kind == RegionKind.Quarry && (starterOre == MiningModule.CopperRock || starterOre == MiningModule.TinRock),
-            "the quarry just north of the start is copper or tin (" + starterOre + ")");
+        Check(qw.Plan(0, 1).Kind == RegionKind.Quarry && Mines.TierOf(qw, qw.Plan(0, 1)).Tier == 1,
+            "the mine shaft just north of the start always goes down to a tier 1 mine (copper and tin)");
         var hw = new Overworld(31);
         double highest = 0, steepest = 0;
         bool levelWhereBuilt = true, waterLevel = true, townsRoll = false;

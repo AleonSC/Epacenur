@@ -229,7 +229,7 @@ namespace Epacenur.Core
             switch (t)
             {
                 case Terrain.Tree: return "Trees grow";
-                case Terrain.Rock: return "Rocks lie in quarries";
+                case Terrain.Rock: return "Rocks are found down mine shafts, by the mine's tier";
                 case Terrain.Water: return "Fishing spots are on pond shores";
                 case Terrain.Flax: return "Grows in flax fields (meadows)";
                 case Terrain.Essence: return "Boulders ring every altar's shrine";
