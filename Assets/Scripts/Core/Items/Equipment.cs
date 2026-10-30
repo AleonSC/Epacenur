@@ -108,6 +108,8 @@ namespace Epacenur.Core
             var ammo = worn[(int)EquipSlot.Ammo];
             if (ammo.IsEmpty)
                 return false;
+            if (Cheats.InfiniteResources)
+                return true;
             worn[(int)EquipSlot.Ammo] = ammo.Count > 1 ? new ItemStack(ammo.ItemId, ammo.Count - 1) : default(ItemStack);
             Changed?.Invoke();
             return true;

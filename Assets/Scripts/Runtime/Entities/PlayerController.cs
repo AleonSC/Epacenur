@@ -693,7 +693,7 @@ namespace Epacenur.Runtime
             if (burn == null || !CanLight(burn, CurrentTile))
                 return;
             CancelAction();
-            G.Inventory.Set(slot, default(ItemStack));
+            G.Inventory.UseAt(slot);
             var logs = G.World.SpawnGroundItem(stack.ItemId, 1, CurrentTile);
             Activity = new LightActivity(logs);
         }
@@ -767,7 +767,7 @@ namespace Epacenur.Runtime
             if (stack.IsEmpty || stack.Def.BuryXp <= 0 || buryCooldown > 0f)
                 return;
             buryCooldown = Prayers.BuryTicks * GameTime.TickSeconds;
-            G.Inventory.RemoveAt(slot);
+            G.Inventory.UseAt(slot);
             G.Skills.AddXp(SkillIds.Prayer, stack.Def.BuryXp);
             Kneel(0.6f);
             Sfx.Play(Sound.Bury);

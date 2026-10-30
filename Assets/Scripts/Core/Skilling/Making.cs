@@ -50,7 +50,9 @@ namespace Epacenur.Core
                 failed = rng.NextDouble() >= SuccessChance(r, level);
             string made = failed ? r.FailProduct : r.Product;
             var def = ContentDb.Current.Item(made);
-            if (times == 1 && r.ProductCount == 1 && r.Inputs.Length == 1 && r.Inputs[0].Count == 1 && !def.Stackable)
+            if (Cheats.InfiniteResources && !inv.HasRoomFor(made))
+                return null;  // the inputs stay, so the product needs room of its own
+            if (times == 1 && r.ProductCount == 1 && r.Inputs.Length == 1 && r.Inputs[0].Count == 1 && !def.Stackable && !Cheats.InfiniteResources)
             {
                 int slot = FindSlot(inv, r.Inputs[0].ItemId);
                 if (slot >= 0)
@@ -60,7 +62,7 @@ namespace Epacenur.Core
                 }
             }
             foreach (var i in r.Inputs)
-                inv.Remove(i.ItemId, i.Count * times);
+                inv.Use(i.ItemId, i.Count * times);
             inv.Add(made, r.ProductCount * times);
             return made;
         }

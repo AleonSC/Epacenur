@@ -14,6 +14,9 @@ namespace Epacenur.Runtime
         static readonly System.Collections.Generic.List<SkillArea> plots = DevArea.CreateAreas();  // for their names and where they are
         Hud hud;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Cheats.InfiniteResources = false;
+
         public void Toggle() => show = !show;
         public bool Contains(Vector2 p) => show && rect.Contains(p);
 
@@ -55,6 +58,15 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("+1M xp")) G.Skills.AddXp(def.Id, 1e6);
             if (GUILayout.Button("+1B xp")) G.Skills.AddXp(def.Id, 1e9);
             GUILayout.EndHorizontal();
+            GUILayout.Space(6f);
+
+            bool infinite = GUILayout.Toggle(Cheats.InfiniteResources, " Infinite resources");
+            if (infinite != Cheats.InfiniteResources)
+            {
+                Cheats.InfiniteResources = infinite;
+                GameLog.Add(infinite ? "Infinite resources on: nothing you have is used up, and nothing you gather from runs out."
+                    : "Infinite resources off.");
+            }
             GUILayout.Space(6f);
 
             GUILayout.Label("<b>Inventory</b>", Gui.Rich);

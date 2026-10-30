@@ -72,7 +72,9 @@ The game opens on the main menu:
 - **Skills** tab: laid out like RuneScape 3's skills panel. It's a grid of cells, each with the skill's icon and its level
   shown twice, stacked (current over base; they match until there are boosts). Hover a cell for its xp, the next level and
   a progress bar. The footer shows total level, combat level (OSRS formula with melee and Prayer; no Ranged or Magic yet) and total xp.
-- **H** shows or hides the help, and **F1** opens the dev tools.
+- **H** shows or hides the help, and **F1** opens the dev tools. Its **Infinite resources** switch means nothing you have is
+  used up (materials, runes, arrows, bait, seeds, food, potions, bones, logs you light, coins you spend) and trees, rocks, fishing
+  spots and stalls never run out; it's off each time you start, and isn't saved.
 - Progress (skills, inventory, bank, worn equipment, attack style, position) saves every 15 s and when you quit.
 
 ## The overworld

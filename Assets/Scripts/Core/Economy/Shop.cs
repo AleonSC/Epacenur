@@ -52,7 +52,7 @@ namespace Epacenur.Core
                 // Paying might empty a coin stack in the backpack, which makes room for the item.
                 bool coinsFreeASlot = inv.CountInSlots(ItemIds.Coins) > 0 && inv.Count(ItemIds.Coins) == price;
                 if (!inv.HasRoomFor(item.ItemId) && !coinsFreeASlot) { problem = "You don't have enough inventory space."; break; }
-                inv.Remove(ItemIds.Coins, price);
+                inv.Use(ItemIds.Coins, price);
                 inv.Add(item.ItemId, 1);
                 item.Stock--;
             }

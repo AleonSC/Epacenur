@@ -105,7 +105,7 @@ namespace UnityEngine
         public static bool Button(Rect r, string s) => false; public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } }
     public class GUILayoutOption { }
     public static class GUIUtility { public static int keyboardControl; public static void RotateAroundPivot(float a, Vector2 p) { } }
-    public static class GUILayout { public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
+    public static class GUILayout { public static bool Toggle(bool v, string s, params GUILayoutOption[] o) => v; public static Rect Window(int id, Rect r, WindowFunction f, string t, params GUILayoutOption[] o) => r; public static void Label(string s, GUIStyle st, params GUILayoutOption[] o) { }
         public static bool Button(string s, params GUILayoutOption[] o) => false; public static GUILayoutOption Width(float w) => null; public static void BeginHorizontal(params GUILayoutOption[] o) { } public static void EndHorizontal() { } public static void Space(float f) { } }
     public enum EventType { MouseDown, MouseMove, Repaint, MouseDrag, MouseUp, KeyDown, ScrollWheel }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public bool shift; public KeyCode keyCode; public Vector2 delta; public void Use() { } }

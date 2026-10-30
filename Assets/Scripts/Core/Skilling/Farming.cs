@@ -32,7 +32,7 @@ namespace Epacenur.Core
             int cost = RentCost(kind);
             if (inv.Count(ItemIds.Coins) < cost)
                 return "You need " + cost + " coins to rent " + (kind == PatchKind.Herb ? "a herb patch." : "an allotment.");
-            inv.Remove(ItemIds.Coins, cost);
+            inv.Use(ItemIds.Coins, cost);
             p.rented = true;
             return null;
         }

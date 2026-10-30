@@ -92,7 +92,7 @@ namespace Epacenur.Runtime
                 GameLog.Add(problem);
                 return;
             }
-            g.Inventory.Remove(stack.ItemId, 1);
+            g.Inventory.Use(stack.ItemId, 1);
             Farming.Plant(State, seed, DateTime.UtcNow, g.Rng);
             g.Skills.AddXp(Farming.Skill, seed.PlantXp);
             g.Player.Kneel(0.8f);

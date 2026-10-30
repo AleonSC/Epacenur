@@ -293,7 +293,7 @@ namespace Epacenur.Runtime
                 default: s.Edges[Structure.EdgeKey(i, j, plan.Side)] = def.Id; break;
             }
             foreach (var input in def.Inputs)
-                G.Inventory.Remove(input.ItemId, input.Count);
+                G.Inventory.Use(input.ItemId, input.Count);
             G.Skills.AddXp(ConstructionModule.Skill, def.Xp);
             SwingT = 1f;
             Sfx.Play(Sound.Build);
