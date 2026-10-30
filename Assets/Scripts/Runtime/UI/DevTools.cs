@@ -83,6 +83,16 @@ namespace Epacenur.Runtime
             if (GUILayout.Button("5 bronze bars")) Give(SmithingModule.BronzeBar, 5);
             if (GUILayout.Button("Pickaxe + hammer")) { Give(MiningModule.BronzePickaxe); Give(SmithingModule.Hammer); }
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            // One button per metal: 5 of its bars (more metals than bronze to test smithing).
+            foreach (var m in Metals.All)
+                if (GUILayout.Button("5 " + m.Name.ToLowerInvariant())) Give(m.Bar, 5);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Fishing gear")) { foreach (var t in new[] { FishingModule.SmallFishingNet, FishingModule.FlyFishingRod, FishingModule.LobsterPot, FishingModule.Harpoon }) G.ToolBelt.Add(t); Give(FishingModule.Feathers, 200); }
+            if (GUILayout.Button("Adamant gear")) foreach (var t in new[] { "adamant_scimitar", "adamant_full_helm", "adamant_platebody", "adamant_platelegs" }) Give(t);
+            if (GUILayout.Button("5 lobsters")) Give(CookingModule.Lobster, 5);
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("<b>World</b>", Gui.Rich);
             if (GUILayout.Button("Regrow every tree and refill every rock"))

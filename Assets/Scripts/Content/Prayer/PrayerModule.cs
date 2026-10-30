@@ -5,7 +5,7 @@ namespace Epacenur.Content
     /// Prayer: bury bones for xp; the altar recharges prayer points. (The prayers themselves are in Core: Prayers.)
     public sealed class PrayerModule : IContentModule
     {
-        public const string Bones = "bones", Altar = "altar";
+        public const string Bones = "bones", BigBones = "big_bones", Altar = "altar";
 
         /// The prayer star, also used for the prayer bar.
         public static Icon Star(Rgb c) => new Icon(22f)
@@ -27,6 +27,15 @@ namespace Epacenur.Content
                 foreach (float x in new[] { -0.035f, 0.035f })
                     bone.Sphere(x, y, 0f, 0.07f, 0.07f, 0.07f, white);
             bones.GroundModel = new Model().Child(bone, 0f, 0.04f, 0f, 90f, 30f, 0f);
+
+            // Big bones (hill giants): 15 xp.
+            var big = db.Item(BigBones, "Big bones", "Ew, it's a pile of big bones.", 25, white * 0.95f);
+            big.BuryXp = 15;
+            big.Icon = new Icon()
+                .Turned(16f, 6f, 8f, 28f, white * 0.95f, -35f)
+                .Turned(11f, 3f, 8f, 8f, white * 0.95f, -35f).Turned(21f, 3f, 8f, 8f, white * 0.95f, -35f)
+                .Turned(11f, 30f, 8f, 8f, white * 0.95f, -35f).Turned(21f, 30f, 8f, 8f, white * 0.95f, -35f);
+            big.GroundModel = new Model().Child(bone, 0f, 0.06f, 0f, 90f, 30f, 0f, 1.5f);
 
             // A stone altar with a cloth, a gold symbol and two candles.
             var stone = new Rgb(0.72f, 0.7f, 0.66f);

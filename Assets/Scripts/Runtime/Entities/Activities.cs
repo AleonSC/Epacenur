@@ -64,7 +64,7 @@ namespace Epacenur.Runtime
         public override ArmPose Pose => node.Def.Look == NodeLook.FishingSpot ? ArmPose.NetOut : ArmPose.Swing;
         protected override int Interval => node.Def.AttemptTicks;
 
-        static ItemDef FindTool(NodeDef def) => def.ToolType == null ? null : ToolBelt.Find(G.ToolBelt, G.Inventory, def.ToolType);
+        static ItemDef FindTool(NodeDef def) => def.ToolType == null ? null : ToolBelt.Find(G.ToolBelt, G.Inventory, def.ToolType, G.Skills);
 
         public override bool StillValid(PlayerController p)
         {
@@ -93,6 +93,8 @@ namespace Epacenur.Runtime
                 return def.EmptyMessage;
             if (!HasRoom(def, level))
                 return def.FullMessage;
+            if (def.BaitItemId != null && G.Inventory.Count(def.BaitItemId) == 0)
+                return "You don't have any " + ContentDb.Current.Item(def.BaitItemId).Name.ToLowerInvariant() + " left.";
             return null;
         }
 
@@ -117,10 +119,18 @@ namespace Epacenur.Runtime
                 GameLog.Add(def.FullMessage);
                 return false;
             }
+            if (def.BaitItemId != null && G.Inventory.Count(def.BaitItemId) == 0)
+            {
+                GameLog.Add("You don't have any " + ContentDb.Current.Item(def.BaitItemId).Name.ToLowerInvariant() + " left.");
+                return false;
+            }
             node.Shake();
-            var got = Gathering.Roll(def, level, G.Rng);
+            var tool = FindTool(def);
+            var got = Gathering.Roll(def, level, G.Rng, tool != null ? tool.ToolTier : 1);
             if (got == null || !G.Inventory.HasRoomFor(got.ItemId))
                 return true;  // nothing this time
+            if (def.BaitItemId != null)
+                G.Inventory.Remove(def.BaitItemId, 1);
             G.Inventory.Add(got.ItemId);
             G.Skills.AddXp(def.Skill, got.Xp);
             GameLog.Add(got.Message);
@@ -159,7 +169,7 @@ namespace Epacenur.Runtime
 
         public override string Status => station.Def.Action + "ing...";
         public override Transform Target => station != null ? station.transform : null;
-        public override ItemDef Tool => current != null && current.ToolType != null ? ToolBelt.Find(G.ToolBelt, G.Inventory, current.ToolType) : null;
+        public override ItemDef Tool => current != null && current.ToolType != null ? ToolBelt.Find(G.ToolBelt, G.Inventory, current.ToolType, G.Skills) : null;
         public override ArmPose Pose => current != null && current.ToolType == "hammer" ? ArmPose.Hammer : ArmPose.HoldOut;
         protected override int Interval => current != null ? current.Ticks : 4;
 
@@ -190,7 +200,7 @@ namespace Epacenur.Runtime
 
         static string Problem(RecipeDef r)
         {
-            bool hasTool = r.ToolType == null || ToolBelt.Find(G.ToolBelt, G.Inventory, r.ToolType) != null;
+            bool hasTool = r.ToolType == null || ToolBelt.Find(G.ToolBelt, G.Inventory, r.ToolType, G.Skills) != null;
             return Making.Problem(r, G.Inventory, G.Skills.GetLevel(r.Skill), hasTool);
         }
 
@@ -289,7 +299,7 @@ namespace Epacenur.Runtime
         /// Why these logs can't be lit on that tile, or null.
         public static string Problem(BurnableDef burn, Tile tile)
         {
-            if (ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox") == null)
+            if (ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox", G.Skills) == null)
                 return "You need a tinderbox to light a fire.";
             if (G.Skills.GetLevel(FiremakingModule.Skill) < burn.Level)
                 return "You need a Firemaking level of " + burn.Level + " to burn these logs.";

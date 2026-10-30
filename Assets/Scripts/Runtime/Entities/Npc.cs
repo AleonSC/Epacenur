@@ -35,6 +35,7 @@ namespace Epacenur.Runtime
         int pathIndex;
         float nextWander, engagedUntil, diedAt, nextAttack;
         bool retaliating;  // fighting back against the player
+        float aggroAfter;  // aggressive monsters: when it next looks for someone to attack
         public bool IsFighting => retaliating && !IsDead;
         System.Random rng;
 
@@ -132,6 +133,24 @@ namespace Epacenur.Runtime
             hitbox.enabled = true;
         }
 
+        /// Aggressive monsters attack a player who comes within 4 tiles of them (and near their home), unless
+        /// the player's combat level is more than twice theirs, as in RuneScape.
+        void LookForTrouble()
+        {
+            aggroAfter = Time.time + GameTime.TickSeconds;
+            var g = Game.Instance;
+            var player = g.Player;
+            Vector3 d = player.transform.position - transform.position;
+            d.y = 0f;
+            if (d.magnitude > 4f || CombatRules.CombatLevel(g.Skills) > Def.CombatLevel * 2)
+                return;
+            var t = player.CurrentTile;
+            if (t.X < home.x - 3 || t.X >= home.x + home.width + 3 || t.Z < home.y - 3 || t.Z >= home.y + home.height + 3)
+                return;
+            retaliating = true;
+            nextAttack = Mathf.Max(nextAttack, Time.time + 2f * GameTime.TickSeconds);
+        }
+
         /// Fighting back: walk up next to the player, then hit them every AttackTicks.
         /// It gives up if the player gets far away or leaves the area around its plot.
         void UpdateFighting()
@@ -145,6 +164,7 @@ namespace Epacenur.Runtime
             if (d.magnitude > 12f || !nearHome)
             {
                 retaliating = false;
+                aggroAfter = Time.time + 10f;  // it doesn't come straight back for you
                 path.Clear();
                 engagedUntil = 0f;
                 return;
@@ -239,6 +259,8 @@ namespace Epacenur.Runtime
             // A lunge forward when it swings.
             attackAnim = Mathf.Max(0f, attackAnim - Time.deltaTime);
             model.localPosition = new Vector3(0f, 0f, Mathf.Sin(attackAnim / 0.4f * Mathf.PI) * 0.25f);
+            if (!retaliating && Def.Aggressive && Time.time >= aggroAfter)
+                LookForTrouble();
             if (retaliating)
             {
                 UpdateFighting();

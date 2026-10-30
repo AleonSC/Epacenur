@@ -305,7 +305,7 @@ namespace Epacenur.Runtime
             {
                 string name = MenuOption.Item(item.Label);
                 options.Add(new MenuOption("Take", name, () => { if (firstPerson) PickUp(item); else WalkToItem(item, false); }));
-                if (ContentDb.Current.Burnable(item.ItemId) != null && ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox") != null)
+                if (ContentDb.Current.Burnable(item.ItemId) != null && ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox", G.Skills) != null)
                     options.Add(new MenuOption(Verbs.Light, name, () => LightGroundItem(item)));
                 examines.Add(new MenuOption("Examine", MenuOption.Item(item.Def.Name), () => GameLog.Add(item.Def.Examine)));
             }
@@ -497,7 +497,7 @@ namespace Epacenur.Runtime
             // The tool comes out for what you aim at (a hatchet for a tree); otherwise your weapon, if any.
             var node = aimed as NodeObject;
             ItemDef tool = node != null && node.Def.ToolType != null && node.Def.Look != NodeLook.FishingSpot
-                ? ToolBelt.Find(G.ToolBelt, G.Inventory, node.Def.ToolType) : null;
+                ? ToolBelt.Find(G.ToolBelt, G.Inventory, node.Def.ToolType, G.Skills) : null;
             FirstPersonItem = tool ?? (G.Equipment.IsWearing(EquipSlot.Weapon) ? G.Equipment[EquipSlot.Weapon].Def : null);
 
             if (Input.GetMouseButtonDown(0) && !G.Hud.MenuOpen)

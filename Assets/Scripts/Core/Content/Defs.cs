@@ -76,6 +76,32 @@ namespace Epacenur.Core
         public WeaponStyle[] Styles;
     }
 
+    /// A level needed for something, e.g. Attack 20 to wield a mithril sword.
+    public struct SkillReq
+    {
+        public string Skill;
+        public int Level;
+        public SkillReq(string skill, int level) { Skill = skill; Level = level; }
+    }
+
+    /// Where the overworld puts a node (trees and rocks on their terrain, fishing spots on ponds), by
+    /// distance from the start: within the range, nodes are picked by weight. Further out, better things grow.
+    public sealed class SpawnRule
+    {
+        public Terrain On;                    // Tree, Rock or Water (fishing spots)
+        public int MinDistance, MaxDistance = int.MaxValue;  // tiles from the start
+        public double Weight = 1;
+    }
+
+    /// Where the overworld puts a monster: in which kind of region, how far out, how many together.
+    public sealed class NpcSpawnRule
+    {
+        public RegionKind Region;
+        public int MinDistance, MaxDistance = int.MaxValue;
+        public double Weight = 1;
+        public int MinGroup = 3, MaxGroup = 5;
+    }
+
     public sealed class ItemDef
     {
         public string Id, Name, Examine;
@@ -97,7 +123,9 @@ namespace Epacenur.Core
 
         // Uses
         public string ToolType;      // "hatchet", "pickaxe", "hammer"... (can go on the tool belt)
-        public int ToolTier;         // better tools of a type have higher tiers
+        public int ToolTier;         // better tools of a type have higher tiers (and gather faster)
+        /// Levels needed to wear it (weapons, armour) or use it as a tool (hatchets, pickaxes).
+        public readonly List<SkillReq> Requires = new List<SkillReq>();
         public int Heals;            // food: hitpoints healed when eaten
         public double BuryXp;        // bones: Prayer xp when buried
 
@@ -144,6 +172,8 @@ namespace Epacenur.Core
         public int MinLives = 1, MaxLives = 1;       // successes before it's used up (0: never, e.g. fishing spots)
         public float RespawnSeconds;                 // how long it stays used up
         public float MoveMinSeconds, MoveMaxSeconds; // fishing spots move along their shore every so often (0: never)
+        public string BaitItemId;                    // used up with each catch (feathers for fly fishing), or null
+        public readonly List<SpawnRule> Spawns = new List<SpawnRule>();  // where the overworld grows it (none: placed by hand)
         public NodeLook Look;
         public Model Model, EmptyModel;
         public bool Blocks = true;                   // stands on its tile (trees, rocks); fishing spots sit on water instead
@@ -241,7 +271,7 @@ namespace Epacenur.Core
         public int Min, Max, Weight;
     }
 
-    /// A monster's possible drops. One entry is rolled by weight each kill.
+    /// A monster's possible drops. One entry is rolled by weight each kill; an entry with no item is "nothing".
     public sealed class DropTable
     {
         public readonly List<DropEntry> Entries = new List<DropEntry>();
@@ -269,7 +299,7 @@ namespace Epacenur.Core
                 {
                     itemId = e.ItemId;
                     count = rng.Next(e.Min, e.Max + 1);
-                    return true;
+                    return itemId != null;
                 }
                 pick -= e.Weight;
             }
@@ -292,6 +322,8 @@ namespace Epacenur.Core
         public readonly List<string> AlwaysDrops = new List<string>();  // every kill, e.g. bones
         public Model Model;                           // feet at y = 0, facing +z
         public float Height = 1.5f;                   // for its health bar and click box
+        public bool Aggressive;                       // attacks players nearby whose combat level is up to twice its own
+        public readonly List<NpcSpawnRule> Spawns = new List<NpcSpawnRule>();  // where the overworld puts it
     }
 
     // ---- Firemaking ----

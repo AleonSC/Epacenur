@@ -50,12 +50,14 @@ namespace Epacenur.Core
             Changed?.Invoke();
         }
 
-        /// The best tool of a type you have to hand (on the belt or in the backpack), or null.
-        public static ItemDef Find(ToolBelt belt, Inventory inv, string toolType)
+        /// The best tool of a type you have to hand (on the belt or in the backpack) and the levels to use
+        /// (when `skills` is given), or null.
+        public static ItemDef Find(ToolBelt belt, Inventory inv, string toolType, SkillSet skills = null)
         {
             ItemDef best = null;
             foreach (var tool in ContentDb.Current.Tools)
-                if (tool.ToolType == toolType && (best == null || tool.ToolTier > best.ToolTier) && (belt.Has(tool.Id) || inv.Count(tool.Id) > 0))
+                if (tool.ToolType == toolType && (best == null || tool.ToolTier > best.ToolTier) && (belt.Has(tool.Id) || inv.Count(tool.Id) > 0)
+                    && Requirements.Meets(tool, skills))
                     best = tool;
             return best;
         }

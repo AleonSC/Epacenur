@@ -43,7 +43,7 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Copper and tin rocks for mining (smelt them at the furnace by the altar).
+    /// A row or two of every kind of rock, for testing mining (smelt the ores at the furnace by the altar).
     public sealed class MiningArea : SkillArea
     {
         public override string Name => "Mining";
@@ -51,14 +51,14 @@ namespace Epacenur.Runtime
 
         public override void Build(World world)
         {
-            // Rows of rocks, copper and tin alternating, with a free tile between them.
+            // Rows of rocks, every kind in turn, with a free tile between them.
             var rng = new System.Random(4321);
             int i = 0;
             for (int x = Plot.x + 1; x < Plot.xMax - 1; x += 3)
                 for (int z = Plot.y + 1; z < Plot.yMax - 2; z += 3)
                 {
                     var tile = new Tile(x + rng.Next(0, 2), z + rng.Next(0, 2));
-                    world.AddNode(i++ % 2 == 0 ? MiningModule.CopperRock : MiningModule.TinRock, tile, rng);
+                    world.AddNode(MiningModule.Rocks[i++ % MiningModule.Rocks.Length], tile, rng);
                 }
         }
     }
@@ -122,8 +122,9 @@ namespace Epacenur.Runtime
                         shore.Add(t);
                 }
             var rng = new System.Random(7);
-            for (int i = 0; i < 3; i++)
-                world.AddNode(FishingModule.NetSpot, shore[rng.Next(shore.Count)], rng, shore);
+            // One spot of each kind.
+            foreach (var spot in new[] { FishingModule.NetSpot, FishingModule.LureSpot, FishingModule.CageSpot, FishingModule.HarpoonSpot })
+                world.AddNode(spot, shore[rng.Next(shore.Count)], rng, shore);
         }
     }
 

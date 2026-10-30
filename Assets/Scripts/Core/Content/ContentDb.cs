@@ -144,9 +144,13 @@ namespace Epacenur.Core
             }
             foreach (var s in Shops)
                 foreach (var st in s.Stock) Item(st.ItemId, "shop " + s.Id);
+            foreach (var it in Items)
+                foreach (var r in it.Requires) Skill(r.Skill, "item " + it.Id);
+            foreach (var n in Nodes)
+                Item(n.BaitItemId, "node " + n.Id);
             foreach (var n in Npcs)
             {
-                foreach (var d in n.Drops.Entries) Item(d.ItemId, "monster " + n.Id);
+                foreach (var d in n.Drops.Entries) if (d.ItemId != null) Item(d.ItemId, "monster " + n.Id);
                 foreach (var d in n.AlwaysDrops) Item(d, "monster " + n.Id);
             }
             foreach (var b in burnables.Values)

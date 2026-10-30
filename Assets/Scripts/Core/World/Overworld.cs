@@ -141,9 +141,6 @@ namespace Epacenur.Core
         /// Whether a tile can't be walked on (before anything the game adds, like fires).
         public bool IsBlocked(Tile t) => !TownLayout.IsWalkable(At(t)) || PlanAt(t).Blocked.Contains(t);
 
-        /// For a Rock tile: tin (true) or copper.
-        public bool IsTin(Tile t) => Hash(t.X, t.Z, 9) < 0.5;
-
         /// Ponds: blobs where a smooth noise is high, away from towns, camps and roads. Dry specks inside a pond
         /// (land with water on most sides) are filled in, so no land is cut off.
         bool IsPond(Tile t)

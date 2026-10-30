@@ -7,6 +7,17 @@ namespace Epacenur.Content
     {
         public const string Skill = "firemaking", Tinderbox = "tinderbox", Ashes = "ashes", Fire = "fire";
 
+        static void Burnable(ContentDb db, string logs, int level, double xp, float minSeconds)
+        {
+            const double perLevel = 191.0 / 42.0;  // from 64/256 to certain in 42 levels
+            int low = (int)System.Math.Round(64 - perLevel * (level - 1)), high = (int)System.Math.Round(low + perLevel * 98);
+            db.Add(new BurnableDef
+            {
+                LogItemId = logs, Level = level, Xp = xp, LowChance = low, HighChance = high,
+                MinBurnSeconds = minSeconds, MaxBurnSeconds = minSeconds * 2f,
+            });
+        }
+
         public void Register(ContentDb db)
         {
             var orange = new Rgb(0.95f, 0.3f, 0.05f);
@@ -27,12 +38,13 @@ namespace Epacenur.Content
             ashes.Icon = new Icon().Rect(9f, 24f, 22f, 7f, ashGrey).Rect(13f, 19f, 14f, 6f, ashGrey * 1.2f).Rect(17f, 15f, 6f, 5f, ashGrey * 1.35f);
             ashes.GroundModel = new Model().Sphere(0f, 0.02f, 0f, 0.3f, 0.08f, 0.26f, ashGrey).Sphere(0.05f, 0.04f, 0.03f, 0.14f, 0.07f, 0.12f, ashGrey * 0.8f);
 
-            // Normal logs: about 1 in 4 attempts at level 1, certain by level 43. A fire burns for 1-2 minutes.
-            db.Add(new BurnableDef
-            {
-                LogItemId = WoodcuttingModule.Logs, Level = 1, Xp = 40, LowChance = 65, HighChance = 513,
-                MinBurnSeconds = 60f, MaxBurnSeconds = 120f,
-            });
+            // Logs: about 1 in 4 attempts at the level needed, certain 42 levels later (normal logs: 65 / 513,
+            // as before). Better logs burn longer. OSRS levels and xp.
+            Burnable(db, WoodcuttingModule.Logs, 1, 40, 60f);
+            Burnable(db, WoodcuttingModule.OakLogs, 15, 60, 70f);
+            Burnable(db, WoodcuttingModule.WillowLogs, 30, 90, 80f);
+            Burnable(db, WoodcuttingModule.MapleLogs, 45, 135, 90f);
+            Burnable(db, WoodcuttingModule.YewLogs, 60, 202.5, 110f);
 
             // A lit fire is a station (the game draws its flickering flames itself).
             db.Add(new StationDef { Id = Fire, Name = "Fire", Action = "Cook", Examine = "A hot fire.", Kind = StationKind.Make });

@@ -86,12 +86,12 @@ namespace Epacenur.Runtime
                 slot => G.Player.CookFromInventory(G.Inventory[slot].ItemId), always);
             Add(Verbs.AddToToolBelt, d => d.IsTool, AddToToolBelt, d => !G.ToolBelt.Has(d.Id));
             Add(Verbs.Light, d => ContentDb.Current.Burnable(d.Id) != null, slot => G.Player.LightFromInventory(slot),
-                d => ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox") != null);
+                d => ToolBelt.Find(G.ToolBelt, G.Inventory, "tinderbox", G.Skills) != null);
         }
 
         static void Wear(int slot)
         {
-            if (!G.Equipment.Equip(G.Inventory, slot, out string problem) && problem != null)
+            if (!G.Equipment.Equip(G.Inventory, slot, G.Skills, out string problem) && problem != null)
                 GameLog.Add(problem);
         }
 

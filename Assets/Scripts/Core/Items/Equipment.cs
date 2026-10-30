@@ -35,15 +35,19 @@ namespace Epacenur.Core
         /// Wears the item in an inventory slot. Whatever was in that equipment slot goes back into the
         /// same inventory slot. A two-handed weapon takes the shield off too (and a shield a two-handed
         /// weapon), which needs a free slot. Returns false if the item can't be worn, with the reason.
-        public bool Equip(Inventory inv, int invSlot) => Equip(inv, invSlot, out _);
+        public bool Equip(Inventory inv, int invSlot) => Equip(inv, invSlot, null, out _);
 
-        public bool Equip(Inventory inv, int invSlot, out string problem)
+        /// As Equip, checking the item's level requirements against `skills` (null: no check).
+        public bool Equip(Inventory inv, int invSlot, SkillSet skills, out string problem)
         {
             problem = null;
             var stack = inv[invSlot];
             if (stack.IsEmpty || stack.Def.Slot == EquipSlot.None)
                 return false;
             var def = stack.Def;
+            problem = Requirements.Problem(def, skills, def.Slot == EquipSlot.Weapon ? "wield" : "wear");
+            if (problem != null)
+                return false;
             int e = (int)def.Slot;
             var old = worn[e];
             // The other hand: a two-handed weapon and a shield can't both be worn.

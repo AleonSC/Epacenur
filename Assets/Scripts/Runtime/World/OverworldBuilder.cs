@@ -49,16 +49,20 @@ namespace Epacenur.Runtime
                 {
                     var t = new Tile(x0 + x, z0 + z);
                     tiles.Add(t);
+                    // Which tree or rock grows here depends on how far out it is (the nodes' Spawns).
                     if (terrain[x, z] == Terrain.Tree)
-                        world.AddNode(WoodcuttingModule.Tree, t, rng);
+                        world.AddNode(Spawning.NodeAt(ow, t, Terrain.Tree)?.Id ?? WoodcuttingModule.Tree, t, rng);
                     else if (terrain[x, z] == Terrain.Rock)
-                        world.AddNode(ow.IsTin(t) ? MiningModule.TinRock : MiningModule.CopperRock, t, rng);
+                        world.AddNode(Spawning.NodeAt(ow, t, Terrain.Rock)?.Id ?? MiningModule.CopperRock, t, rng);
                 }
 
             // A fishing spot on a pond's shore, moving along the part of it in this chunk.
             var shore = ow.Shore(tiles);
             if (shore.Count >= 4)
-                world.AddNode(FishingModule.NetSpot, shore[rng.Next(shore.Count)], rng, shore);
+            {
+                var at = shore[rng.Next(shore.Count)];
+                world.AddNode(Spawning.NodeAt(ow, at, Terrain.Water)?.Id ?? FishingModule.NetSpot, at, rng, shore);
+            }
         }
 
         /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges).
@@ -98,15 +102,57 @@ namespace Epacenur.Runtime
             }
             else if (plan.Kind == RegionKind.Camp)
             {
-                var camp = plan.Camp;
-                var home = new RectInt(camp.X + 1, camp.Z + 1, camp.Width - 2, camp.Height - 2);
                 foreach (var tent in plan.Tents)
                     Tent(world, tent);
-                var rng = new System.Random((int)(world.Overworld.Hash(plan.RX, plan.RZ, 12) * int.MaxValue));
-                var goblin = ContentDb.Current.Npc(CombatModule.Goblin);
-                for (int i = 0; i < 4; i++)
-                    world.AddNpc(goblin, new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height - 2)), home);
-                world.AddLabel(World.Local(camp.Center) + Vector3.up * 0.4f, "Goblin camp", new Color(1f, 0.6f, 0.5f));
+                world.AddLabel(World.Local(plan.Camp.Center) + Vector3.up * 0.4f, RegionName(world.Overworld, plan), new Color(1f, 0.6f, 0.5f));
+            }
+            SpawnMonsters(world, plan);
+        }
+
+        /// The region's monsters (Spawning: by kind of region and distance): a camp's occupants in the camp,
+        /// otherwise each group round a spot of open ground of its own.
+        static void SpawnMonsters(World world, RegionPlan plan)
+        {
+            var ow = world.Overworld;
+            var rng = new System.Random((int)(ow.Hash(plan.RX, plan.RZ, 12) * int.MaxValue));
+            var groups = Spawning.GroupsIn(ow, plan);
+            for (int g = 0; g < groups.Count; g++)
+            {
+                RectInt home;
+                if (plan.Kind == RegionKind.Camp)
+                    home = new RectInt(plan.Camp.X + 1, plan.Camp.Z + 1, plan.Camp.Width - 2, plan.Camp.Height - 2);
+                else
+                {
+                    // A spot of open ground: in a town, round the edge of the square; elsewhere anywhere in the region.
+                    Tile spot = plan.Center;
+                    for (int tries = 0; tries < 40; tries++)
+                    {
+                        var t = plan.Kind == RegionKind.Town
+                            ? new Tile(plan.Center.X + rng.Next(-18, 19), plan.Center.Z + rng.Next(-18, 19))
+                            : new Tile(plan.Bounds.X + 8 + rng.Next(Overworld.RegionSize - 16), plan.Bounds.Z + 8 + rng.Next(Overworld.RegionSize - 16));
+                        if (!ow.IsBlocked(t) && (plan.Kind != RegionKind.Town || t.StepsTo(plan.Center) > 6))
+                        {
+                            spot = t;
+                            break;
+                        }
+                    }
+                    home = new RectInt(spot.X - 4, spot.Z - 4, 9, 9);
+                }
+                for (int i = 0; i < groups[g].Count; i++)
+                {
+                    // Start on an open tile in the home area.
+                    var at = new Tile(home.x + home.width / 2, home.y + home.height / 2);
+                    for (int tries = 0; tries < 20; tries++)
+                    {
+                        var t = new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height));
+                        if (!ow.IsBlocked(t))
+                        {
+                            at = t;
+                            break;
+                        }
+                    }
+                    world.AddNpc(groups[g].Npc, at, home);
+                }
             }
         }
 
@@ -115,7 +161,10 @@ namespace Epacenur.Runtime
         {
             if (plan.Kind == RegionKind.Town)
                 return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
-            return plan.Kind == RegionKind.Camp ? "Goblin camp" : null;
+            if (plan.Kind != RegionKind.Camp)
+                return null;
+            var groups = Spawning.GroupsIn(ow, plan);
+            return (groups.Count > 0 ? groups[0].Npc.Name : "Goblin") + " camp";
         }
 
         /// A made-up name for a town, the same every time.

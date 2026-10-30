@@ -192,6 +192,33 @@ so they don't take up slots.
 - A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
   Its stats and drops are in `CombatModule` in `Assets/Scripts/Content/Combat`.
 
+## Tiers: further out, better things
+
+The further you go from the start, the better the trees, rocks and fishing, and the tougher the monsters. Where things
+appear is data: each tree, rock, fishing spot and monster has spawn rules (how far out, how likely) in its content module.
+
+| | Near the start | Further out |
+|---|---|---|
+| **Trees** | normal (1), oak (15, from 30 tiles out) | willow (30, 120+), maple (45, 250+), yew (60, 500+) |
+| **Rocks** | copper and tin (1) | iron (15, 80+), coal (30, 200+), mithril (55, 450+), adamantite (70, 800+) |
+| **Fishing** | net: shrimps (1), anchovies (15) | lure (fly fishing rod + feathers): trout (20), salmon (30), from 60+; cage: lobster (40); harpoon: tuna (35), swordfish (50), from 250+ |
+| **Monsters** | chickens, cows, goblins | wolves (150+), bandit camps (300+), hill giants (450+) |
+
+- **Metals**: bronze, iron, steel, mithril, adamant. Smelt bars at a furnace (iron ore alone; steel, mithril and adamant
+  also need 2, 4 and 6 coal), then smith a dagger, hatchet, mace, sword, scimitar, pickaxe, full helm, 2h sword, platelegs
+  and platebody from each at the anvil (OSRS levels: an iron platebody needs 33, an adamant one 88).
+- **Requirements**: steel needs 5 Attack (weapons) or Defence (armour), mithril 20, adamant 30. Hatchets and pickaxes need
+  Woodcutting / Mining 6 (steel), 21 (mithril), 31 (adamant). **Better tools gather faster** (each tier 20% more chance),
+  and the best one you can use is picked automatically.
+- **Logs** of every tree burn (oak 15, willow 30, maple 45, yew 60) for more xp and longer. **Fish** heal more the better
+  they are (trout 7 ... swordfish 14) and stop burning later (lobster at 74). Cows give beef and hides, chickens meat and
+  feathers (the general store sells feathers and the new fishing tools too).
+- **Monsters**: chickens and cows are harmless; **wolves, bandits and hill giants are aggressive**: they attack you if you
+  come within 4 tiles, unless your combat level is more than twice theirs. Hill giants drop **big bones** (15 Prayer xp),
+  coins and the odd piece of iron or steel; bandits coins and iron weapons. Camps further out are bandit camps.
+- The dev plot's mining area has every kind of rock, its pond every kind of fishing spot, and the dev tools give bars of
+  every metal, fishing gear and adamant gear.
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and

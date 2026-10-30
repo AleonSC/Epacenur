@@ -94,7 +94,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 7 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 11 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -104,9 +104,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 8 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 12 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 7 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 11 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -203,7 +203,7 @@ public static class CoreRulesSuite
         eq2.Set(EquipSlot.Shield, new ItemStack(Shield, 1));
         eq2.Set(EquipSlot.Weapon, new ItemStack(Sword, 1));
         inv2.Add(Logs, 27);
-        Check(!eq2.Equip(inv2, 0, out string why2) && why2 != null && eq2.IsWearing(EquipSlot.Shield), "no room for the shield: the two-handed sword stays put");
+        Check(!eq2.Equip(inv2, 0, null, out string why2) && why2 != null && eq2.IsWearing(EquipSlot.Shield), "no room for the shield: the two-handed sword stays put");
         Check(db.WeaponKind(WeaponKindIds.Unarmed).Styles.Length == 3 && new Equipment().WeaponKind == WeaponKindIds.Unarmed, "unarmed: punch, kick, block");
         double crushOnGob = CombatRules.HitChance(1, Item(SmithingModule.BronzeMace).Bonuses.CrushAttack, CombatStyle.Accurate, 1, -2);
         double crushWithSword = CombatRules.HitChance(1, Item(Sword).Bonuses.CrushAttack, CombatStyle.Accurate, 1, -2);
@@ -372,9 +372,81 @@ public static class CoreRulesSuite
         Check(Making.Problem(plate, sinv, 18, false) == "You need a hammer to do that.", "smithing needs a hammer");
         Check(Making.Make(plate, sinv, 18, srng, out failed) == SmithingModule.BronzePlatebody && sinv.Count(SmithingModule.BronzeBar) == 0 && sinv.Count(SmithingModule.BronzePlatebody) == 1, "a platebody takes 5 bars");
         Check(Making.Problem(helm, sinv, 99, true) == "You need 2 bronze bars to make a bronze full helm.", "says what's missing");
-        Check(db.RecipesAt(SmithingModule.Anvil).Count == 8 && db.RecipesAt(SmithingModule.Furnace).Count == 1, "1 furnace recipe, 8 anvil recipes (5 weapons, 3 armour)");
+        Check(db.RecipesAt(SmithingModule.Anvil).Count == 50 && db.RecipesAt(SmithingModule.Furnace).Count == 5, "5 bars to smelt; 10 things to smith from each");
         Check(Item(SmithingModule.BronzeFullHelm).Slot == EquipSlot.Head && Item(SmithingModule.BronzePlatebody).Slot == EquipSlot.Body && Item(SmithingModule.BronzePlatelegs).Slot == EquipSlot.Legs, "armour goes on head, body and legs");
         Check(ToolBelt.IsTool(MiningModule.BronzePickaxe) && ToolBelt.IsTool(SmithingModule.Hammer), "pickaxe and hammer go on the tool belt");
+
+        info("Tiers");
+        var tsk = new SkillSet();
+        var teq = new Equipment();
+        var tinv = new Inventory();
+        tinv.Add("mithril_scimitar");
+        tsk.SetLevel(SkillIds.Attack, 19);
+        Check(!teq.Equip(tinv, 0, tsk, out string twhy) && twhy == "You need an Attack level of 20 to wield the mithril scimitar.", "mithril needs Attack 20 (" + twhy + ")");
+        tsk.SetLevel(SkillIds.Attack, 20);
+        Check(teq.Equip(tinv, 0, tsk, out twhy), "...and is wielded at 20");
+        Check(Item("adamant_platebody").Bonuses.StabDefence > Item("steel_platebody").Bonuses.StabDefence
+            && Item("steel_platebody").Bonuses.StabDefence > Item(SmithingModule.BronzePlatebody).Bonuses.StabDefence, "better metals defend better");
+        var tbelt = new ToolBelt();
+        tbelt.Add(MiningModule.BronzePickaxe);
+        tbelt.Add("mithril_pickaxe");
+        var msk = new SkillSet();
+        msk.SetLevel(MiningModule.Skill, 20);
+        Check(ToolBelt.Find(tbelt, new Inventory(), "pickaxe", msk).Id == MiningModule.BronzePickaxe, "at Mining 20 the mithril pickaxe can't be used yet");
+        msk.SetLevel(MiningModule.Skill, 21);
+        Check(ToolBelt.Find(tbelt, new Inventory(), "pickaxe", msk).Id == "mithril_pickaxe", "...at 21 it's the one you use");
+        var oakYield = db.Node(WoodcuttingModule.Oak).Yields[0];
+        Check(Gathering.Chance(oakYield, 30, 4) > Gathering.Chance(oakYield, 30, 1) * 1.5, "a mithril hatchet chops much faster than bronze");
+        var steelBar = db.Recipe("smelt_steel_bar");
+        var cinv2 = new Inventory();
+        cinv2.Add(MiningModule.IronOre, 2);
+        cinv2.Add(MiningModule.Coal, 3);
+        Check(Making.CanMake(steelBar, cinv2) == 1 && steelBar.Level == 30, "steel takes an iron ore and 2 coal, at Smithing 30");
+        Check(db.Recipe("smith_iron_platebody").Level == 33 && db.Recipe("smith_adamant_platebody").Level == 88 && db.Recipe("smith_bronze_dagger").Level == 1,
+            "smithing levels as in OSRS (iron platebody 33, adamant 88)");
+        var lob = db.RecipeUsing(FiremakingModule.Fire, FishingModule.RawLobster);
+        Check(lob.Level == 40 && Making.SuccessChance(lob, 73) < 1.0 && Making.SuccessChance(lob, 74) == 1.0, "lobsters stop burning at 74");
+        Check(db.Node(FishingModule.LureSpot).BaitItemId == FishingModule.Feathers && db.Item(FishingModule.Feathers).Stackable, "fly fishing uses feathers");
+        var noDrop = new DropTable().Add(null, 0, 0, 1);
+        Check(!noDrop.Roll(new Random(1), out string nid, out int ncount), "a drop table can drop nothing");
+
+        info("Spawning");
+        var sow = new Overworld(2024);
+        bool nearOnlyBasics = true, farHasAdamant = false, farHasYew = false, nearHasOak = false;
+        for (int x = 0; x < 64; x++)
+            for (int z = 0; z < 64; z++)
+            {
+                var t = new Tile(x, z);
+                var rock = Spawning.NodeAt(sow, t, Terrain.Rock);
+                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
+                if (Spawning.NodeAt(sow, t, Terrain.Tree).Id == WoodcuttingModule.Oak) nearHasOak = true;
+                var farTile = new Tile(x + 1100, z);
+                if (Spawning.NodeAt(sow, farTile, Terrain.Rock).Id == MiningModule.AdamantiteRock) farHasAdamant = true;
+                if (Spawning.NodeAt(sow, farTile, Terrain.Tree).Id == WoodcuttingModule.Yew) farHasYew = true;
+            }
+        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper and tin near the start, adamantite and yews far out");
+        var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
+        Check(homeGroups.Count == 1 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
+        int campCount = 0, goblinCamps = 0, wildFar = 0, dangerous = 0;
+        for (int rx = -12; rx <= 12; rx++)
+            for (int rz = -12; rz <= 12; rz++)
+            {
+                var plan = sow.Plan(rx, rz);
+                var groups = Spawning.GroupsIn(sow, plan);
+                if (plan.Kind == RegionKind.Camp)
+                {
+                    campCount++;
+                    if (groups[0].Npc.Id == CombatModule.Goblin) goblinCamps++;
+                }
+                if (plan.Kind == RegionKind.Wild && Spawning.Distance(sow, plan.Center) > 500)
+                {
+                    wildFar++;
+                    if (groups.Exists(g => g.Npc.Aggressive)) dangerous++;
+                }
+            }
+        Check(goblinCamps > 0 && goblinCamps < campCount && dangerous > wildFar / 2, campCount + " camps (" + goblinCamps + " goblin, the rest bandits); "
+            + dangerous + " of " + wildFar + " far-out wild regions have aggressive monsters");
+        Check(db.Npc(CombatModule.HillGiant).AlwaysDrops[0] == PrayerModule.BigBones && db.Item(PrayerModule.BigBones).BuryXp == 15, "hill giants drop big bones (15 xp)");
 
         info("World generation");
         foreach (int seed in new[] { 2024, 1, 77, 31337 })

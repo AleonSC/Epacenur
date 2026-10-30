@@ -16,12 +16,18 @@ namespace Epacenur.Core
 
         public static double Chance(NodeYield y, int level) => Chance(y.LowChance, y.HighChance, level);
 
+        /// How much a tool of a tier multiplies the chance: bronze (tier 1) x1, each tier up 20% more.
+        public static double ToolBoost(int tier) => 1.0 + 0.2 * Math.Max(0, tier - 1);
+
+        /// The chance with a tool of a tier (capped at certain).
+        public static double Chance(NodeYield y, int level, int toolTier) => Math.Min(1.0, Chance(y, level) * ToolBoost(toolTier));
+
         /// One attempt at a node: tries each yield you have the level for, best first; the first one that
-        /// rolls a success is what you get. Null when nothing comes of it.
-        public static NodeYield Roll(NodeDef node, int level, Random rng)
+        /// rolls a success is what you get. Null when nothing comes of it. `toolTier`: the tool used (better is faster).
+        public static NodeYield Roll(NodeDef node, int level, Random rng, int toolTier = 1)
         {
             foreach (var y in node.Yields)
-                if (level >= y.Level && rng.NextDouble() < Chance(y, level))
+                if (level >= y.Level && rng.NextDouble() < Chance(y, level, toolTier))
                     return y;
             return null;
         }
