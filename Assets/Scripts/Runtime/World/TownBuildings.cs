@@ -16,6 +16,8 @@ namespace Epacenur.Runtime
         public enum Roofing { Thatch, Tiles, Slate, Shingles }
 
         const float Thick = 0.35f;
+        /// How far a building's floor stands above the ground (the floor covers the terrain's planks).
+        public const float FloorTop = 0.035f;
 
         static readonly Color Plaster = new Color(0.87f, 0.81f, 0.67f), Beam = new Color(0.32f, 0.21f, 0.13f),
             StoneC = new Color(0.63f, 0.61f, 0.57f), BrickC = new Color(0.6f, 0.32f, 0.23f), PlankC = new Color(0.55f, 0.4f, 0.25f),
@@ -39,6 +41,10 @@ namespace Epacenur.Runtime
             public float Length => To - From + 1;
             /// Where tile `t` of this side is, at height y (map space), on the wall's centre line.
             public Vector3 Point(float t, float y) => AlongX ? new Vector3(t, y, At) : new Vector3(At, y, t);
+            /// Where the wall starts and ends along its side: the walls along x run out to the corners' outer faces,
+            /// the walls along z fit between them (so nothing overlaps or sticks out at a corner).
+            public float Start => AlongX ? From - Thick / 2f : From + Thick / 2f;
+            public float End => AlongX ? To + Thick / 2f : To - Thick / 2f;
             /// Which way "right" along the wall is, seen from outside, as a sign along its axis.
             public float RightSign => AlongX ? (Outward.z > 0 ? 1f : -1f) : (Outward.x > 0 ? -1f : 1f);
         }
@@ -124,9 +130,36 @@ namespace Epacenur.Runtime
                 }
             }
             top.gameObject.AddComponent<RoofHider>().Footprint = a;
-            TownInteriors.Build(root, b, y0);
+            Floor(root, b, lo, hi, y0);
+            TownInteriors.Build(root, b, y0 + FloorTop);
             if (b.Kind == BuildingKind.Farm)
                 Fence(root, b, y0);
+        }
+
+        // ---- The floor ----
+
+        /// The floor, right out to the walls (the terrain's planks stop short of them): boards, or stone flags
+        /// in the bank and the chapel.
+        static void Floor(Transform root, Building b, Tile lo, Tile hi, float y0)
+        {
+            float x0 = lo.X + Thick / 2f, x1 = hi.X - Thick / 2f, z0 = lo.Z + Thick / 2f, z1 = hi.Z - Thick / 2f;
+            bool stone = b.Kind == BuildingKind.Bank || b.Kind == BuildingKind.Chapel;
+            var colour = stone ? StoneC * 0.92f : new Color(0.56f, 0.41f, 0.26f);
+            var floor = new GameObject(b.Kind + " floor").transform;
+            floor.SetParent(root, false);
+            Visuals.Prim(PrimitiveType.Cube, floor, new Vector3((x0 + x1) / 2f, y0 + FloorTop - 0.05f, (z0 + z1) / 2f), new Vector3(x1 - x0, 0.1f, z1 - z0), colour);
+            // Board joints across the room (along its longer side), or a grid of flagstone joints.
+            var line = colour * 0.8f;
+            bool alongX = x1 - x0 >= z1 - z0;
+            float y = y0 + FloorTop + 0.004f;
+            float step = stone ? 0.5f : 0.25f;
+            for (float t = (alongX ? z0 : x0) + step; t < (alongX ? z1 : x1) - 0.05f; t += step)
+                Visuals.Prim(PrimitiveType.Cube, floor, alongX ? new Vector3((x0 + x1) / 2f, y, t) : new Vector3(t, y, (z0 + z1) / 2f),
+                    alongX ? new Vector3(x1 - x0, 0.008f, 0.025f) : new Vector3(0.025f, 0.008f, z1 - z0), line);
+            if (stone)
+                for (float t = (alongX ? x0 : z0) + 0.5f; t < (alongX ? x1 : z1) - 0.05f; t += 0.5f)
+                    Visuals.Prim(PrimitiveType.Cube, floor, alongX ? new Vector3(t, y, (z0 + z1) / 2f) : new Vector3((x0 + x1) / 2f, y, t),
+                        alongX ? new Vector3(0.025f, 0.008f, z1 - z0) : new Vector3(x1 - x0, 0.008f, 0.025f), line);
         }
 
         // ---- Walls ----
@@ -142,15 +175,21 @@ namespace Epacenur.Runtime
                     break;
                 if (to < from)
                     continue;
-                float mid = (from + to) / 2f, len = to - from + 1;
+                float start = from == s.From ? s.Start : from - 0.5f, end = to == s.To ? s.End : to + 0.5f;
+                float mid = (start + end) / 2f, len = end - start;
                 var size = s.AlongX ? new Vector3(len, h, Thick) : new Vector3(Thick, h, len);
                 Visuals.Prim(PrimitiveType.Cube, root, s.Point(mid, y0 + h / 2f), size, colour, true);
-                var plinth = s.AlongX ? new Vector3(len + 0.12f, 0.3f, Thick + 0.14f) : new Vector3(Thick + 0.14f, 0.3f, len + 0.12f);
-                Visuals.Prim(PrimitiveType.Cube, root, s.Point(mid, y0 + 0.15f), plinth, Plinth);
+                // The plinth: out to the corner on an x side, between the x sides' plinths on a z side.
+                float grow = s.AlongX ? 0.07f : -0.07f;
+                // (At a doorway it steps 2 cm out past the wall's end, so their faces don't meet.)
+                float ps = from == s.From ? start - grow : start - 0.02f, pe = to == s.To ? end + grow : end + 0.02f;
+                var plinth = s.AlongX ? new Vector3(pe - ps, 0.3f, Thick + 0.14f) : new Vector3(Thick + 0.14f, 0.3f, pe - ps);
+                Visuals.Prim(PrimitiveType.Cube, root, s.Point((ps + pe) / 2f, y0 + 0.15f), plinth, Plinth);
             }
-            // A band along the top.
-            var band = s.AlongX ? new Vector3(s.Length + 0.06f, 0.12f, Thick + 0.08f) : new Vector3(Thick + 0.08f, 0.12f, s.Length + 0.06f);
-            Visuals.Prim(PrimitiveType.Cube, root, s.Point(s.Mid, y0 + h - 0.06f), band, walls == Walls.Timber ? Beam : walls == Walls.Stone ? StoneC * 0.82f : Frame);
+            // A band along the top, standing a little proud of the wall's top (so the two never share a face).
+            float bs = s.AlongX ? s.Start - 0.04f : s.Start + 0.04f, be = s.AlongX ? s.End + 0.04f : s.End - 0.04f;
+            var band = s.AlongX ? new Vector3(be - bs, 0.14f, Thick + 0.08f) : new Vector3(Thick + 0.08f, 0.14f, be - bs);
+            Visuals.Prim(PrimitiveType.Cube, root, s.Point((bs + be) / 2f, y0 + h - 0.05f), band, walls == Walls.Timber ? Beam : walls == Walls.Stone ? StoneC * 0.82f : Frame);
         }
 
         /// What shows on a wall's outside face: a timber frame's beams and braces, a stone wall's courses,
@@ -187,15 +226,16 @@ namespace Epacenur.Runtime
                 for (float y = 0.3f + step; y < h - 0.15f; y += step)
                 {
                     // A course line along the wall, broken at the doorway.
+                    float a = s.From + 0.3f, b = s.To - 0.3f;  // between the corners' quoins
                     if (door >= s.From && door <= s.To && y < 2.05f)
                     {
-                        if (door - 0.6f > s.From - 0.5f)
-                            Strip(root, s, (s.From - 0.5f + door - 0.6f) / 2f, y0 + y, face, door - 0.6f - (s.From - 0.5f), 0.03f, line);
-                        if (s.To + 0.5f > door + 0.6f)
-                            Strip(root, s, (door + 0.6f + s.To + 0.5f) / 2f, y0 + y, face, s.To + 0.5f - (door + 0.6f), 0.03f, line);
+                        if (door - 0.6f > a)
+                            Strip(root, s, (a + door - 0.6f) / 2f, y0 + y, face, door - 0.6f - a, 0.03f, line);
+                        if (b > door + 0.6f)
+                            Strip(root, s, (door + 0.6f + b) / 2f, y0 + y, face, b - (door + 0.6f), 0.03f, line);
                     }
                     else
-                        Strip(root, s, s.Mid, y0 + y, face, s.Length, 0.03f, line);
+                        Strip(root, s, s.Mid, y0 + y, face, b - a, 0.03f, line);
                 }
             }
         }
@@ -218,7 +258,7 @@ namespace Epacenur.Runtime
             {
                 if (walls == Walls.Timber || walls == Walls.Planks)
                 {
-                    Visuals.Prim(PrimitiveType.Cube, root, new Vector3(c.x, y0 + h / 2f, c.y), new Vector3(Thick + 0.08f, h, Thick + 0.08f), Beam);
+                    Visuals.Prim(PrimitiveType.Cube, root, new Vector3(c.x, y0 + (h + 0.05f) / 2f, c.y), new Vector3(Thick + 0.11f, h + 0.05f, Thick + 0.11f), Beam);
                     continue;
                 }
                 var quoin = walls == Walls.Stone ? StoneC * 1.12f : new Color(0.75f, 0.7f, 0.62f);
@@ -245,13 +285,14 @@ namespace Epacenur.Runtime
         static void Window(Transform root, Side s, int t, float y0, float h, Color shutter, bool flowers)
         {
             var f = FaceAt(root, s, t, y0 + h * 0.56f);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0.015f), new Vector3(0.6f, 0.7f, 0.03f), Frame);
+            f.localPosition += s.Outward * 0.03f;  // clear of the beams and courses on the wall behind it
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0f), new Vector3(0.6f, 0.7f, 0.06f), Frame);
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0.03f), new Vector3(0.48f, 0.58f, 0.02f), Glass);
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0.045f), new Vector3(0.04f, 0.58f, 0.02f), Frame);
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0.02f, 0.045f), new Vector3(0.48f, 0.04f, 0.02f), Frame);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.39f, 0.07f), new Vector3(0.7f, 0.06f, 0.14f), Frame * 1.2f);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(-0.44f, 0f, 0.03f), new Vector3(0.24f, 0.7f, 0.03f), shutter);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0.44f, 0f, 0.03f), new Vector3(0.24f, 0.7f, 0.03f), shutter);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.39f, 0.04f), new Vector3(0.7f, 0.06f, 0.14f), Frame * 1.2f);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(-0.44f, 0f, 0.005f), new Vector3(0.24f, 0.7f, 0.07f), shutter);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0.44f, 0f, 0.005f), new Vector3(0.24f, 0.7f, 0.07f), shutter);
             if (!flowers)
                 return;
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.5f, 0.12f), new Vector3(0.6f, 0.14f, 0.16f), new Color(0.4f, 0.27f, 0.16f));
@@ -264,12 +305,13 @@ namespace Epacenur.Runtime
         static void TallWindow(Transform root, Side s, int t, float y0, float h, Color glass)
         {
             var f = FaceAt(root, s, t, y0 + h * 0.5f);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0.015f), new Vector3(0.46f, 1.3f, 0.03f), StoneC * 1.15f);
+            f.localPosition += s.Outward * 0.03f;
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0f, 0f), new Vector3(0.46f, 1.3f, 0.06f), StoneC * 1.15f);
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.05f, 0.03f), new Vector3(0.32f, 1.1f, 0.02f), glass);
             var point = Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0.5f, 0.032f), new Vector3(0.226f, 0.226f, 0.02f), glass * 0.85f);
             point.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 0.05f, 0.045f), new Vector3(0.03f, 1.0f, 0.02f), Frame);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.66f, 0.07f), new Vector3(0.5f, 0.06f, 0.14f), StoneC);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, -0.66f, 0.04f), new Vector3(0.5f, 0.06f, 0.14f), StoneC);
         }
 
         /// The doorway: a frame and lintel, the door swung open against the wall, and the kind's touch over it.
@@ -277,8 +319,8 @@ namespace Epacenur.Runtime
         {
             var f = FaceAt(root, s, t, y0);
             var frame = walls == Walls.Stone ? StoneC * 1.12f : Beam;
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(-0.5f, 1.05f, 0.03f), new Vector3(0.14f, 2.1f, 0.08f), frame);
-            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0.5f, 1.05f, 0.03f), new Vector3(0.14f, 2.1f, 0.08f), frame);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(-0.5f, 1.05f, 0.045f), new Vector3(0.14f, 2.1f, 0.1f), frame);
+            Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0.5f, 1.05f, 0.045f), new Vector3(0.14f, 2.1f, 0.1f), frame);
             // Above the doorway, the wall closes over it.
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, (2.1f + h) / 2f, -Thick / 2f), new Vector3(1.0f, h - 2.1f, Thick), WallColour(walls));
             Visuals.Prim(PrimitiveType.Cube, f, new Vector3(0f, 2.14f, 0.04f), new Vector3(1.2f, 0.14f, 0.1f), frame);

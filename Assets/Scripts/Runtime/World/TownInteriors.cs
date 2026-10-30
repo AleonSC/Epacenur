@@ -106,8 +106,8 @@ namespace Epacenur.Runtime
         {
             float z = Back + 0.5f;
             var blanket = Blankets[rng.Next(Blankets.Length)];
-            foreach (float x in new[] { -0.9f, 0.9f })
-                foreach (float dz in new[] { -0.4f, 0.4f })
+            foreach (float x in new[] { -0.88f, 0.88f })
+                foreach (float dz in new[] { -0.38f, 0.38f })
                     Box(t, x, 0.18f, z + dz, 0.08f, 0.36f, 0.08f, DarkWood);
             Box(t, 0f, 0.3f, z, 1.88f, 0.14f, 0.9f, Wood);
             Box(t, 0f, 0.42f, z, 1.8f, 0.12f, 0.82f, Linen);
@@ -145,7 +145,7 @@ namespace Epacenur.Runtime
             float z = Back + 0.26f;
             Box(t, 0f, 0.95f, z, 0.9f, 1.7f, 0.5f, Wood);
             Box(t, 0f, 1.84f, z + 0.02f, 0.98f, 0.1f, 0.56f, DarkWood);
-            Box(t, 0f, 0.12f, z + 0.02f, 0.94f, 0.08f, 0.54f, DarkWood);
+            Box(t, 0f, 0.12f, z + 0.03f, 0.94f, 0.08f, 0.54f, DarkWood);
             foreach (float x in new[] { -0.215f, 0.215f })
             {
                 Box(t, x, 1.0f, z + 0.255f, 0.38f, 1.42f, 0.02f, LightWood * 0.9f);
@@ -162,7 +162,7 @@ namespace Epacenur.Runtime
             var wood = books ? DarkWood : Wood;
             foreach (float x in new[] { -w / 2f, w / 2f })
                 Box(t, x, 0.95f, z, 0.06f, 1.9f, 0.42f, wood);
-            Box(t, 0f, 0.95f, z - 0.19f, w, 1.9f, 0.03f, wood * 0.8f);
+            Box(t, 0f, 0.94f, z - 0.19f, w - 0.02f, 1.88f, 0.03f, wood * 0.8f);
             for (int s = 0; s < 4; s++)
             {
                 float y = 0.1f + s * 0.52f;
@@ -298,7 +298,7 @@ namespace Epacenur.Runtime
             Box(t, 0f, 0.72f, -0.18f, w, 0.5f, 0.05f, Wood);
             Box(t, 0f, 0.98f, -0.18f, w + 0.04f, 0.05f, 0.09f, DarkWood);
             foreach (float x in new[] { -w / 2f, w / 2f })
-                Box(t, x, 0.48f, -0.02f, 0.06f, 0.96f, 0.56f, DarkWood);
+                Box(t, x, 0.48f, -0.02f, 0.06f, 0.96f, 0.6f, DarkWood);
             if (length > 1)
                 Box(t, 0f, 0.22f, 0.05f, 0.06f, 0.44f, 0.3f, DarkWood);
             return 1f;
@@ -354,8 +354,8 @@ namespace Epacenur.Runtime
             float z = Back + 0.1f;
             foreach (float y in new[] { 0.5f, 1.3f })
                 Box(t, 0f, y, z, 0.95f, 0.08f, 0.1f, Wood);
-            foreach (float x in new[] { -0.44f, 0.44f })
-                Box(t, x, 0.8f, z, 0.07f, 1.6f, 0.1f, DarkWood);
+            foreach (float x in new[] { -0.43f, 0.43f })
+                Box(t, x, 0.8f, z, 0.07f, 1.6f, 0.12f, DarkWood);
             foreach (float x in new[] { -0.28f, -0.12f })
             {
                 Box(t, x, 0.95f, z + 0.08f, 0.05f, 0.95f, 0.015f, new Color(0.75f, 0.77f, 0.8f));
