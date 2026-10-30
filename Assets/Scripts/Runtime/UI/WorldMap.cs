@@ -70,6 +70,8 @@ namespace Epacenur.Runtime
             Gui.Fill(view, new Color(0.05f, 0.05f, 0.05f, 1f));
             GUI.BeginGroup(view);  // clips the map to the view
             var local = new Rect(0f, 0f, view.width, view.height);
+            if (e.type == EventType.Repaint)
+                shown.Clear();
             if (G.World.Map != MapId.Overworld)
                 DrawDevPlot(local);
             else
@@ -138,7 +140,19 @@ namespace Epacenur.Runtime
                     if (!explored.Contains(key))
                         Gui.Fill(rect, new Color(0.03f, 0.03f, 0.05f, 0.6f));
                 }
-            // Names of the towns, camps, shrines and quarries you've seen.
+            // Icons for what's in the regions you've seen (when zoomed in far enough to tell them apart).
+            if (zoom >= 0.35f)
+            {
+                float size = Mathf.Clamp(zoom * 7f, 12f, 22f);
+                var found = new List<MapIcons.Feature>();
+                for (int rx = rx0; rx <= rx1; rx++)
+                    for (int rz = rz0; rz <= rz1; rz++)
+                        if (explored.Contains(ChunkedGrid.Key(rx, rz)))
+                            MapIcons.Features(ow.Plan(rx, rz), found);
+                foreach (var f in found)
+                    ShowIcon(v, f, size);
+            }
+            // Names of the towns, camps, shrines and mine shafts you've seen.
             for (int rx = rx0; rx <= rx1; rx++)
                 for (int rz = rz0; rz <= rz1; rz++)
                 {
@@ -225,11 +239,29 @@ namespace Epacenur.Runtime
                 return;
             var topLeft = ToView(v, -0.5f, G.World.FixedHeight - 0.5f);
             GUI.DrawTexture(new Rect(topLeft.x, topLeft.y, G.World.FixedWidth * zoom, G.World.FixedHeight * zoom), devTexture);
+            var built = new List<MapIcons.Feature>();
+            MapIcons.Built(G.World, built);
+            foreach (var f in built)
+                ShowIcon(v, f, Mathf.Clamp(zoom * 7f, 12f, 22f));
             foreach (var area in G.World.Areas)
             {
                 var p = ToView(v, area.Plot.center.x - 0.5f, area.Plot.yMax);
                 Gui.Shadowed(new Rect(p.x - 80f, p.y - 4f, 160f, 20f), "<b>" + area.Name + "</b>", Gui.Centered);
             }
+        }
+
+        // ---- Icons ----
+
+        // The icons drawn this frame and where (for the hover text).
+        readonly List<KeyValuePair<Rect, MapIcon>> shown = new List<KeyValuePair<Rect, MapIcon>>();
+
+        void ShowIcon(Rect v, MapIcons.Feature f, float size)
+        {
+            var p = ToView(v, f.At.X, f.At.Z);
+            if (p.x < -size || p.y < -size || p.x > v.width + size || p.y > v.height + size)
+                return;
+            MapIcons.Draw(p, f.Icon, size);
+            shown.Add(new KeyValuePair<Rect, MapIcon>(new Rect(p.x - size / 2f, p.y - size / 2f, size, size), f.Icon));
         }
 
         // ---- You, your gravestone ----
@@ -275,6 +307,9 @@ namespace Epacenur.Runtime
             var m = ToMap(v, mouse);
             var t = new Tile(Mathf.RoundToInt(m.x), Mathf.RoundToInt(m.y));
             string where = "Tile " + t.X + ", " + t.Z;
+            foreach (var kv in shown)
+                if (kv.Key.Contains(mouse))
+                    where = "<b>" + MapIcons.Name(kv.Value) + "</b>  -  " + where;
             if (G.World.Map == MapId.Overworld)
             {
                 var ow = G.World.Overworld;

@@ -591,15 +591,21 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 ## Minimap
 
 - Top right: the ground round you from above, **turned with the camera** like RuneScape's, with **N** on the rim. Dots:
-  monsters (yellow), items on the ground (red), banks (gold), altars (white), shops (orange), other stations (blue),
-  fishing spots (cyan), your gravestone (white). **Click it to walk there** (tile mode).
+  monsters (yellow), items on the ground (red), your gravestone (white). **Click it to walk there** (tile mode).
+- **Map icons** (RuneScape style, a picture on a round badge; `Runtime/UI/MapIcons.cs`, painted in code): **bank** (gold
+  coins), **general store** (money bag), **trading post** (arrows both ways), **chapel** (a cross: pray here), **runecrafting
+  altar** (a rune), **mine shaft** (a pickaxe), **cave** (a dark opening), **slayer master** (a skull), **smithy** (an anvil),
+  **furnace** (a flame), **workshop** (a spinning wheel), **farm** (a sprout), **well** (a drop of water), **agility course**
+  (chevrons), **monster camp** (a tent), **ruins and landmarks** (an obelisk), **fishing spots** (a fish) and, in dungeons and
+  mines, the **ladder up**.
 
 ## World map
 
 - **M**, or **World map** under the minimap: the overworld from above, north up. **Drag** to move round it, **scroll** to zoom
   (in close you see every tile; zoomed out, a whole countryside). Regions you haven't seen yet are **shaded**; the towns,
   cities (in bigger letters), camps, shrines and mine shafts you have seen are **named**. The **wilderness is tinted red**, deeper the
-  more dangerous, so the safe rings round towns show. You and your gravestone are marked; hover for the place, its wilderness
+  more dangerous, so the safe rings round towns show. The **map icons** show for every place you've seen (zoomed in far enough
+  to tell them apart; hover one for what it is). You and your gravestone are marked; hover for the place, its wilderness
   level and biome, and the tile. Esc closes it.
 - It's drawn from the world's generator a region at a time (a few each frame) and remembered. What's been seen is saved with
   the world. On the dev plot it shows the dev plot.
