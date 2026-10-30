@@ -544,6 +544,36 @@ namespace Epacenur.Runtime
             return groundMats[key];
         }
 
+        Material blendedGround;
+        bool triedBlended;
+
+        /// The ground blending grass, earth, rock and snow from corner to corner (the Ground shader; GroundBlend), or
+        /// null without the shader (then each tile has one ground's material).
+        public Material BlendedGroundMaterial()
+        {
+            if (!triedBlended)
+            {
+                triedBlended = true;
+                var shader = Visuals.OwnShader("Ground");
+                if (shader != null)
+                {
+                    var m = new Material(shader);
+                    m.SetTexture("_GrassTex", Visuals.GrassTexture());
+                    m.SetTexture("_EarthTex", Visuals.EarthTexture());
+                    m.SetTexture("_RockTex", Visuals.RockTexture());
+                    m.SetTexture("_SnowTex", Visuals.SnowTexture());
+                    m.SetColor("_EarthTint", GroundBlend.EarthTint);
+                    m.SetColor("_RockTint", GroundBlend.RockTint);
+                    m.SetColor("_SnowTint", GroundBlend.SnowTint);
+                    m.SetFloat("_Tiles", Overworld.ChunkSize / Visuals.TextureTiles);
+                    m.SetFloat("_Detail", GroundBlend.Detail);
+                    m.SetFloat("_Edge", GroundBlend.Edge);
+                    blendedGround = m;
+                }
+            }
+            return blendedGround;
+        }
+
         /// Bare ground: earth on steep slopes, rock on steeper ones and high up, snow on the peaks. One material each.
         public Material BareMaterial(Ground ground)
         {

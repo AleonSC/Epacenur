@@ -784,6 +784,28 @@ namespace Epacenur.Core
             return Ground.Grass;
         }
 
+        /// How much of each bare ground covers a point (0..1 each; the rest is grass): earth coming in smoothly as the
+        /// slope steepens, rock on steeper slopes and high up, snow on the peaks. Changes smoothly from place to place
+        /// (the ground blends them, so there are no hard tile edges); the heights it changes at wander a little.
+        /// Levelled ground (towns, camps...) stays grass.
+        public void GroundWeights(double x, double z, out double earth, out double rock, out double snow)
+        {
+            double h = Elevation(x, z);
+            double gx = (Elevation(x + 1, z) - Elevation(x - 1, z)) / 2, gz = (Elevation(x, z + 1) - Elevation(x, z - 1)) / 2;
+            double slope = Math.Abs(gx) + Math.Abs(gz);  // as a tile's rise across its corners (GroundFor's slope)
+            double jitter = (bumps.Sample(x / 23.0 + 7.3, z / 23.0 - 3.1) - 0.5) * 6;
+            snow = Smooth((h - (SnowLine - 1 + jitter)) / 4);
+            double rockLike = Math.Max(Smooth((slope - 0.95) / 0.35), Smooth((h - (RockLine - 1 + jitter)) / 4));
+            double earthLike = Smooth((slope - 0.5) / 0.3);
+            rock = rockLike * (1 - snow);
+            earth = earthLike * (1 - rockLike) * (1 - snow);
+            Levelling(x, z, out double flat);
+            double keep = 1 - Smooth((flat - 0.3) / 0.3);
+            earth *= keep;
+            rock *= keep;
+            snow *= keep;
+        }
+
         /// The ground on a tile, worked out from its corners' heights.
         public Ground GroundAt(Tile t) => GroundAt(t, Elevation(t.X - 0.5, t.Z - 0.5), Elevation(t.X + 0.5, t.Z - 0.5),
             Elevation(t.X - 0.5, t.Z + 0.5), Elevation(t.X + 0.5, t.Z + 0.5));

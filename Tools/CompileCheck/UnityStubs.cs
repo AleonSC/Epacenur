@@ -31,7 +31,7 @@ namespace UnityEngine
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity; public static Quaternion Euler(Vector3 e) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
-    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public static Color operator +(Color a, Color b) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public static Color operator +(Color a, Color b) => a; public static Color operator -(Color a, Color b) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); public static Matrix4x4 identity; public static Matrix4x4 TRS(Vector3 p, Quaternion q, Vector3 s) => default(Matrix4x4); public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b) => a; }
     public struct CombineInstance { public Mesh mesh; public int subMeshIndex; public Matrix4x4 transform; }
@@ -84,9 +84,9 @@ namespace UnityEngine
     public struct Bounds { public Bounds(Vector3 c, Vector3 size) { } }
     public class Shader : Object { public bool isSupported; public static void SetGlobalVector(string n, Vector4 v) { } public static void SetGlobalFloat(string n, float v) { } }
     public static class Resources { public static T Load<T>(string path) where T : Object => null; }
-    public class Material : Object { public Material(Material m) { } public Material(Shader s) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
+    public class Material : Object { public Material(Material m) { } public Material(Shader s) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } public void SetTexture(string p, Texture t) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
-    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector3[] normals; public Vector2[] uv, uv2; public Color[] colors; public Bounds bounds; public void MarkDynamic() { } public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
+    public sealed class Mesh : Object { public Rendering.IndexFormat indexFormat; public void CombineMeshes(CombineInstance[] c, bool merge, bool useMatrices) { } public Vector3[] vertices; public Vector3[] normals; public Vector2[] uv, uv2, uv3; public Color[] colors; public Bounds bounds; public void MarkDynamic() { } public int[] triangles; public int subMeshCount; public void SetTriangles(System.Collections.Generic.List<int> t, int submesh) { } public void RecalculateNormals() { } public void RecalculateBounds() { } }
     public sealed class MeshFilter : Component { public Mesh sharedMesh; }
     public sealed class MeshRenderer : Renderer { }
     public sealed class MeshCollider : Collider { public Mesh sharedMesh; }

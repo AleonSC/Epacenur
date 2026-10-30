@@ -7,8 +7,8 @@ namespace Epacenur.Runtime
     /// and rivers, wet near the water, dry further off, showing through the shallows), drawn as a skin over the
     /// ground with a texture painted for each chunk: mottled brown earth with pebbles, its edge ragged and
     /// fading through worn grass into the ground round it. Away from the dirt the skin is painted with the
-    /// ground's own texture, texel for texel (at the same resolution and tint), so it meets the ground
-    /// without a seam; its normals are worked out as the ground's are, so it's lit the same.
+    /// ground's own colours, texel for texel, blended as the ground blends them (GroundBlend), so it meets the
+    /// ground without a seam; its normals are worked out as the ground's are, so it's lit the same.
     /// The texture is painted a few rows at a time over the next frames (DirtPainter), so streaming chunks
     /// in doesn't stutter; the skin shows once it's done.
     public static class DirtPaths
@@ -27,8 +27,9 @@ namespace Epacenur.Runtime
         static byte KindOf(Terrain t) => t == Terrain.Path ? Road : t == Terrain.Camp ? Camp : t == Terrain.Water || t == Terrain.Bridge ? Sand : (byte)0;
 
         /// The dirt skin for a chunk, over its ground (`heights`: the ground's corner heights, as Ground makes them).
-        public static void Build(World world, float[] heights, int x0, int z0, int size, Transform root)
+        public static void Build(World world, GroundBlend ground, int x0, int z0, int size, Transform root)
         {
+            var heights = ground.Heights;
             var ow = world.Overworld;
             // Which tiles round the chunk are dirt (and which kind), out to Reach beyond its edges.
             int span = size + Reach * 2;
@@ -63,19 +64,7 @@ namespace Epacenur.Runtime
             if (!anyCovered)
                 return;
 
-            // What the ground is on each tile, as the ground draws it: its material's tint, and its texture.
             int n = size + 1;
-            var tint = new Color[size, size];
-            var texture = new Color32[size, size][];
-            for (int i = 0; i < size; i++)
-                for (int j = 0; j < size; j++)
-                {
-                    var tile = new Tile(x0 + i, z0 + j);
-                    int v = i * n + j;
-                    var bare = ow.GroundAt(tile, heights[v], heights[v + n], heights[v + 1], heights[v + n + 1]);
-                    tint[i, j] = World.GroundTint(bare, ow.BiomeAt(tile), World.DangerBand(ow.Danger(tile)));
-                    texture[i, j] = Texels(bare);
-                }
 
             // The skin: the ground's own grid of corners, lifted a little, with the covered tiles' triangles. Its
             // normals come from the whole grid first (as the ground's do), then it keeps only those triangles.
@@ -119,7 +108,7 @@ namespace Epacenur.Runtime
             var owned = go.AddComponent<OwnedMesh>();
             owned.Mesh = mesh;
             owned.Material = mat;
-            go.AddComponent<DirtPainter>().Begin(dirt, Shore(ow, x0, z0, size), tint, texture, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
+            go.AddComponent<DirtPainter>().Begin(dirt, Shore(ow, x0, z0, size), ground, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
         }
 
         const float ShoreBlur = 1f;  // the spread of the blur the sand's distance from the water comes from, in tiles
@@ -236,8 +225,7 @@ namespace Epacenur.Runtime
 
         byte[,] dirt;
         float[,] shore;
-        Color[,] tint;
-        Color32[,][] texture;
+        GroundBlend ground;
         Color32[] earth;
         bool[,] covered;
         int x0, z0, size, w, row;
@@ -245,13 +233,12 @@ namespace Epacenur.Runtime
         MeshRenderer target;
         OwnedMesh owned;
 
-        public void Begin(byte[,] dirt, float[,] shore, Color[,] tint, Color32[,][] texture, Color32[] earth, bool[,] covered, int x0, int z0, int size,
+        public void Begin(byte[,] dirt, float[,] shore, GroundBlend ground, Color32[] earth, bool[,] covered, int x0, int z0, int size,
             MeshRenderer target, OwnedMesh owned)
         {
             this.dirt = dirt;
             this.shore = shore;
-            this.tint = tint;
-            this.texture = texture;
+            this.ground = ground;
             this.earth = earth;
             this.covered = covered;
             this.x0 = x0;
@@ -385,11 +372,9 @@ namespace Epacenur.Runtime
                 if (!covered[i, j])
                     continue;  // never drawn
 
-                // The ground here, as the ground draws it.
+                // The ground here, as the ground draws it (grass, earth, rock and snow blended).
                 int texel = ty * T + pxx % T;
-                var g = texture[i, j][texel];
-                var tn = tint[i, j];
-                var c = new Color(tn.r * g.r / 255f, tn.g * g.g / 255f, tn.b * g.b / 255f);
+                var c = ground.ColourAt(pxx, py, Px);
 
                 int q0 = pxx / Step, k = r0 * nodes + q0;
                 float fx = (pxx % Step) / (float)Step;

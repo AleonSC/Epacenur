@@ -192,6 +192,11 @@ outlines), ponds, forests, highlands (tan).*
 - **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 27) to **rock**, and the peaks (over 38) to
   **snow**, on the ground and on the maps. Levelled ground stays green.
 - **Textured ground**: grass, earth, rock and snow each have a generated texture (blotches and strokes), tinted by biome.
+  They **blend smoothly** rather than tile by tile: every corner of the ground says how much earth, rock and snow covers it
+  (`Overworld.GroundWeights`: earth coming in as the slope steepens, rock on steeper slopes and high up, snow on the peaks, the
+  heights wandering a little), and the Ground shader blends the textures between corners, letting each texture's own detail
+  break up the edges (`Runtime/World/GroundBlend.cs`, `Assets/Resources/Epacenur/Ground.shader`). The grass's colour
+  blends between biomes the same way. The dirt painted round roads uses the same blend, so it still meets the ground seamlessly.
 - **Grass, flowers and bushes**: tufts of grass blades grow over the grass (tall reeds in marshes, short in town, dry and
   sparse in the wasteland, a few on bare earth), with clumps of flowers (most in meadows; purple heather in the highlands)
   and the odd bush out in the country (most in woodland, never in towns or levelled places). You walk through them; they're

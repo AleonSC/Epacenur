@@ -26,10 +26,11 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                     terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
 
-            var heights = Ground(world, x0, z0, size, root);
+            var ground = Ground(world, x0, z0, size, root);
+            var heights = ground.Heights;
 
             // Dirt roads and the trampled ground of camps and cave mouths, fading into the ground round them.
-            DirtPaths.Build(world, heights, x0, z0, size, root);
+            DirtPaths.Build(world, ground, x0, z0, size, root);
             // Ground overlays (paving, gravel, floors, fields): sheets that follow the ground.
             Sheet(ow, terrain, x0, z0, root, Paving, 0.025f, (k, t) => k == Terrain.Stone);
             Sheet(ow, terrain, x0, z0, root, Gravel, 0.02f, (k, t) => k == Terrain.Quarry || (k == Terrain.Rock && ow.PlanAt(t).Kind == RegionKind.Quarry));
@@ -77,7 +78,7 @@ namespace Epacenur.Runtime
 
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
-        static float[] Ground(World world, int x0, int z0, int size, Transform root)
+        static GroundBlend Ground(World world, int x0, int z0, int size, Transform root)
         {
             var ow = world.Overworld;
             int n = size + 1;
@@ -90,8 +91,49 @@ namespace Epacenur.Runtime
                     verts[i * n + j] = new Vector3(x, (float)ow.Elevation(x, z), z);
                     uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // 0..1 across the chunk (the material repeats its texture)
                 }
-            // Each tile's two triangles go in the part of the mesh for its biome and band of danger, which has
-            // that ground's material.
+            var blend = new GroundBlend(ow, x0, z0, size, verts);
+            var mesh = new Mesh { name = "Ground" };
+            mesh.vertices = verts;
+            mesh.uv = uv;
+            Material[] mats;
+            var blended = world.BlendedGroundMaterial();
+            if (blended != null)
+            {
+                // Grass, earth, rock and snow blended smoothly from corner to corner (GroundBlend).
+                mesh.colors = blend.Tint;
+                mesh.uv2 = blend.EarthRock;
+                mesh.uv3 = blend.Snow;
+                var all = new List<int>();
+                for (int i = 0; i < size; i++)
+                    for (int j = 0; j < size; j++)
+                    {
+                        int a = i * n + j, b = a + 1, c = a + n, d = c + 1;
+                        all.Add(a); all.Add(b); all.Add(c);
+                        all.Add(c); all.Add(b); all.Add(d);
+                    }
+                mesh.SetTriangles(all, 0);
+                mats = new[] { blended };
+            }
+            else
+                mats = TileParts(world, mesh, verts, x0, z0, size);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var go = new GameObject("Ground");
+            go.layer = World.FarLayer;
+            go.transform.SetParent(root, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterials = mats;
+            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            go.AddComponent<OwnedMesh>().Mesh = mesh;
+            return blend;
+        }
+
+        /// Without the Ground shader: each tile's two triangles go in the part of the mesh for its ground (its
+        /// biome and band of danger, or bare earth, rock or snow), which has that ground's material.
+        static Material[] TileParts(World world, Mesh mesh, Vector3[] verts, int x0, int z0, int size)
+        {
+            var ow = world.Overworld;
+            int n = size + 1;
             var parts = new Dictionary<int, List<int>>();
             for (int i = 0; i < size; i++)
                 for (int j = 0; j < size; j++)
@@ -107,9 +149,6 @@ namespace Epacenur.Runtime
                     tris.Add(a); tris.Add(b); tris.Add(c);
                     tris.Add(c); tris.Add(b); tris.Add(d);
                 }
-            var mesh = new Mesh { name = "Ground" };
-            mesh.vertices = verts;
-            mesh.uv = uv;
             mesh.subMeshCount = parts.Count;
             var mats = new Material[parts.Count];
             int part = 0;
@@ -119,19 +158,7 @@ namespace Epacenur.Runtime
                 mats[part++] = kv.Key >= BareKey ? world.BareMaterial((Core.Ground)(kv.Key - BareKey))
                     : world.GroundMaterial((Biome)(kv.Key / World.DangerBands), kv.Key % World.DangerBands);
             }
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            var go = new GameObject("Ground");
-            go.layer = World.FarLayer;
-            go.transform.SetParent(root, false);
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterials = mats;
-            go.AddComponent<MeshCollider>().sharedMesh = mesh;
-            go.AddComponent<OwnedMesh>().Mesh = mesh;
-            var heights = new float[n * n];
-            for (int k = 0; k < heights.Length; k++)
-                heights[k] = verts[k].y;
-            return heights;
+            return mats;
         }
 
         /// A sheet of quads, one per tile that `which` picks, just over the ground (by `lift`), following it.

@@ -1380,6 +1380,22 @@ public static class CoreRulesSuite
                 if (inRiver) wxFast = Math.Max(wxFast, sp); else wxPond = Math.Max(wxPond, sp);
             }
         Check(wxFast > 0.5 && wxPond < 0.05, "rivers run (" + wxFast.ToString("0.0") + " tiles a second); ponds lie still");
+        // ---- Ground blending ----
+        var gb = new Overworld(31);
+        double gbJump = 0; int gbRock = 0, gbSnow = 0, gbEarth = 0; bool gbRange = true;
+        for (int x = -400; x < 400; x += 5)
+            for (int z = -400; z < 400; z += 5)
+            {
+                gb.GroundWeights(x + 0.5, z + 0.5, out double e1, out double r1, out double s1);
+                gb.GroundWeights(x + 0.505, z + 0.5, out double e2, out double r2, out double s2);
+                gbJump = Math.Max(gbJump, Math.Abs(e1 - e2) + Math.Abs(r1 - r2) + Math.Abs(s1 - s2));
+                if (e1 < 0 || r1 < 0 || s1 < 0 || e1 + r1 + s1 > 1 + 1e-9) gbRange = false;
+                if (r1 > 0.5) gbRock++; if (s1 > 0.5) gbSnow++; if (e1 > 0.5) gbEarth++;
+            }
+        var gbHome = gb.Plan(0, 0);
+        gb.GroundWeights(gbHome.Center.X + 0.5, gbHome.Center.Z + 0.5, out double gbE, out double gbR, out double gbS);
+        Check(gbRange && gbJump < 0.1 && gbRock > 0 && gbSnow > 0 && gbEarth > 0 && gbE + gbR + gbS == 0,
+            "bare ground blends in smoothly from corner to corner (no jumps: at most " + gbJump.ToString("0.00") + " over a two-hundredth of a tile), with earth, rock and snow about, and towns grassy");
         var mkCity = new Overworld(12345).Plan(0, 0);
         Check(mkCity.City && mkCity.HasTradingPost && mkCity.Blocked.Contains(mkCity.TradingPost), "the starting city has a trading post on its square");
 
