@@ -34,6 +34,7 @@ namespace Epacenur.Runtime
             public int style;
             public string autocast;       // spell id, or null
             public SlayerState slayer;
+            public MarketState market;    // trading post offers and prices
             public bool hasEnergy;
             public float energy;          // run energy, percent
             public int pouch;
@@ -144,9 +145,11 @@ namespace Epacenur.Runtime
             d.placeMaps = maps.ToArray();
             d.placeX = xs.ToArray();
             d.placeZ = zs.ToArray();
-            PlayerPrefs.SetString(KeyFor(game.Character), JsonUtility.ToJson(d));
+            game.Trading.savedAt = DateTime.UtcNow.Ticks;
+            d.market = game.Trading;
             d.hasGrave = game.Grave != null;
             d.grave = game.Grave;
+            PlayerPrefs.SetString(KeyFor(game.Character), JsonUtility.ToJson(d));
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
@@ -242,6 +245,17 @@ namespace Epacenur.Runtime
             game.Autocast = db.Spell(d.autocast);
             if (d.slayer != null)
                 game.Slayer = d.slayer;
+            if (d.market != null && d.market.offers != null)
+            {
+                game.Trading = d.market;
+                if (game.Trading.shiftItems == null || game.Trading.shifts == null || game.Trading.shiftItems.Count != game.Trading.shifts.Count)
+                {
+                    game.Trading.shiftItems = new List<string>();
+                    game.Trading.shifts = new List<double>();
+                }
+                game.Trading.offers.RemoveAll(o => db.Item(o.item) == null);  // items the game no longer has
+                game.CatchUpMarket();
+            }
             if (d.hasEnergy)
                 game.Energy.Set(d.energy);
             if (d.tools != null)

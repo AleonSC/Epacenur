@@ -842,6 +842,17 @@ namespace Epacenur.Runtime
             return npc;
         }
 
+        /// A city's trading post: its clerk behind a counter, with the board of offers.
+        public TradingClerk AddTradingClerk(Tile tile)
+        {
+            var owner = OwnerAt(tile);
+            var clerk = Own(TradingClerk.Create(tile, owner.Root), owner);
+            TradingClerk.Booth(tile, owner.Root);
+            Grid.SetBlocked(tile, true);
+            AddLabel(Local(tile) + Vector3.up * 3f, "Trading Post", new Color(1f, 0.85f, 0.3f));
+            return clerk;
+        }
+
         public Npc AddNpc(NpcDef def, Tile tile, RectInt home)
         {
             var owner = OwnerAt(tile);

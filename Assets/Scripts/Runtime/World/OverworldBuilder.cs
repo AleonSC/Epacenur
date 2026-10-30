@@ -213,6 +213,8 @@ namespace Epacenur.Runtime
                     BuildBuilding(world, b, (int)(world.Overworld.Hash(plan.RX, plan.RZ, 16) * int.MaxValue), b == master);
                 foreach (var lamp in plan.Lamps)
                     LampPost.Create(lamp, world.BuildRoot);
+                if (plan.HasTradingPost)
+                    world.AddTradingClerk(plan.TradingPost);
                 for (int i = 0; i < plan.Patches.Count; i++)
                     world.AddPatch(plan.Patches[i], i % 2 == 0 ? PatchKind.Herb : PatchKind.Allotment);
                 world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), RegionName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));

@@ -48,6 +48,7 @@ namespace Epacenur.Core
         public readonly HashSet<Tile> Rocks = new HashSet<Tile>();    // quarries: the ore rocks in the pit
         public readonly List<Tile> Rubble = new List<Tile>();         // quarries: heaps of spoil in the pit's corners
         public Tile Cart;                                    // quarries: a mine cart full of ore
+        public bool HasTradingPost; public Tile TradingPost;  // cities: the trading post's clerk, on the edge of the square
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
 
         /// The planned terrain of a tile in this region, or Grass where nothing's planned.
@@ -216,6 +217,12 @@ namespace Epacenur.Core
                         z0 = Math.Min(z0, plan.Bounds.Z + z); z1 = Math.Max(z1, plan.Bounds.Z + z);
                     }
             plan.Level = new Area(x0 - 2, z0 - 2, x1 - x0 + 5, z1 - z0 + 5);
+            if (plan.City)
+            {
+                plan.HasTradingPost = true;
+                plan.TradingPost = new Tile(plan.Center.X + 2, plan.Center.Z + 2);
+                plan.Blocked.Add(plan.TradingPost);
+            }
             foreach (var fp in plan.Town.Patches)
             {
                 var patch = new Tile(plan.Bounds.X + fp.X, plan.Bounds.Z + fp.Z);

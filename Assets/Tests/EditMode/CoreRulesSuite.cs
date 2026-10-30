@@ -1164,6 +1164,61 @@ public static class CoreRulesSuite
         for (int i = 0; i < 40; i++) chestBank.Add(db.Items[i].Id, 1);
         Check(chestBank.UsedSlots == ConstructionModule.ChestSlots, "a storage chest holds " + ConstructionModule.ChestSlots + " kinds of item");
 
+        // ---- Trading post ----
+        var mkLogs = db.Item(WoodcuttingModule.Logs);
+        var mkState = new MarketState();
+        int mkPrice = Market.Price(mkState, mkLogs);
+        Check(mkPrice >= 1 && mkPrice > mkLogs.Value * 0.5 && mkPrice < mkLogs.Value * 2, "logs trade near their value (" + mkPrice + " gp)");
+        Check(!Market.Tradeable(db.Item(ItemIds.Coins)) && Market.Tradeable(mkLogs), "coins can't be traded; logs can");
+        var mkInv = new Inventory();
+        mkInv.Add(ItemIds.Coins, 10000);
+        Check(Market.Buy(mkState, mkInv, mkLogs, 100, mkPrice) == null && mkInv.Count(ItemIds.Coins) == 10000 - 100 * mkPrice,
+            "an offer to buy takes the coins for all of it");
+        Check(Market.Buy(mkState, mkInv, mkLogs, 100000, 1000) != null, "you can't offer more coins than you have");
+        var mkRng = new Random(5);
+        Market.Advance(mkState, 10, mkRng, db.Item);
+        var mkOffer = mkState.offers[0];
+        Check(mkOffer.done > 0 && mkOffer.done < 100 && mkOffer.collectItems == mkOffer.done, "a cheap item trades a good many in ten seconds, not all at once (" + mkOffer.done + ")");
+        Check(mkState.Shift(mkLogs.Id) > 0, "buying pushes the price up");
+        Market.Abort(mkOffer);
+        long mkRefund = mkOffer.collectCoins;
+        Market.Collect(mkState, mkOffer, mkInv, null, out int mkGot, out long mkCoins);
+        int mkDone = mkOffer.done;
+        Check(mkCoins == mkRefund && mkInv.Count(ItemIds.Coins) == 10000 - mkDone * mkPrice, "aborting gives back the coins not spent");
+        Check(mkGot == Math.Min(mkDone, Inventory.Size) && mkOffer.collectItems == mkDone - mkGot && (mkState.offers.Count == 0) == (mkGot == mkDone),
+            "collecting takes what fits; the rest waits, and an emptied offer comes off the board");
+        Market.Collect(mkState, mkOffer, new Inventory(), null, out _, out _);
+        Check(mkState.offers.Count == 0, "once all's collected, the offer is gone");
+        var mkSell = new MarketState();
+        var mkSeller = new Inventory();
+        mkSeller.Add(WoodcuttingModule.Logs, 20);
+        int mkAt = Market.Price(mkSell, mkLogs);
+        Check(Market.Sell(mkSell, mkSeller, mkLogs, 20, mkAt) == null && mkSeller.Count(WoodcuttingModule.Logs) == 0, "an offer to sell takes the items");
+        for (int i = 0; i < 60 && !mkSell.offers[0].Finished; i++) Market.Advance(mkSell, 5, mkRng, db.Item);
+        Check(mkSell.offers[0].Finished && mkSell.offers[0].collectCoins >= 20L * Math.Min(mkAt, Market.Price(mkSell, mkLogs)) && Market.Price(mkSell, mkLogs) <= mkAt,
+            "a sale at the market price finishes, pays at least the asking price, and pushes the price down");
+        var mkSlow = new MarketState();
+        var mkFast = new MarketState();
+        var mkA = new Inventory(); mkA.Add(ItemIds.Coins, 1000000);
+        var mkB = new Inventory(); mkB.Add(ItemIds.Coins, 1000000);
+        var mkYew = db.Item(WoodcuttingModule.YewLogs);
+        int mkYewPrice = Market.Price(mkSlow, mkYew);
+        Market.Buy(mkSlow, mkA, mkYew, 1000, (int)(mkYewPrice * 0.75));
+        Market.Buy(mkFast, mkB, mkYew, 1000, (int)(mkYewPrice * 1.3));
+        for (int i = 0; i < 30; i++) { Market.Advance(mkSlow, 10, new Random(i), db.Item); Market.Advance(mkFast, 10, new Random(i), db.Item); }
+        Check(mkSlow.offers[0].done == 0 && mkFast.offers[0].done > 0, "an offer far under the market doesn't trade; one over it does");
+        Check(mkFast.offers[0].collectCoins > 0, "paying over the market price gets the difference back");
+        var mkEase = new MarketState();
+        mkEase.SetShift(mkLogs.Id, 0.5);
+        Market.Advance(mkEase, 90 * 60, mkRng, db.Item);
+        Check(Math.Abs(mkEase.Shift(mkLogs.Id) - 0.25) < 0.01, "trading's push on a price halves in an hour and a half");
+        var mkFull = new MarketState();
+        var mkRich = new Inventory(); mkRich.Add(ItemIds.Coins, 1000000);
+        for (int i = 0; i < Market.MaxOffers; i++) Market.Buy(mkFull, mkRich, mkLogs, 1, 10);
+        Check(Market.Buy(mkFull, mkRich, mkLogs, 1, 10) != null, "at most " + Market.MaxOffers + " offers at once");
+        var mkCity = new Overworld(12345).Plan(0, 0);
+        Check(mkCity.City && mkCity.HasTradingPost && mkCity.Blocked.Contains(mkCity.TradingPost), "the starting city has a trading post on its square");
+
     }
 }
 }

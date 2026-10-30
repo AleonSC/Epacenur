@@ -62,6 +62,32 @@ namespace Epacenur.Runtime
         public readonly LapTracker Laps = new LapTracker();
         /// Your Slayer task and points.
         public SlayerState Slayer = new SlayerState();
+        /// Your offers on the trading post, and how its prices have moved.
+        public MarketState Trading = new MarketState();
+        float marketTimer;
+        const float MarketStep = 2f;
+
+        /// The trading post moves on: offers trade (you hear when one's done).
+        void AdvanceMarket(double seconds)
+        {
+            foreach (var o in Core.Market.Advance(Trading, seconds, Rng, ContentDb.Current.Item))
+            {
+                var def = ContentDb.Current.Item(o.item);
+                GameLog.Add("<color=#f0d48a>Trading post: your offer to " + (o.buying ? "buy " : "sell ") + Experience.Format(o.quantity) + " x "
+                    + (def?.Name ?? o.item) + " has finished. Collect it from a trading clerk.</color>");
+            }
+        }
+
+        /// Offers carry on trading while you're away (up to half a day's worth).
+        public void CatchUpMarket()
+        {
+            if (Trading.savedAt <= 0)
+                return;
+            double away = (System.DateTime.UtcNow.Ticks - Trading.savedAt) / (double)System.TimeSpan.TicksPerSecond;
+            away = System.Math.Min(away, 12 * 3600);
+            for (; away > 0; away -= 60)
+                AdvanceMarket(System.Math.Min(60, away));
+        }
 
         /// A monster you killed: Slayer xp and progress if it was your task.
         public void OnNpcKilled(NpcDef npc)
@@ -407,6 +433,12 @@ namespace Epacenur.Runtime
             }
             else
                 boostTimer = 0f;
+            marketTimer += Time.deltaTime;
+            if (marketTimer >= MarketStep)
+            {
+                marketTimer -= MarketStep;
+                AdvanceMarket(MarketStep);
+            }
             tickTimer += Time.deltaTime;
             while (tickTimer >= GameTime.TickSeconds)
             {
