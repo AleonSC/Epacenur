@@ -65,6 +65,7 @@ namespace Epacenur.Runtime
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.stepOffset = 0.3f;
             cc.skinWidth = 0.03f;
+            cc.slopeLimit = 75f;  // the hills are walkable everywhere (the tile grid decides where you can go)
             var p = go.AddComponent<PlayerController>();
             p.cc = cc;
             p.BuildModel();
@@ -125,7 +126,7 @@ namespace Epacenur.Runtime
             Vector3 move = Mode == ViewMode.Tile ? UpdateTileMode(dt) : UpdateFirstPerson(dt);
 
             if (cc.isGrounded)
-                fallSpeed = -1f;
+                fallSpeed = -6f;  // pressed to the ground, so walking down a hill doesn't bounce
             else
                 fallSpeed -= 20f * dt;
             cc.Move(move + Vector3.up * fallSpeed * dt);
@@ -190,7 +191,14 @@ namespace Epacenur.Runtime
             SetHoverText(options);
             hoverMarker.SetActive(hoverTile.HasValue && !overUi);
             if (hoverTile.HasValue)
-                hoverMarker.transform.position = World.TileCenter(hoverTile.Value);
+            {
+                var ht = hoverTile.Value;
+                hoverMarker.transform.position = World.TileCenter(ht);
+                // Lie along the slope of the hill.
+                float sx = (World.Height(new Tile(ht.X + 1, ht.Z)) - World.Height(new Tile(ht.X - 1, ht.Z))) / 2f;
+                float sz = (World.Height(new Tile(ht.X, ht.Z + 1)) - World.Height(new Tile(ht.X, ht.Z - 1))) / 2f;
+                hoverMarker.transform.rotation = Quaternion.Euler(-Mathf.Atan(sz) * Mathf.Rad2Deg, 0f, Mathf.Atan(sx) * Mathf.Rad2Deg);
+            }
 
             Vector3 wasd = ReadWasd();
             if (wasd != Vector3.zero)
@@ -443,9 +451,12 @@ namespace Epacenur.Runtime
         Vector3 FollowPath(float dt)
         {
             stepTarget = path[pathIndex];
-            Vector3 to = World.TileCenter(path[pathIndex]) - transform.position;
+            Vector3 full = World.TileCenter(path[pathIndex]) - transform.position;
+            Vector3 to = full;
             to.y = 0f;
             float step = PathSpeed * dt;
+            // Up and down the hills with the ground (gravity alone would bounce you down a slope).
+            float climb = to.magnitude > 1e-4f ? full.y * Mathf.Min(1f, step / to.magnitude) : 0f;
             if (to.magnitude <= step)
             {
                 stepTarget = null;
@@ -455,10 +466,10 @@ namespace Epacenur.Runtime
                     path.Clear();
                     pathIndex = 0;
                 }
-                return to;
+                return to + Vector3.up * climb;
             }
             Face(to, dt);
-            return to.normalized * step;
+            return to.normalized * step + Vector3.up * climb;
         }
 
         void CancelAction()

@@ -163,7 +163,10 @@ namespace Epacenur.Runtime
             var pixels = new Color32[n * n];
             for (int y = 0; y < n; y++)
                 for (int x = 0; x < n; x++)
-                    pixels[y * n + x] = World.TerrainColour(ow.At(new Tile(rx * RegionSize + x * step, rz * RegionSize + y * step)));
+                {
+                    var t = new Tile(rx * RegionSize + x * step, rz * RegionSize + y * step);
+                    pixels[y * n + x] = World.HillShade(World.TerrainColour(ow.At(t)), ow, t, step);
+                }
             var plan = ow.Plan(rx, rz);
             foreach (var t in plan.Blocked)  // the bank booths, altars, shop keepers and tents themselves
             {

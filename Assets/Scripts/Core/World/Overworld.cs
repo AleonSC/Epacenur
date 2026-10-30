@@ -17,6 +17,7 @@ namespace Epacenur.Core
         public readonly List<Building> Buildings = new List<Building>();
         public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar
         public readonly List<Tile> Tents = new List<Tile>();
+        public Area Level;                                   // towns, camps, shrines: kept flat (hills rise beyond it)
         public Tile Altar;                                   // shrines: where the altar stands
         public readonly List<Tile> Stones = new List<Tile>(); // shrines: the standing stones round it
         public readonly HashSet<Tile> Blocked = new HashSet<Tile>();  // features and tents stand here
@@ -53,7 +54,7 @@ namespace Epacenur.Core
         public const int RegionSize = 64, ChunkSize = 16;
         public const int TownClearRadius = 15;  // no trees or ponds this close to a town square
         public readonly int Seed;
-        readonly ValueNoise forest, ponds, rocky, fields;
+        readonly ValueNoise forest, ponds, rocky, fields, hills, bumps, ranges;
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
 
         public Overworld(int seed)
@@ -63,6 +64,9 @@ namespace Epacenur.Core
             ponds = new ValueNoise(seed + 101);
             rocky = new ValueNoise(seed + 202);
             fields = new ValueNoise(seed + 303);
+            hills = new ValueNoise(seed + 404);
+            bumps = new ValueNoise(seed + 505);
+            ranges = new ValueNoise(seed + 606);
         }
 
         /// The town square you start in.
@@ -113,6 +117,15 @@ namespace Epacenur.Core
         {
             int seed = (int)(Hash(plan.RX, plan.RZ, 2) * int.MaxValue);
             plan.Town = WorldGen.GenerateTown(RegionSize, seed);
+            int x0 = plan.Center.X - TownClearRadius, z0 = plan.Center.Z - TownClearRadius, x1 = plan.Center.X + TownClearRadius, z1 = plan.Center.Z + TownClearRadius;
+            for (int x = 0; x < RegionSize; x++)
+                for (int z = 0; z < RegionSize; z++)
+                    if (plan.Town.Map[x, z] != Terrain.Grass)
+                    {
+                        x0 = Math.Min(x0, plan.Bounds.X + x); x1 = Math.Max(x1, plan.Bounds.X + x);
+                        z0 = Math.Min(z0, plan.Bounds.Z + z); z1 = Math.Max(z1, plan.Bounds.Z + z);
+                    }
+            plan.Level = new Area(x0 - 2, z0 - 2, x1 - x0 + 5, z1 - z0 + 5);
             foreach (var b in plan.Town.Buildings)
             {
                 var moved = b.Moved(plan.Bounds.X, plan.Bounds.Z);
@@ -127,6 +140,7 @@ namespace Epacenur.Core
         {
             int dx = (int)(Hash(plan.RX, plan.RZ, 3) * 20) - 10, dz = (int)(Hash(plan.RX, plan.RZ, 4) * 20) - 10;
             plan.Camp = new Area(plan.Center.X + dx - 6, plan.Center.Z + dz - 5, 12, 10);
+            plan.Level = new Area(plan.Camp.X - 3, plan.Camp.Z - 3, plan.Camp.Width + 6, plan.Camp.Height + 6);
             for (int i = 0; i < 2; i++)
             {
                 var tent = new Tile(plan.Camp.X + 2 + i * (plan.Camp.Width - 5), plan.Camp.ZMax - 2);
@@ -141,6 +155,7 @@ namespace Epacenur.Core
             int dx = (int)(Hash(plan.RX, plan.RZ, 5) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 6) * 16) - 8;
             var c = new Tile(plan.Center.X + dx, plan.Center.Z + dz);
             plan.Camp = new Area(c.X - 3, c.Z - 3, 7, 7);
+            plan.Level = new Area(plan.Camp.X - 3, plan.Camp.Z - 3, plan.Camp.Width + 6, plan.Camp.Height + 6);
             plan.Altar = c;
             plan.Blocked.Add(c);
             for (int x = -3; x <= 3; x += 3)
@@ -151,6 +166,67 @@ namespace Epacenur.Core
                         plan.Stones.Add(stone);
                         plan.Blocked.Add(stone);
                     }
+        }
+
+        // ---- Elevation ----
+
+        public const double HillHeight = 6, BumpHeight = 0.8;
+        const double LevelBlend = 12;  // tiles from flat ground to the full height of the hills
+
+        /// How high the ground is (world units) at a point in tile coordinates (a tile's centre is a whole
+        /// number). Rolling hills, higher where a very slow noise (ranges) is high, with small bumps on top;
+        /// flat at 0 in and round towns, camps, shrines and ponds, so buildings, paving and water sit level.
+        public double Elevation(double x, double z)
+        {
+            double flat = Flatness(x, z);
+            if (flat >= 1)
+                return 0;
+            // Down to the water: nothing near a pond is raised (ponds form where their noise passes 0.82,
+            // and only in low country: see IsPond).
+            double h = Hills(x, z);
+            double dry = Math.Max(Smooth((0.8 - ponds.Sample(x / 16.0, z / 16.0)) / 0.5), Smooth((h - PondMaxHills) / 4));
+            return h * (1 - flat) * dry;
+        }
+
+        /// The hills before anything is levelled.
+        double Hills(double x, double z)
+        {
+            double n = (hills.Sample(x / 48.0, z / 48.0) - 0.42) / 0.58;
+            double h = n <= 0 ? 0 : n * n * (3 - 2 * n) * HillHeight * (0.6 + 1.2 * ranges.Sample(x / 220.0, z / 220.0));
+            return h + bumps.Sample(x / 10.0, z / 10.0) * BumpHeight;
+        }
+
+        const double PondMaxHills = 2.5;  // no ponds up in the hills
+
+        public double Elevation(Tile t) => Elevation(t.X, t.Z);
+
+        /// 1 in a town, camp or shrine (and a little way round it), falling smoothly to 0 away from them.
+        double Flatness(double x, double z)
+        {
+            int rx = RegionOf((int)Math.Round(x)), rz = RegionOf((int)Math.Round(z));
+            double best = 0;
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    var plan = Plan(rx + dx, rz + dz);
+                    if (plan.Kind == RegionKind.Wild)
+                        continue;
+                    var a = plan.Level;
+                    double ox = Math.Max(0, Math.Max(a.X - 0.5 - x, x - (a.XMax - 0.5)));
+                    double oz = Math.Max(0, Math.Max(a.Z - 0.5 - z, z - (a.ZMax - 0.5)));
+                    double f = 1 - Smooth(Math.Sqrt(ox * ox + oz * oz) / LevelBlend);
+                    if (f > best)
+                        best = f;
+                }
+            return best;
+        }
+
+        /// 0 below 0, 1 above 1, smooth between.
+        static double Smooth(double t)
+        {
+            if (t <= 0) return 0;
+            if (t >= 1) return 1;
+            return t * t * (3 - 2 * t);
         }
 
         // ---- Tiles ----
@@ -175,7 +251,7 @@ namespace Epacenur.Core
         bool IsPond(Tile t)
         {
             var plan = PlanAt(t);
-            if (plan.KeepsClear(t) || plan.At(t) != Terrain.Grass)
+            if (plan.KeepsClear(t) || plan.At(t) != Terrain.Grass || Hills(t.X, t.Z) > PondMaxHills)
                 return false;
             // Roads stay dry with a margin (a road can run diagonally, which water either side would cut).
             for (int dx = -1; dx <= 1; dx++)

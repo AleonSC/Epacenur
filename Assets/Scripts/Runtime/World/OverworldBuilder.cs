@@ -26,12 +26,7 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                     terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
 
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ground.name = "Ground";
-            ground.transform.SetParent(root, false);
-            ground.transform.localPosition = new Vector3(x0 + (size - 1) * 0.5f, -0.25f, z0 + (size - 1) * 0.5f);
-            ground.transform.localScale = new Vector3(size, 0.5f, size);
-            ground.GetComponent<Renderer>().sharedMaterial = groundMat;
+            Ground(ow, x0, z0, size, root, groundMat);
 
             // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
             Strips(terrain, Terrain.Path, x0, z0, root, Dirt, 0.012f, 0.02f, 0f);
@@ -69,6 +64,43 @@ namespace Epacenur.Runtime
         }
 
         /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges).
+        /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
+        /// work out the same heights along their shared edge, so there are no gaps).
+        static void Ground(Overworld ow, int x0, int z0, int size, Transform root, Material groundMat)
+        {
+            int n = size + 1;
+            var verts = new Vector3[n * n];
+            var uv = new Vector2[n * n];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                {
+                    float x = x0 - 0.5f + i, z = z0 - 0.5f + j;
+                    verts[i * n + j] = new Vector3(x, (float)ow.Elevation(x, z), z);
+                    uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // the material repeats its tile texture per tile
+                }
+            var tris = new int[size * size * 6];
+            int k = 0;
+            for (int i = 0; i < size; i++)
+                for (int j = 0; j < size; j++)
+                {
+                    int a = i * n + j, b = a + 1, c = a + n, d = c + 1;
+                    tris[k++] = a; tris[k++] = b; tris[k++] = c;
+                    tris[k++] = c; tris[k++] = b; tris[k++] = d;
+                }
+            var mesh = new Mesh { name = "Ground" };
+            mesh.vertices = verts;
+            mesh.uv = uv;
+            mesh.triangles = tris;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var go = new GameObject("Ground");
+            go.transform.SetParent(root, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = groundMat;
+            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            go.AddComponent<OwnedMesh>().Mesh = mesh;
+        }
+
         static void Strips(Terrain[,] terrain, Terrain kind, int x0, int z0, Transform root, Color colour, float y, float thickness, float grow)
         {
             int size = terrain.GetLength(0);
@@ -86,7 +118,7 @@ namespace Epacenur.Runtime
                     while (x < size && terrain[x, z] == kind)
                         x++;
                     float len = x - start;
-                    var pos = new Vector3(x0 + start + (len - 1) / 2f, y, z0 + z);
+                    var pos = new Vector3(x0 + start + (len - 1) / 2f, y + World.Height(new Tile(x0 + start, z0 + z)), z0 + z);
                     Visuals.Prim(PrimitiveType.Cube, root, pos, new Vector3(len + grow * 2f, thickness, 1f + grow * 2f), colour);
                 }
             }
@@ -328,6 +360,17 @@ namespace Epacenur.Runtime
             var box = t.gameObject.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.6f, 0f);
             box.size = new Vector3(1f, 1.2f, 1.2f);
+        }
+    }
+
+    /// Frees a mesh made in code when its object goes (chunks come and go as you walk).
+    public sealed class OwnedMesh : MonoBehaviour
+    {
+        public Mesh Mesh;
+        void OnDestroy()
+        {
+            if (Mesh != null)
+                Destroy(Mesh);
         }
     }
 }

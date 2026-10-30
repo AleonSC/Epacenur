@@ -37,12 +37,37 @@ namespace Epacenur.Runtime
         public static Tile Origin { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => Origin = new Tile(0, 0);
+        static void ResetStatics()
+        {
+            Origin = new Tile(0, 0);
+            heightMap = null;
+            heights.Clear();
+        }
 
-        public static Vector3 TileCenter(Tile t) => new Vector3(t.X - Origin.X, 0f, t.Z - Origin.Z);
+        /// The ground's height comes from this (the overworld's hills); the dev plot is flat.
+        static Overworld heightMap;
+        static readonly Dictionary<long, float> heights = new Dictionary<long, float>();
+
+        /// How high the ground is at the centre of a tile.
+        public static float Height(Tile t)
+        {
+            if (heightMap == null)
+                return 0f;
+            long key = ChunkedGrid.Key(t.X, t.Z);
+            if (heights.TryGetValue(key, out float h))
+                return h;
+            if (heights.Count > 250000)
+                heights.Clear();
+            h = (float)heightMap.Elevation(t);
+            heights[key] = h;
+            return h;
+        }
+
+        /// A tile's centre on the ground, in world space.
+        public static Vector3 TileCenter(Tile t) => new Vector3(t.X - Origin.X, Height(t), t.Z - Origin.Z);
         public static Tile TileAt(Vector3 p) => new Tile(Mathf.RoundToInt(p.x) + Origin.X, Mathf.RoundToInt(p.z) + Origin.Z);
-        /// Where a tile is in map space: the local position of things on the map.
-        public static Vector3 Local(Tile t) => new Vector3(t.X, 0f, t.Z);
+        /// Where a tile is in map space (on the ground): the local position of things on the map.
+        public static Vector3 Local(Tile t) => new Vector3(t.X, Height(t), t.Z);
         /// A map-space point in world space.
         public static Vector3 ToWorld(Vector3 local) => local - new Vector3(Origin.X, 0f, Origin.Z);
 
@@ -122,6 +147,8 @@ namespace Epacenur.Runtime
         {
             UnloadAll();
             Map = map;
+            heightMap = map == MapId.Overworld ? Overworld : null;
+            heights.Clear();
             SetOrigin(map == MapId.DevPlot ? new Tile(0, 0) : Snap(at));
             if (map == MapId.DevPlot)
                 BuildDevPlot();
@@ -586,13 +613,25 @@ namespace Epacenur.Runtime
             }
         }
 
+        /// Hills on the maps: slopes facing the north-west lighter, the others darker, high ground a touch
+        /// lighter. `step`: how far apart the samples are (the world map's zoomed-out pixels are far apart).
+        public static Color32 HillShade(Color32 c, Overworld ow, Tile t, int step)
+        {
+            double slope = (ow.Elevation(t.X - step, t.Z + step) - ow.Elevation(t.X + step, t.Z - step)) / step;
+            float f = 1f + Mathf.Clamp((float)slope * 0.18f, -0.3f, 0.3f) + (float)ow.Elevation(t) * 0.012f;
+            return new Color32((byte)Mathf.Clamp(c.r * f, 0f, 255f), (byte)Mathf.Clamp(c.g * f, 0f, 255f), (byte)Mathf.Clamp(c.b * f, 0f, 255f), c.a);
+        }
+
         Color32[] ChunkColours(int cx, int cz)
         {
             int size = Overworld.ChunkSize;
             var c = new Color32[size * size];
             for (int x = 0; x < size; x++)
                 for (int z = 0; z < size; z++)
-                    c[x * size + z] = TerrainColour(Overworld.At(new Tile(cx * size + x, cz * size + z)));
+                {
+                    var t = new Tile(cx * size + x, cz * size + z);
+                    c[x * size + z] = HillShade(TerrainColour(Overworld.At(t)), Overworld, t, 1);
+                }
             return c;
         }
 

@@ -41,7 +41,7 @@ namespace UnityEngine
     public struct RaycastHit { public Collider collider; public Vector3 point; public float distance; }
     public static class Physics { public static RaycastHit[] RaycastAll(Ray r, float d) => null; public static bool Raycast(Ray r, out RaycastHit h, float d) { h = default(RaycastHit); return false; }
         public static bool Raycast(Vector3 o, Vector3 dir, out RaycastHit h, float d) { h = default(RaycastHit); return false; } }
-    public static class Mathf { public static int FloorToInt(float f) => 0; public static int Abs(int i) => i; public static float MoveTowards(float a, float b, float d) => a; public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
+    public static class Mathf { public const float Rad2Deg = 57.29578f; public static float Atan(float f) => 0f; public static int FloorToInt(float f) => 0; public static int Abs(int i) => i; public static float MoveTowards(float a, float b, float d) => a; public const float Deg2Rad = 0f, PI = 3.14159f; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Exp(float f) => f;
         public static float Max(float a, float b) => a; public static int Max(int a, int b) => a; public static float Min(float a, float b) => a; public static int Min(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float v) => a; public static int RoundToInt(float f) => 0; public static int CeilToInt(float f) => 0; public static float Abs(float f) => f; public static float Sqrt(float f) => f; }
@@ -75,9 +75,13 @@ namespace UnityEngine
     public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color32(Color c) => default(Color32); }
     public class Material : Object { public Material(Material m) { } public Color color; public bool enableInstancing; public Texture mainTexture; public Vector2 mainTextureScale; public bool HasProperty(string p) => false; public void SetFloat(string p, float v) { } public void EnableKeyword(string k) { } public void SetColor(string p, Color c) { } }
     public class Collider : Component { public bool isTrigger, enabled; }
+    public sealed class Mesh : Object { public Vector3[] vertices; public Vector2[] uv; public int[] triangles; public void RecalculateNormals() { } public void RecalculateBounds() { } }
+    public sealed class MeshFilter : Component { public Mesh sharedMesh; }
+    public sealed class MeshRenderer : Renderer { }
+    public sealed class MeshCollider : Collider { public Mesh sharedMesh; }
     public sealed class BoxCollider : Collider { public Vector3 center, size; }
     public sealed class CapsuleCollider : Collider { public float radius, height; public Vector3 center; }
-    public sealed class CharacterController : Collider { public float height, radius, stepOffset, skinWidth; public Vector3 center; public bool isGrounded; public void Move(Vector3 m) { } }
+    public sealed class CharacterController : Collider { public float height, radius, stepOffset, skinWidth, slopeLimit; public Vector3 center; public bool isGrounded; public void Move(Vector3 m) { } }
     public enum RuntimeInitializeLoadType { AfterSceneLoad, BeforeSceneLoad, SubsystemRegistration }
     public sealed class RuntimeInitializeOnLoadMethodAttribute : Attribute { public RuntimeInitializeOnLoadMethodAttribute(RuntimeInitializeLoadType t) { } }
     public enum FullScreenMode { Windowed }

@@ -652,7 +652,25 @@ public static class CoreRulesSuite
                 + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks, " + water + " water tiles, "
                 + stranded + " walled-in tiles");
         }
-        var far = new Overworld(5);
+        var hw = new Overworld(31);
+        double highest = 0, steepest = 0;
+        bool levelWhereBuilt = true, waterLevel = true;
+        for (int x = -200; x < 200; x += 1)
+            for (int z = -200; z < 200; z += 2)
+            {
+                var t = new Tile(x, z);
+                double e = hw.Elevation(t);
+                highest = Math.Max(highest, e);
+                steepest = Math.Max(steepest, Math.Abs(hw.Elevation(x + 1, z) - e));
+                var terr = hw.At(t);
+                if ((terr == Terrain.Floor || terr == Terrain.Wall || terr == Terrain.Path || terr == Terrain.Camp || terr == Terrain.Stone) && e > 1e-6) levelWhereBuilt = false;
+                if (terr == Terrain.Water && e > 0.05) waterLevel = false;
+            }
+        info("  hills: highest " + highest.ToString("0.0") + ", steepest step between tiles " + steepest.ToString("0.00"));
+        Check(highest > 4 && hw.Elevation(hw.Spawn) == 0, "there are hills, and the town you start in is level");
+        Check(levelWhereBuilt && waterLevel, "towns, camps and shrines are flat, and ponds lie level");
+        Check(steepest < 2, "no cliffs: neighbouring tiles are less than 2 apart");
+                var far = new Overworld(5);
         Check(far.At(new Tile(-1000000, 2000000)) == far.At(new Tile(-1000000, 2000000)) && far.Plan(-15625, 31250) != null, "it goes on for ever (a million tiles out works)");
         var cg = new ChunkedGrid(16);
         cg.Load(-1, 0, t => t.X == -3);
