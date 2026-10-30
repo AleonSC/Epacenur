@@ -199,8 +199,13 @@ outlines), ponds, forests, highlands (tan).*
   blends between biomes the same way. The dirt painted round roads uses the same blend, so it still meets the ground seamlessly.
 - **Grass, flowers and bushes**: tufts of grass blades grow over the grass (tall reeds in marshes, short in town, dry and
   sparse in the wasteland, a few on bare earth), with clumps of flowers (most in meadows; purple heather in the highlands)
-  and the odd bush out in the country (most in woodland, never in towns or levelled places). You walk through them; they're
-  drawn only within 70 tiles, and the grass casts no shadows.
+  and the odd bush out in the country (most in woodland, never in towns or levelled places): a dome of leafy clumps, darker
+  underneath and lighter on top, about a third of them in berry (red, purple, blue) or in flower (white, yellow, pink). You
+  walk through them; they're drawn only within 70 tiles, and the grass casts no shadows.
+- **Rocks** are craggy heaps of tilted blocks on a darker slab, with a lighter cap, a crack and loose stones round them
+  (`Looks.Crag`); ore juts out in crystals with brighter tips (mithril's and adamantite's shine faintly) and patches
+  (`Looks.Veins`), so you can tell each ore at a glance; mined out, they're chipped. Limestone is pale and banded; rune
+  essence is a big pale crag with glowing crystals.
 - **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 40 tiles).
   They narrow and end before reaching towns (they grow over the 40 tiles past a town's safe ring), and camps, shrines, quarries,
   courses and caves are never put beside one. **Wooden bridges** cross them every 32 tiles (two tiles wide, with

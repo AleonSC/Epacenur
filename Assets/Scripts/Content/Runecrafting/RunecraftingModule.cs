@@ -29,12 +29,10 @@ namespace Epacenur.Content
             ess.GroundModel = new Model().Cube(0f, 0.06f, 0f, 0.18f, 0.12f, 0.18f, EssenceColour);
 
             // Essence rocks: big pale boulders round each altar's ring of stones. Mined forever.
+            var crystal = new Rgb(0.7f, 0.85f, 1f);
             var boulder = new Model()
-                .Sphere(0f, 0.45f, 0f, 1.2f, 0.95f, 1.05f, EssenceColour * 0.9f)
-                .Sphere(0.3f, 0.3f, 0.25f, 0.6f, 0.5f, 0.6f, EssenceColour * 0.8f)
-                .Sphere(-0.35f, 0.75f, -0.1f, 0.4f, 0.35f, 0.4f, EssenceColour * 1.05f)
-                .Cube(0.15f, 0.95f, 0.1f, 0.14f, 0.3f, 0.14f, new Rgb(0.7f, 0.85f, 1f)).Turn(10f, 30f, 15f).Glowing()  // faintly glowing crystals
-                .Cube(-0.4f, 0.55f, 0.35f, 0.1f, 0.22f, 0.1f, new Rgb(0.7f, 0.85f, 1f)).Turn(-20f, 0f, 25f).Glowing();
+                .Child(Looks.Veins(Looks.Crag(EssenceColour * 0.92f, Looks.Seed(EssenceRock)), crystal, Looks.Seed(EssenceRock), true), 0f, 0f, 0f, scale: 1.3f)
+                .Cube(0.05f, 1.02f, 0.05f, 0.14f, 0.34f, 0.14f, crystal).Turn(10f, 30f, 15f).Glowing();  // a big crystal on top
             var node = db.Add(new NodeDef
             {
                 Id = EssenceRock, Name = "Rune essence", Action = "Mine", Examine = "A pale rock that hums faintly.",

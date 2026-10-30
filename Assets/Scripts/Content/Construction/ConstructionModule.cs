@@ -119,14 +119,12 @@ namespace Epacenur.Content
         /// Limestone: pale rocks in the quarries near towns (some quarries are mostly limestone). Mined for building stone.
         static void LimestoneNode(ContentDb db)
         {
+            // A pale crag in layers (bands of a deeper and a paler cream); mined out, a grey one, chipped.
             var pale = new Rgb(0.76f, 0.73f, 0.64f);
-            var empty = new Model()
-                .Sphere(0f, 0.32f, 0f, 0.95f, 0.7f, 0.85f, Looks.Rock)
-                .Sphere(0.22f, 0.2f, 0.18f, 0.55f, 0.45f, 0.55f, new Rgb(0.42f, 0.4f, 0.38f));
-            var full = new Model()
-                .Sphere(0f, 0.34f, 0f, 1f, 0.74f, 0.9f, pale)
-                .Sphere(0.25f, 0.22f, 0.2f, 0.6f, 0.5f, 0.55f, pale * 0.9f)
-                .Sphere(-0.28f, 0.2f, -0.12f, 0.5f, 0.42f, 0.55f, pale * 1.06f);
+            var empty = Looks.Chipped(Looks.Crag(Looks.Rock, Looks.Seed(LimestoneRock)), Looks.Rock);
+            var full = new Model().Include(Looks.Crag(pale, Looks.Seed(LimestoneRock)));
+            foreach (float y in new[] { 0.2f, 0.33f, 0.46f })
+                full.Cube(0f, y, 0f, 1.04f - y * 0.4f, 0.045f, 0.96f - y * 0.4f, y == 0.33f ? pale * 1.12f : pale * 0.84f).Turn(4f, 30f, 3f);
             var node = db.Add(new NodeDef
             {
                 Id = LimestoneRock, Name = "Limestone", Action = "Mine", Examine = "A pale rock of limestone.",
