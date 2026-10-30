@@ -100,11 +100,11 @@ namespace Epacenur.Core
         public const int MaxDanger = 60;
         public const int DeepWilderness = 24;                            // from this level the land is wasteland
         public readonly int Seed;
-        readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge, ridges, basin, rivers;
+        readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge, ridges, basin, rivers, knolls;
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
         readonly Dictionary<long, Settlement> settlements = new Dictionary<long, Settlement>();
         // Slow-changing fields are worked out on a coarse lattice and blended between its points.
-        readonly CoarseField moistureField, dangerField, baseField, riverField, hillsField;
+        readonly CoarseField moistureField, dangerField, baseField, riverField, hillsField, riverAllowField;
         readonly Dictionary<long, double> pondCorners = new Dictionary<long, double>();
 
         public Overworld(int seed)
@@ -122,11 +122,13 @@ namespace Epacenur.Core
             ridges = new ValueNoise(seed + 1010);
             basin = new ValueNoise(seed + 1111);
             rivers = new ValueNoise(seed + 1212);
+            knolls = new ValueNoise(seed + 1313);
             moistureField = new CoarseField(8, ExactMoisture);
             dangerField = new CoarseField(4, ExactDanger);
             baseField = new CoarseField(8, ExactBase);
             riverField = new CoarseField(4, ExactRiver);
-            hillsField = new CoarseField(2, Hills);  // the hills as biomes see them: close enough, and far cheaper
+            hillsField = new CoarseField(2, Hills);
+            riverAllowField = new CoarseField(8, ExactRiverAllowed);  // the hills as biomes see them: close enough, and far cheaper
         }
 
         /// The town square you start in.
@@ -177,6 +179,9 @@ namespace Epacenur.Core
             // Caves up in the mountains: a mouth into a dungeon.
             if (plan.Kind == RegionKind.Wild && !here && hillsField.At(plan.Center.X, plan.Center.Z) > 7 && Hash(rx, rz, 9) < 0.45)
                 plan.Kind = RegionKind.Cave;
+            // Not on a river: camps, shrines, quarries, courses and caves keep well clear of them.
+            if (!here && !starter && plan.Kind != RegionKind.Wild && RiverNear(plan.Center))
+                plan.Kind = RegionKind.Wild;
             // Not in a lake: a camp, shrine, quarry or course needs dry ground under its middle. (Ponds have no pits,
             // so dry ground there always runs on out of the lake, and its ground is kept clear of water.)
             if (!here && !starter && plan.Kind != RegionKind.Wild && PondNoise(plan.Center.X, plan.Center.Z) > PondLevel(plan.Center.X, plan.Center.Z) - 0.1)
@@ -433,7 +438,7 @@ namespace Epacenur.Core
         {
             if (danger >= DeepWilderness && wet < 0.62)
                 return Biome.Wasteland;
-            if (height > 6)
+            if (height > 11)
                 return Biome.Highlands;
             if (wet > 0.64)
                 return Biome.Marsh;
@@ -447,9 +452,9 @@ namespace Epacenur.Core
 
         // ---- Elevation ----
 
-        public const double MountainHeight = 16, RollingHeight = 7, BaseHeight = 10, BumpHeight = 0.8;
+        public const double MountainHeight = 30, RollingHeight = 12, MidHeight = 3.5, BaseHeight = 16, BumpHeight = 1.2;
         public const double WaterDepth = 0.4;     // how far a pond or river's bed lies under its surface
-        public const double SnowLine = 23, RockLine = 16;
+        public const double SnowLine = 38, RockLine = 27;
         const double LevelBlend = 20;              // tiles from levelled ground to the full lie of the land
 
         /// How high the ground is (world units) at a point in tile coordinates (a tile's centre is a whole
@@ -477,11 +482,83 @@ namespace Epacenur.Core
 
         double WorkOutElevation(double x, double z)
         {
-            Levelling(x, z, out double flat, out double nearest, out double levelAt);
-            if (flat >= 1)
+            var best = Levelling(x, z, out double flat, out double nearest, out double levelAt);
+            bool town = best != null && best.Kind == RegionKind.Town;
+            if (flat >= 1 && !town)
                 return levelAt;
             double natural = Natural(x, z, nearest, out double depth);
-            return (natural - depth) * (1 - flat) + levelAt * flat;
+            double h = (natural - depth) * (1 - flat) + levelAt * flat;
+            if (town && flat > 0)
+            {
+                // Towns aren't flat: their ground rises and falls gently with the land, each building on a level
+                // pad of its own (and the square too).
+                h += TownRelief(natural - levelAt) * flat;
+                h = Pads(best, x, z, h);
+            }
+            return h;
+        }
+
+        /// How much of the land's rise and fall shows in a town: a share of it, never more than a few units.
+        static double TownRelief(double rise)
+        {
+            double r = rise * 0.45;
+            return 5 * Math.Tanh(r / 5);
+        }
+
+        /// The town's own ground at a point, before the pads (where a building's pad takes its height from).
+        double TownGround(RegionPlan plan, double x, double z)
+        {
+            double level = LevelHeight(plan);
+            return level + TownRelief(Natural(x, z, 0, out _) - level);
+        }
+
+        readonly Dictionary<Building, double> padHeights = new Dictionary<Building, double>();
+        const double PadBlend = 3;  // tiles from a pad's edge to the town's own ground
+
+        /// The height a building's floor is levelled at: the town's ground at its middle.
+        public double PadHeight(RegionPlan plan, Building b)
+        {
+            if (!padHeights.TryGetValue(b, out double h))
+            {
+                var a = b.Footprint;
+                padHeights[b] = h = TownGround(plan, a.X + (a.Width - 1) / 2.0, a.Z + (a.Height - 1) / 2.0);
+            }
+            return h;
+        }
+
+        /// The town square's height: the town's ground at its middle.
+        public double SquareHeight(RegionPlan plan) => TownGround(plan, plan.Center.X, plan.Center.Z);
+
+        /// Pulls a town's ground level round its buildings (a tile beyond their walls) and its square.
+        double Pads(RegionPlan plan, double x, double z, double h)
+        {
+            double weights = 0, sum = 0, most = 0;
+            foreach (var b in plan.Buildings)
+            {
+                var fp = b.Footprint;
+                if (x > fp.X - 1.5 && x < fp.XMax + 0.5 && z > fp.Z - 1.5 && z < fp.ZMax + 0.5)
+                    return PadHeight(plan, b);  // on the pad itself: exactly level
+            }
+            foreach (var b in plan.Buildings)
+                Pad(new Area(b.Footprint.X - 1, b.Footprint.Z - 1, b.Footprint.Width + 2, b.Footprint.Height + 2), PadHeight(plan, b), x, z,
+                    ref weights, ref sum, ref most);
+            Pad(new Area(plan.Center.X - 4, plan.Center.Z - 4, 9, 9), SquareHeight(plan), x, z, ref weights, ref sum, ref most);
+            if (weights <= 0)
+                return h;
+            return h + (sum / weights - h) * most;
+        }
+
+        static void Pad(Area a, double height, double x, double z, ref double weights, ref double sum, ref double most)
+        {
+            double ox = Math.Max(0, Math.Max(a.X - 0.5 - x, x - (a.XMax - 0.5)));
+            double oz = Math.Max(0, Math.Max(a.Z - 0.5 - z, z - (a.ZMax - 0.5)));
+            double f = 1 - Smooth(Math.Sqrt(ox * ox + oz * oz) / PadBlend);
+            if (f <= 0)
+                return;
+            double w = f * f / (1.000001 - f);  // on a pad, its own height wins outright
+            weights += w;
+            sum += w * height;
+            most = Math.Max(most, f);
         }
 
         public double Elevation(Tile t) => Elevation(t.X, t.Z);
@@ -513,11 +590,13 @@ namespace Epacenur.Core
             double dry = Smooth((margin - 0.02) / 0.7);
             // Rivers carve valleys: the hills fall away to nothing at the water's edge. (No rivers near levelled ground.)
             double dist = RiverDistance(x, z, out double strength);
-            double river = RiverPresence(nearestLevel) * strength;
+            double allow = RiverAllowed(x, z);
+            double river = allow * strength;
             double width = RiverWidth * river;
-            double valley = 1 - Smooth(river / 0.3) * (1 - Smooth((dist - width) / RiverValley));
+            // The valley deepens gradually away from towns (water only runs where it's carved all the way down).
+            double valley = 1 - Smooth(allow / RiverFull) * (1 - Smooth((ValleyDistance(x, z) - 2 * width) / RiverValley));  // fully carved all across the water
             double wetPond = 1 - Smooth((margin + 0.05) / 0.1);
-            double wetRiver = river * (1 - Smooth(dist / (width + 0.5)));
+            double wetRiver = Smooth(river / RiverFull) * (1 - Smooth(dist / (width + 0.5)));
             depth = WaterDepth * Math.Max(wetPond, wetRiver);
             return Base(x, z) + h * dry * valley;
         }
@@ -527,32 +606,55 @@ namespace Epacenur.Core
 
         double ExactBase(double x, double z) => basin.Fractal(x / 520.0, z / 520.0, 2) * BaseHeight;
 
-        /// The hills and mountains before anything is levelled or carved: rolling hills everywhere (layered and
-        /// warped, so they wind), ridged mountain ranges where a very slow noise is high, small bumps on top.
-        /// The biome shapes them: marshes almost flat, meadows gentle, the deep wilderness craggy.
+        /// The hills and mountains before anything is levelled or carved: big rolling hills everywhere (layered and
+        /// warped, so they wind into valleys and spurs), knolls and hollows on top of them, ridged mountain ranges
+        /// with foothills where a very slow noise is high (stepped into terraces in places), and small bumps.
+        /// The biome shapes them: marshes almost flat, meadows gentler, the deep wilderness craggy.
         public double Hills(double x, double z)
         {
-            Warp(x, z, 160.0, 60.0, out double wx, out double wz);
-            double rolling = Smooth((hills.Fractal(wx / 70.0, wz / 70.0, 4) - 0.36) / 0.5) * RollingHeight;
-            double rangeMask = Smooth((ranges.Fractal(x / 300.0, z / 300.0, 2) - 0.5) / 0.2);
+            Warp(x, z, 160.0, 70.0, out double wx, out double wz);
+            double rolling = Smooth((hills.Fractal(wx / 80.0, wz / 80.0, 5) - 0.3) / 0.55) * RollingHeight;
+            double mid = (knolls.Fractal(wx / 26.0, wz / 26.0, 3) - 0.5) * 2 * MidHeight;
+            double rangeMask = Smooth((ranges.Fractal(x / 300.0, z / 300.0, 2) - 0.42) / 0.2);
             double mountains = 0;
             if (rangeMask > 0)
             {
-                double r = 1 - Math.Abs(2 * ridges.Fractal(wx / 160.0, wz / 160.0, 3) - 1);
-                mountains = rangeMask * r * r * MountainHeight;
+                double r = 1 - Math.Abs(2 * ridges.Fractal(wx / 150.0, wz / 150.0, 4) - 1);
+                mountains = rangeMask * (Math.Pow(r, 2.2) * MountainHeight + rolling * 0.6);  // crests, and foothills round them
             }
             double wet = Moisture(x, z);
-            double calm = (1 - 0.8 * Smooth((wet - 0.56) / 0.12)) * (0.65 + 0.35 * Smooth((wet - 0.3) / 0.2));
-            double h = (rolling + mountains) * calm;
+            double calm = (1 - 0.8 * Smooth((wet - 0.56) / 0.12)) * (0.7 + 0.3 * Smooth((wet - 0.3) / 0.2));
+            double h = (rolling + Math.Max(-rolling, mid) + mountains) * calm;
+            // Terraces on the high slopes of the ranges: the ground steps up in shelves.
+            if (rangeMask > 0 && h > 8)
+                h += (Terrace(h, 4.0) - h) * 0.45 * rangeMask * Smooth((h - 8) / 6);
             double danger = DangerAt(x, z);
             if (danger > 18)
-                h += Smooth((danger - 18) / 12) * Math.Max(0, bumps.Fractal(x / 13.0, z / 13.0, 2) - 0.45) * 4;  // crags
-            return h + bumps.Sample(x / 10.0, z / 10.0) * BumpHeight;
+                h += Smooth((danger - 18) / 12) * Math.Max(0, bumps.Fractal(x / 13.0, z / 13.0, 2) - 0.45) * 5;  // crags
+            return h + (bumps.Fractal(x / 8.0, z / 8.0, 2) - 0.5) * 2 * BumpHeight;
+        }
+
+        /// Heights stepped into shelves `step` apart, with a smooth rise between each.
+        static double Terrace(double h, double step)
+        {
+            double t = h / step, k = Math.Floor(t);
+            return (k + Smooth((t - k - 0.3) / 0.4)) * step;
         }
 
         /// How fully rivers run here (0..1), from how far the nearest levelled ground is: none within LevelBlend
         /// of it, narrowing to nothing (and their valleys flattening out) as they near it.
-        static double RiverPresence(double nearest) => Smooth((nearest - LevelBlend) / 24);
+        /// How fully rivers run here (0..1): not in towns, growing to full strength over the 40 tiles past a town's
+        /// safe ring. (Other places are never put where a river runs: see Plan.)
+        public double RiverAllowed(double x, double z) => riverAllowField.At(x, z);
+
+        double ExactRiverAllowed(double x, double z)
+        {
+            NearestSettlement(x, z, out double beyond);
+            return Smooth(beyond / 40);
+        }
+
+        /// A river this strong (RiverPresence x strength) has carved its valley all the way down; water runs only there.
+        const double RiverFull = 0.85;
 
         /// The levelled place (town, camp...) that most holds a point flat, and how much (1 on it, falling to 0 away).
         RegionPlan Levelling(double x, double z, out double flat) => Levelling(x, z, out flat, out _, out _);
@@ -641,7 +743,7 @@ namespace Epacenur.Core
         // ---- Rivers ----
 
         public const double RiverWidth = 1.7;      // half the width of a river, in tiles (about 3-4 wide)
-        const double RiverValley = 24;             // tiles from a river's bank to the full height of the hills
+        const double RiverValley = 40;             // tiles from a river's bank to the full height of the hills
         public const int BridgeSpacing = 32;       // a bridge where a river crosses each line of this lattice
 
         /// Rivers wind along where a slow, warped noise passes one value: long lines that never end, so they
@@ -651,11 +753,15 @@ namespace Epacenur.Core
         public double RiverDistance(double x, double z, out double strength)
         {
             double v = riverField.At(x, z) - 0.5;
-            double gx = (riverField.At(x + 2, z) - riverField.At(x - 2, z)) / 4, gz = (riverField.At(x, z + 2) - riverField.At(x, z - 2)) / 4;
+            double gx = (riverField.At(x + 8, z) - riverField.At(x - 8, z)) / 16, gz = (riverField.At(x, z + 8) - riverField.At(x, z - 8)) / 16;
             double g = Math.Sqrt(gx * gx + gz * gz);
-            strength = Smooth((g - 0.0008) / 0.0008);
+            strength = Smooth((g - 0.0006) / 0.0014);
             return Math.Abs(v) / Math.Max(g, 0.0004);
         }
+
+        /// A smoother measure of the same for shaping valleys: how far the noise is from the river's value, in
+        /// tiles at a typical slope of the noise (it never changes faster than the noise does, so no cliffs).
+        double ValleyDistance(double x, double z) => Math.Abs(riverField.At(x, z) - 0.5) / 0.004;
 
         double ExactRiver(double x, double z)
         {
@@ -670,11 +776,26 @@ namespace Epacenur.Core
             if (plan.KeepsClear(t) || plan.At(t) != Terrain.Grass)
                 return false;
             Levelling(t.X, t.Z, out _, out double nearest, out _);
+            if (nearest < LevelBlend)
+                return false;  // never on or beside levelled ground
             double dist = RiverDistance(t.X, t.Z, out double strength);
-            double presence = RiverPresence(nearest) * strength;
-            if (presence < 0.3)
-                return false;  // too narrow to be a river
+            double presence = RiverAllowed(t.X, t.Z) * strength;
+            if (presence < RiverFull)
+                return false;  // its valley isn't carved all the way down yet
             return dist < RiverWidth * presence;
+        }
+
+        /// Whether a river runs within reach of a place's middle (anything levelled there would dam it).
+        bool RiverNear(Tile c)
+        {
+            for (int dx = -40; dx <= 40; dx += 10)
+                for (int dz = -40; dz <= 40; dz += 10)
+                {
+                    double d = RiverDistance(c.X + dx, c.Z + dz, out double strength);
+                    if (strength * RiverAllowed(c.X + dx, c.Z + dz) > 0.1 && d < 8)
+                        return true;
+                }
+            return false;
         }
 
         /// Bridges cross rivers along the lines of a lattice, two tiles wide, so a river never cuts off any land.

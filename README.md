@@ -135,20 +135,23 @@ outlines), ponds, forests, highlands (tan).*
   moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
   shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
   everything: the tests check that nothing walkable is shut in, on several seeds.
-- **Hills and mountains**: under everything lies a slow **base** of broad valleys and uplands (up to 10 units). On it, **rolling
-  hills** (several layers of noise, twisted so they wind into valleys and spurs rather than round lumps), and in some stretches
-  of country **mountain ranges** with ridged crests rising 16 more. The **biome** shapes the land: marshes lie almost flat,
-  meadows roll gently, and the deep wilderness is broken by crags. Highlands are where the land rises high.
-- **Levelled at its own height**: each town, camp, shrine, quarry and agility course is levelled at the height the land had at
-  its middle (a town can sit on a hilltop or down in a valley), blending into the hills over 20 tiles round it.
+- **Hills and mountains**: under everything lies a slow **base** of broad valleys and uplands (up to 16 units). On it, big
+  **rolling hills** (up to 12, five layers of noise twisted so they wind into valleys and spurs), **knolls and hollows** on top of
+  them, and in some stretches of country **mountain ranges** with ridged crests up to 30 more and foothills round them, their high
+  slopes stepped into **terraces** in places. The land reaches 55-60 units at its highest. The **biome** shapes it: marshes lie almost
+  flat, meadows roll gentler, and the deep wilderness is broken by crags.
+- **Towns follow the land**: a town's ground rises and falls with the hills round it (a share of their rise, a few units at most),
+  its roads with it. **Every building stands on a level pad** of its own (and the square on one), blending into the slope over
+  3 tiles. Camps, shrines, quarries, courses and caves are still levelled flat at the height the land had at their middle.
 - **Water at its own level**: ponds and rivers lie in beds in the valley floors, their surface at the base height there, so
   lakes are found high and low. No ponds form on or right next to levelled ground.
-- **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 16) to **rock**, and the peaks (over 23) to
+- **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 27) to **rock**, and the peaks (over 38) to
   **snow**, on the ground and on the maps. Levelled ground stays green.
-- **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 24 tiles).
-  They narrow and end before reaching towns, camps and the like. **Wooden bridges** cross them every 32 tiles (two tiles wide, with
+- **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 40 tiles).
+  They narrow and end before reaching towns (they grow over the 40 tiles past a town's safe ring), and camps, shrines, quarries,
+  courses and caves are never put beside one. **Wooden bridges** cross them every 32 tiles (two tiles wide, with
   rails), so a river never cuts any land off: the tests walk 700 × 700 tiles on three seeds to check. Rivers have fishing spots too.
-- The slopes are steep in places (up to about 2.3 units between neighbouring tiles) but you can walk anywhere the tile grid lets
+- The slopes are steep in places (up to about 4 units between neighbouring tiles, on rocky mountainsides) but you can walk anywhere the tile grid lets
   you; the minimap and world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
