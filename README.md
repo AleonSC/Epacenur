@@ -105,17 +105,18 @@ outlines), ponds, forests, highlands (tan).*
   **deep wilderness** (level 24 and up) and come back. Deeper in the wilderness the **monsters are fiercer** and the **resources
   better** (see Tiers). On the safe ground there are only chickens, cows and goblins, none of them aggressive.
 - **Biomes**: the country is **meadow** (open, flax fields, few trees), **woodland** (thick forest), **marsh** (wet, with many
-  ponds), **highlands** (up in the hills: rocky, few trees) or, deep in the wilderness, **wasteland** (scorched, rocky, the odd
-  yew). Each has its own ground colour, browning the deeper into the wilderness you are, and its favourite trees and rocks:
+  ponds), **highlands** (up in the hills: few trees) or, deep in the wilderness, **wasteland** (scorched, the odd yew). Each has its
+  own ground colour, browning the deeper into the wilderness you are, and its favourite trees, and ores for the quarries in it:
   willows in marshes, oaks and maples in woodland, coal and mithril in the highlands, yews and adamantite in the wasteland.
 - **Shapes**: the noises behind it all are layered (fine detail on big shapes) and warped (winding, not round blobs), and never
   repeat however far you go.
-- **Quarries** (about 1 in 11 regions): an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
+- **Quarries** (about 1 in 8 regions) are **the only places with ore**: there is none out in the countryside. One is always
+  just **north of Epacenur** (copper and tin). Each is an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
   and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its wilderness level; it's
   named on the world map, e.g. "Iron quarry"); the rest are a mix. No monsters live there.
 - **Trees** each have their own shape: plain trees round, oaks broad and lumpy, willows hung with long fronds, maples in autumn
   reds and golds, yews in dark tiers. All have roots flaring into the ground.
-- **Countryside**: **forests** where a smooth noise is high, **rocky ground** with rocks you can mine, and **ponds**, each with a
+- **Countryside**: **forests** where a smooth noise is high, flax fields, and **ponds**, each with a
   moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
   shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
   everything: the tests check that nothing walkable is shut in, on several seeds.
@@ -151,7 +152,7 @@ outlines), ponds, forests, highlands (tan).*
 - The pickaxe and hammer are on every new character's tool belt (older saves get them once), and the shop sells both for 1 gp.
 - The dev tools add **5 copper + 5 tin**, **5 bronze bars**, or a **pickaxe + hammer**.
 - The trees that were on the dev plot are gone; the main world's forests have plenty. Content: `Assets/Scripts/Content/Mining` and
-  `Assets/Scripts/Content/Smithing`. Copper and tin rocks also grow on rocky ground in the overworld.
+  `Assets/Scripts/Content/Smithing`. In the overworld, ore rocks are only in quarries (one with copper and tin is just north of the start).
 
 ## Money pouch
 
