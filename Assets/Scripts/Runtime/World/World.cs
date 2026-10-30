@@ -37,6 +37,9 @@ namespace Epacenur.Runtime
         /// The ground and water are on this layer, seen to the edge of the fog; everything else (trees, rocks,
         /// buildings, people) is culled a little nearer, where the fog has mostly hidden it (CameraRig).
         public const int FarLayer = 8;
+        /// Grass, flowers and bushes: only drawn this near (they're small, and there are a great many).
+        public const int DetailLayer = 9;
+        public const float DetailCullDistance = 70f;
         public const float NearCullDistance = 115f;
 
         public const int LoadRadius = 9;     // chunks loaded in each direction round the player (at least 144 tiles: past the fog)
@@ -520,17 +523,15 @@ namespace Epacenur.Runtime
         public Transform BuildRoot => (building ?? dev).Root;
 
         /// The overworld's ground in a biome, at a band of danger (DangerBand): its colour (GroundColour) over a
-        /// pale texture with a faint line round each tile. One material for each, shared by every chunk.
+        /// pale grass texture. One material for each, shared by every chunk.
         public Material GroundMaterial(Biome biome, int band)
         {
             int key = (int)biome * DangerBands + band;
             if (groundMats[key] == null)
             {
-                if (groundTex == null)
-                    groundTex = Visuals.TileTexture(new Color(0.93f, 0.93f, 0.93f), new Color(0.8f, 0.8f, 0.8f));
-                var m = Visuals.NewMat(GroundColour(biome, band) * 1.07f);
-                m.mainTexture = groundTex;
-                m.mainTextureScale = new Vector2(Overworld.ChunkSize, Overworld.ChunkSize);
+                var m = Visuals.NewMat(GroundColour(biome, band) * 1.15f);
+                m.mainTexture = Visuals.GrassTexture();
+                m.mainTextureScale = Vector2.one * (Overworld.ChunkSize / Visuals.TextureTiles);
                 groundMats[key] = m;
             }
             return groundMats[key];
@@ -542,11 +543,9 @@ namespace Epacenur.Runtime
             int i = (int)ground;
             if (bareMats[i] == null)
             {
-                if (groundTex == null)
-                    groundTex = Visuals.TileTexture(new Color(0.93f, 0.93f, 0.93f), new Color(0.8f, 0.8f, 0.8f));
-                var m = Visuals.NewMat(BareColour(ground) * 1.07f);
-                m.mainTexture = groundTex;
-                m.mainTextureScale = new Vector2(Overworld.ChunkSize, Overworld.ChunkSize);
+                var m = Visuals.NewMat(BareColour(ground) * 1.1f);
+                m.mainTexture = ground == Ground.Snow ? Visuals.SnowTexture() : ground == Ground.Rock ? Visuals.RockTexture() : Visuals.EarthTexture();
+                m.mainTextureScale = Vector2.one * (Overworld.ChunkSize / Visuals.TextureTiles);
                 bareMats[i] = m;
             }
             return bareMats[i];
@@ -559,7 +558,6 @@ namespace Epacenur.Runtime
 
         public const int DangerBands = 4;
         readonly Material[] groundMats = new Material[5 * DangerBands];
-        Texture2D groundTex;
 
         /// Safe, the edge of the wilderness, the wilderness, the deep wilderness.
         public static int DangerBand(int danger) => danger == 0 ? 0 : danger < 10 ? 1 : danger < Overworld.DeepWilderness ? 2 : 3;

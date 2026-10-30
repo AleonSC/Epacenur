@@ -147,6 +147,11 @@ outlines), ponds, forests, highlands (tan).*
   lakes are found high and low. No ponds form on or right next to levelled ground.
 - **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 27) to **rock**, and the peaks (over 38) to
   **snow**, on the ground and on the maps. Levelled ground stays green.
+- **Textured ground**: grass, earth, rock and snow each have a generated texture (blotches and strokes), tinted by biome.
+- **Grass, flowers and bushes**: tufts of grass blades grow over the grass (tall reeds in marshes, short in town, dry and
+  sparse in the wasteland, a few on bare earth), with clumps of flowers (most in meadows; purple heather in the highlands)
+  and the odd bush out in the country (most in woodland, never in towns or levelled places). You walk through them; they're
+  drawn only within 70 tiles, and the grass casts no shadows.
 - **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 40 tiles).
   They narrow and end before reaching towns (they grow over the 40 tiles past a town's safe ring), and camps, shrines, quarries,
   courses and caves are never put beside one. **Wooden bridges** cross them every 32 tiles (two tiles wide, with

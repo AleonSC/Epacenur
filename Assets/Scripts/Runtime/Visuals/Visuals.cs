@@ -88,5 +88,63 @@ namespace Epacenur.Runtime
             tex.Apply();
             return tex;
         }
+
+        /// The textures the overworld's ground wears (pale, so each material's colour shows through), tiling
+        /// seamlessly, each covering TextureTiles tiles. Made once.
+        public const float TextureTiles = 4f;
+        static Texture2D grassTex, earthTex, rockTex, snowTex;
+
+        public static Texture2D GrassTexture() => grassTex ?? (grassTex = GroundTexture(11, 0.82f, 0.16f, 900, 0.72f, 1.12f, 2, 5));
+        public static Texture2D EarthTexture() => earthTex ?? (earthTex = GroundTexture(12, 0.85f, 0.14f, 500, 0.7f, 1.12f, 1, 2));
+        public static Texture2D RockTexture() => rockTex ?? (rockTex = GroundTexture(13, 0.8f, 0.22f, 220, 0.62f, 1.1f, 1, 7));
+        public static Texture2D SnowTexture() => snowTex ?? (snowTex = GroundTexture(14, 0.95f, 0.05f, 120, 0.9f, 1.04f, 1, 2));
+
+        /// A seamless ground texture: soft tileable blotches of light and shade (`bright` +- `blotch`), scattered
+        /// with `strokes` short strokes (blades of grass, grit, cracks) of `dark` and `light` shades, `minLen`-`maxLen` long.
+        static Texture2D GroundTexture(int seed, float bright, float blotch, int strokes, float dark, float light, int minLen, int maxLen)
+        {
+            const int size = 128, cells = 8;
+            var rng = new System.Random(seed);
+            var lattice = new float[cells, cells];
+            for (int i = 0; i < cells; i++)
+                for (int j = 0; j < cells; j++)
+                    lattice[i, j] = (float)rng.NextDouble();
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    // Value noise on a lattice that wraps round, so the texture tiles.
+                    float gx = x * cells / (float)size, gy = y * cells / (float)size;
+                    int x0 = (int)gx, y0 = (int)gy;
+                    float fx = gx - x0, fy = gy - y0;
+                    fx = fx * fx * (3 - 2 * fx);
+                    fy = fy * fy * (3 - 2 * fy);
+                    float a = lattice[x0 % cells, y0 % cells], b = lattice[(x0 + 1) % cells, y0 % cells];
+                    float c = lattice[x0 % cells, (y0 + 1) % cells], d = lattice[(x0 + 1) % cells, (y0 + 1) % cells];
+                    float n = Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
+                    float v = bright + (n - 0.5f) * 2f * blotch + ((float)rng.NextDouble() - 0.5f) * 0.05f;
+                    px[y * size + x] = new Color(v, v, v, 1f);
+                }
+            for (int s = 0; s < strokes; s++)
+            {
+                int x = rng.Next(size), y = rng.Next(size), len = minLen + rng.Next(maxLen - minLen + 1);
+                int dx = rng.Next(3) - 1;
+                float shade = rng.NextDouble() < 0.6 ? dark : light;
+                for (int k = 0; k < len; k++)
+                {
+                    int sx = ((x + (k * dx) / 2) % size + size) % size, sy = (y + k) % size;
+                    var p = px[sy * size + sx];
+                    float v = p.r * shade;
+                    px[sy * size + sx] = new Color(v, v, v, 1f);
+                }
+            }
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true);
+            tex.SetPixels(px);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.anisoLevel = 4;
+            tex.Apply();
+            return tex;
+        }
     }
 }

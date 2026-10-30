@@ -26,7 +26,7 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                     terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
 
-            Ground(world, x0, z0, size, root);
+            var heights = Ground(world, x0, z0, size, root);
 
             // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
             // Ground overlays (roads, camps, paving, gravel, floors, fields): sheets that follow the ground.
@@ -63,6 +63,9 @@ namespace Epacenur.Runtime
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Essence)?.Id ?? RunecraftingModule.EssenceRock, t, rng);
                 }
 
+            // Grass, flowers and bushes over the open ground.
+            Foliage.Build(ow, terrain, x0, z0, heights, root, new System.Random((int)(ow.Hash(cx, cz, 15) * int.MaxValue)));
+
             // A fishing spot on a pond's shore, moving along the part of it in this chunk.
             var shore = ow.Shore(tiles);
             if (shore.Count >= 4)
@@ -76,7 +79,7 @@ namespace Epacenur.Runtime
 
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
-        static void Ground(World world, int x0, int z0, int size, Transform root)
+        static float[] Ground(World world, int x0, int z0, int size, Transform root)
         {
             var ow = world.Overworld;
             int n = size + 1;
@@ -87,7 +90,7 @@ namespace Epacenur.Runtime
                 {
                     float x = x0 - 0.5f + i, z = z0 - 0.5f + j;
                     verts[i * n + j] = new Vector3(x, (float)ow.Elevation(x, z), z);
-                    uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // the material repeats its tile texture per tile
+                    uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // 0..1 across the chunk (the material repeats its texture)
                 }
             // Each tile's two triangles go in the part of the mesh for its biome and band of danger, which has
             // that ground's material.
@@ -127,6 +130,10 @@ namespace Epacenur.Runtime
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
             go.AddComponent<OwnedMesh>().Mesh = mesh;
+            var heights = new float[n * n];
+            for (int k = 0; k < heights.Length; k++)
+                heights[k] = verts[k].y;
+            return heights;
         }
 
         /// A sheet of quads, one per tile that `which` picks (grown by `grow` each side): at the water's surface
