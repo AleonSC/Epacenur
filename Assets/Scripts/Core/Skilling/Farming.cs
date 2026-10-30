@@ -2,8 +2,8 @@ using System;
 
 namespace Epacenur.Core
 {
-    /// A farming patch: empty, or growing a seed since a time (real time: it grows while you're away), and once
-    /// grown, how many harvests are left.
+    /// A farming patch: whether you've rented it from its farm's farmer; empty, or growing a seed since a time
+    /// (real time: it grows while you're away), and once grown, how many harvests are left.
     [Serializable]
     public sealed class PatchState
     {
@@ -11,6 +11,7 @@ namespace Epacenur.Core
         public string seed;      // the seed item planted, or null when empty
         public long planted;     // UTC ticks when it was planted
         public int lives;        // harvests left once it's grown
+        public bool rented;      // yours to plant (rented from the farmer; a town's patches are all the farmer's at first)
     }
 
     public static class Farming
@@ -19,6 +20,22 @@ namespace Epacenur.Core
         public const int Stages = 4;
 
         public static bool IsEmpty(PatchState p) => p.seed == null;
+
+        /// What the farmer charges to rent you a patch, once (it's yours for good).
+        public static int RentCost(PatchKind kind) => kind == PatchKind.Herb ? 250 : 100;
+
+        /// Rents a patch, paying from your coins. Why not, or null when it's done.
+        public static string Rent(PatchState p, PatchKind kind, Inventory inv)
+        {
+            if (p.rented)
+                return "You already rent that patch.";
+            int cost = RentCost(kind);
+            if (inv.Count(ItemIds.Coins) < cost)
+                return "You need " + cost + " coins to rent " + (kind == PatchKind.Herb ? "a herb patch." : "an allotment.");
+            inv.Remove(ItemIds.Coins, cost);
+            p.rented = true;
+            return null;
+        }
 
         /// How far it's grown, 0 (just planted) to 1 (ready).
         public static double Growth(PatchState p, SeedDef seed, DateTime now)

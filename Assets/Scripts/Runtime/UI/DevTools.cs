@@ -113,8 +113,9 @@ namespace Epacenur.Runtime
             }
             if (GUILayout.Button("Grow all patches"))
             {
-                foreach (var p in G.World.PlantedPatches)
-                    p.planted = System.DateTime.UtcNow.AddDays(-1).Ticks;
+                foreach (var p in G.World.SavedPatches)
+                    if (p.seed != null)
+                        p.planted = System.DateTime.UtcNow.AddDays(-1).Ticks;
                 GameLog.Add("Every planted patch is now fully grown.");
             }
             if (GUILayout.Button("Slayer points +100")) G.Slayer.points += 100;

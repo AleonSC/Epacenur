@@ -9,7 +9,7 @@ namespace Epacenur.Runtime
     /// ponds, trees, rocks and fishing spot, and a region's buildings, goblin camp, shrine, quarry and place names.
     public static class OverworldBuilder
     {
-        static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f);
+        static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f), Tilled = new Color(0.4f, 0.3f, 0.19f);
         static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
         static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f);
         static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f), Gravel = new Color(0.5f, 0.47f, 0.42f);
@@ -36,6 +36,7 @@ namespace Epacenur.Runtime
             Strips(terrain, Terrain.Rock, x0, z0, root, Gravel, 0.012f, 0.02f, 0f, t => ow.PlanAt(t).Kind == RegionKind.Quarry);
             Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
+            Strips(terrain, Terrain.Field, x0, z0, root, Tilled, 0.012f, 0.02f, 0f);
             // Water lies at its own level (it fills the valley floors), over a sandy edge that follows the banks;
             // bridges carry you over rivers.
             Sheet(ow, terrain, x0, z0, root, Sand, 0.35f, 0.02f, false, k => k == Terrain.Water || k == Terrain.Bridge);
@@ -402,6 +403,11 @@ namespace Epacenur.Runtime
                     world.AddStation(SmithingModule.Furnace, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);
                     world.AddStation(SmithingModule.Anvil, b.Feature2).transform.localRotation = Quaternion.LookRotation(-toDoor);
                     world.AddLabel(signAt, "Smithy", Gold);
+                    break;
+                case BuildingKind.Farm:
+                    // The farmer, who rents out the patches in the field by his house.
+                    world.AddStation(FarmingModule.PatchFarmer, feature).transform.localRotation = Quaternion.LookRotation(toDoor);
+                    world.AddLabel(signAt, "Farm", Gold);
                     break;
                 case BuildingKind.Workshop:
                     world.AddStation(CraftingModule.SpinningWheel, feature).transform.localRotation = Quaternion.LookRotation(-toDoor);

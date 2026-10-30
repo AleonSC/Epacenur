@@ -462,8 +462,11 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 - The general store sells bird snares and box traps.
 
 **Farming**
-- Every town has **four patches** beside its roads: two **herb patches** and two **allotments**. Use a seed on an empty patch to
-  plant it (Farming xp). It grows in **real time, even while you're logged out**: herbs in 80 minutes, most crops in 40, sweetcorn
+- Every town has a **farm** on its edge: a farmhouse with the **farmer** in it, and beside it a fenced field (a gate at each end)
+  with **six patches**, three **herb patches** and three **allotments**, in two rows either side of a path. They're the farmer's
+  (overgrown with weeds) until you **rent** them from him: right-click him to **Rent** an allotment (**100 coins**) or a herb patch
+  (**250 coins**), paid once; then it's yours for good (saved), and Talk-to says what's left to rent. Use a seed on an empty patch
+  you rent to plant it (Farming xp). It grows in **real time, even while you're logged out**: herbs in 80 minutes, most crops in 40, sweetcorn
   and strawberries in an hour. Each patch shows its plants growing. **Inspect** says how long is left.
 - Once grown, **Pick** herbs (grimy, for Herblore) or **Harvest** a crop (with a **spade**), 3-10 times, for xp each time.
 - Herbs: guam (9), tarromin (19), harralander (26), ranarr (32), irit (44), kwuarm (56). Crops: potatoes (1), onions (5),
@@ -471,7 +474,7 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 - Seeds: potato seeds and a spade from the general store; more from farmers' pockets, goblins, bandits, hill giants, and **seed
   stalls** (Thieving 27) in towns a little way out.
 - Dev tools: **Hunter kit**, **Farming kit** (every seed and a spade), **Grow all patches**, **Slayer points +100**. The dev plot
-  has a slayer master and four patches just south of the start.
+  has a slayer master and four patches just south of the start, free to plant.
 
 ## Dungeons and bosses
 

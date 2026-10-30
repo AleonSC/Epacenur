@@ -17,6 +17,8 @@ namespace Epacenur.Runtime
         {
             if (Def.Kind == StationKind.SlayerMaster)
                 SlayerMaster.AddOptions(options);
+            else if (Def.Kind == StationKind.Farmer)
+                Farmer.AddOptions(Tile, options);
         }
 
         public override void Interact()
@@ -42,6 +44,9 @@ namespace Epacenur.Runtime
                     break;
                 case StationKind.SlayerMaster:
                     SlayerMaster.Talk();
+                    break;
+                case StationKind.Farmer:
+                    Farmer.Talk(Tile);
                     break;
                 default:
                     g.Hud.OpenMaking(this, null);

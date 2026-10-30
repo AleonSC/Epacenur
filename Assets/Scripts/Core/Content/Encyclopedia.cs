@@ -234,6 +234,7 @@ namespace Epacenur.Core
                 case Terrain.Flax: return "Grows in flax fields (meadows)";
                 case Terrain.Essence: return "Boulders ring every altar's shrine";
                 case Terrain.Stall: return "Stands in town squares";
+                case Terrain.Field: return "In every town's farm";
                 default: return "Found";
             }
         }

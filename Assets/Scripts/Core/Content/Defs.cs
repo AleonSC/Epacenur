@@ -253,6 +253,7 @@ namespace Epacenur.Core
         Altar,        // recharges Prayer points
         Craft,        // makes its one recipe straight away, as many as you can (runecrafting altars)
         SlayerMaster, // gives Slayer tasks (and spends Slayer points)
+        Farmer,       // rents out his farm's patches
     }
 
     /// Where the overworld puts a station in a shrine region (runecrafting altars), by distance from the start.

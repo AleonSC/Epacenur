@@ -150,7 +150,7 @@ namespace Epacenur.Runtime
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
-            state.patches.AddRange(game.World.PlantedPatches);
+            state.patches.AddRange(game.World.SavedPatches);
             foreach (var b in game.World.Bases.All)
                 state.bases.Add(BaseSave.From(b));
             state.hasBed = game.BedBase > 0;
@@ -175,7 +175,7 @@ namespace Epacenur.Runtime
         {
             public List<GroundPile> items = new List<GroundPile>();
             public List<long> explored = new List<long>();
-            public List<PatchState> patches = new List<PatchState>();  // farming patches with something growing
+            public List<PatchState> patches = new List<PatchState>();  // farming patches you rent or have something growing in
             public List<BaseSave> bases = new List<BaseSave>();  // what's been built
             public bool hasBed;    // the bed last slept in: its base and cell
             public int bedBase;

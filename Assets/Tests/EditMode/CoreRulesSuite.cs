@@ -715,8 +715,19 @@ public static class CoreRulesSuite
         while (Farming.Harvest(patch, guamSeed, now.AddMinutes(90))) picks++;
         Check(picks >= 3 && picks <= 8 && Farming.IsEmpty(patch), "a grown herb patch gives 3-8 herbs (" + picks + "), then it's empty");
         var homeLayout = new Overworld(2024).Plan(0, 0);
-        Check(homeLayout.Patches.Count == WorldGen.PatchesPerTown && homeLayout.Buildings.Exists(b => b.Kind == BuildingKind.House),
-            "every town has four farming patches and a house for its slayer master");
+        var farm = homeLayout.Buildings.Find(b => b.Kind == BuildingKind.Farm);
+        Check(farm != null && farm.Patches.Count == WorldGen.PatchesPerTown && homeLayout.Patches.Count == WorldGen.PatchesPerTown
+            && farm.Patches.TrueForAll(t => farm.Field.Contains(t) && homeLayout.Blocked.Contains(t)) && farm.Gates.Count == 2
+            && homeLayout.Buildings.Exists(b => b.Kind == BuildingKind.House),
+            "every town has a farm with six farming patches in its fenced field (two gates), and a house for its slayer master");
+        var rentInv = new Inventory();
+        rentInv.Add(ItemIds.Coins, 150);
+        var rentHerb = new PatchState();
+        var rentAllot = new PatchState();
+        bool herbRefused = Farming.Rent(rentHerb, PatchKind.Herb, rentInv) != null && !rentHerb.rented;
+        bool allotRented = Farming.Rent(rentAllot, PatchKind.Allotment, rentInv) == null && rentAllot.rented && rentInv.Count(ItemIds.Coins) == 50;
+        Check(herbRefused && allotRented && Farming.Rent(rentAllot, PatchKind.Allotment, rentInv) != null && rentInv.Count(ItemIds.Coins) == 50,
+            "the farmer rents an allotment for 100 coins, a herb patch for 250, each once");
 
                 info("Dungeons and bosses");
         var dw = new Overworld(2024);
@@ -824,12 +835,14 @@ public static class CoreRulesSuite
             bool kinds = home.Kind == RegionKind.Town && home.Buildings.Exists(b => b.Kind == BuildingKind.Bank)
                 && home.Buildings.Exists(b => b.Kind == BuildingKind.Shop) && home.Buildings.Exists(b => b.Kind == BuildingKind.Chapel)
                 && home.Buildings.Exists(b => b.Kind == BuildingKind.House) && home.Buildings.Exists(b => b.Kind == BuildingKind.Smithy)
-                && home.Buildings.Exists(b => b.Kind == BuildingKind.Workshop);
+                && home.Buildings.Exists(b => b.Kind == BuildingKind.Workshop) && home.Buildings.Exists(b => b.Kind == BuildingKind.Farm);
             bool doors = home.Buildings.TrueForAll(b =>
             {
                 var o = WorldGen.OutsideDoor(b);
                 if (!reach[b.Door.X - lo, b.Door.Z - lo] || !reach[o.X - lo, o.Z - lo]) return false;
-                foreach (var f in b.HasFeature2 ? new[] { b.Feature, b.Feature2 } : new[] { b.Feature })
+                var things = new System.Collections.Generic.List<Tile>(b.HasFeature2 ? new[] { b.Feature, b.Feature2 } : new[] { b.Feature });
+                things.AddRange(b.Patches);  // a farm's patches, each with a way to it through the field's gates
+                foreach (var f in things)
                 {
                     bool ok = false;
                     foreach (var n in new[] { new Tile(f.X + 1, f.Z), new Tile(f.X - 1, f.Z), new Tile(f.X, f.Z + 1), new Tile(f.X, f.Z - 1) })
@@ -839,7 +852,7 @@ public static class CoreRulesSuite
                 return true;
             });
             Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 10 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
-                "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop and houses, doors and counters reachable, "
+                "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop, farm and houses, doors, counters and farming patches reachable, "
                 + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks (all in quarries, one just north of the start), " + water + " water tiles, "
                 + stranded + " walled-in tiles");
         }
