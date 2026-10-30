@@ -33,6 +33,8 @@ namespace Epacenur.Runtime
             public string[] tools;        // on the tool belt
             public int style;
             public string autocast;       // spell id, or null
+            public bool hasEnergy;
+            public float energy;          // run energy, percent
             public int pouch;
             public int hp;
             public int prayerPoints;
@@ -89,6 +91,8 @@ namespace Epacenur.Runtime
                 worldVersion = WorldVersion,
                 style = game.StyleIndex,
                 autocast = game.Autocast?.Id,
+                hasEnergy = true,
+                energy = (float)game.Energy.Value,
                 pouch = game.Inventory.PouchCoins,
                 hp = game.Health.Current,
                 prayerPoints = game.Prayer.Points,
@@ -142,6 +146,9 @@ namespace Epacenur.Runtime
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
+            state.hasTime = true;
+            state.time = game.Clock.Time;
+            state.day = game.Clock.Day;
             PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(state));
 
             // What the main menu shows.
@@ -153,7 +160,14 @@ namespace Epacenur.Runtime
         }
 
         /// What a world keeps between sessions: the items on its ground and the regions seen.
-        [Serializable] public class WorldState { public List<GroundPile> items = new List<GroundPile>(); public List<long> explored = new List<long>(); }
+        [Serializable] public class WorldState
+        {
+            public List<GroundPile> items = new List<GroundPile>();
+            public List<long> explored = new List<long>();
+            public bool hasTime;   // older saves: no time of day yet
+            public float time;     // DayNight.Time
+            public int day;
+        }
 
         static string PilesKey(WorldInfo w) => "Epacenur.WorldItems." + w.id;
 
@@ -210,6 +224,8 @@ namespace Epacenur.Runtime
                     game.Equipment.Set((EquipSlot)i, new ItemStack(d.equipped[i], 1));
             game.StyleIndex = System.Math.Max(0, System.Math.Min(d.style, 3));
             game.Autocast = db.Spell(d.autocast);
+            if (d.hasEnergy)
+                game.Energy.Set(d.energy);
             if (d.tools != null)
                 foreach (var id in d.tools)
                     if (db.Item(id) != null)

@@ -22,6 +22,9 @@ namespace Epacenur.Content
             new CraftingModule(),
             new RunecraftingModule(),
             new MagicModule(),
+            new AgilityModule(),
+            new ThievingModule(),
+            new HerbloreModule(),
             new ShopsModule(),
         };
 

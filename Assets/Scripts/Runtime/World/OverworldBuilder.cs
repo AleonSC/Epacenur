@@ -52,6 +52,8 @@ namespace Epacenur.Runtime
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Tree)?.Id ?? WoodcuttingModule.Tree, t, rng);
                     else if (terrain[x, z] == Terrain.Rock)
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Rock)?.Id ?? MiningModule.CopperRock, t, rng);
+                    else if (terrain[x, z] == Terrain.Stall)
+                        world.AddNode(Spawning.NodeAt(ow, t, Terrain.Stall)?.Id ?? ThievingModule.BakeryStall, t, rng);
                     else if (terrain[x, z] == Terrain.Flax)
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Flax)?.Id ?? CraftingModule.FlaxPlant, t, rng);
                     else if (terrain[x, z] == Terrain.Essence)
@@ -160,6 +162,17 @@ namespace Epacenur.Runtime
                     Tent(world, tent);
                 world.AddLabel(World.Local(plan.Camp.Center) + Vector3.up * 0.4f, RegionName(world.Overworld, plan), new Color(1f, 0.6f, 0.5f));
             }
+            else if (plan.Kind == RegionKind.Course)
+            {
+                var course = Spawning.CourseIn(world.Overworld, plan);
+                if (course != null)
+                {
+                    foreach (var p in plan.Obstacles)
+                        world.AddObstacle(course, p);
+                    var mid = new Tile(plan.CourseCorner.X + AgilityCourse.Width / 2, plan.CourseCorner.Z + AgilityCourse.Depth / 2);
+                    world.AddLabel(World.Local(mid) + Vector3.up * 0.6f, course.Name + " (Agility " + course.Level + ")", new Color(0.6f, 0.8f, 1f));
+                }
+            }
             else if (plan.Kind == RegionKind.Shrine)
             {
                 // A ring of standing stones round a runecrafting altar (which altar: Spawning, by distance).
@@ -232,6 +245,11 @@ namespace Epacenur.Runtime
         {
             if (plan.Kind == RegionKind.Town)
                 return plan.RX == 0 && plan.RZ == 0 ? "Epacenur" : TownName(ow, plan);
+            if (plan.Kind == RegionKind.Course)
+            {
+                var course = Spawning.CourseIn(ow, plan);
+                return course != null ? course.Name : null;
+            }
             if (plan.Kind == RegionKind.Shrine)
             {
                 var altar = Spawning.ShrineAltar(ow, plan);

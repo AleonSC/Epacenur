@@ -149,7 +149,7 @@ namespace Epacenur.Runtime
                     if (name == null)
                         continue;
                     var p = ToView(v, plan.Center.X, plan.Center.Z);
-                    string colour = plan.Kind == RegionKind.Town ? "#ffd966" : plan.Kind == RegionKind.Quarry ? "#d8d4c8" : "#ff9a80";
+                    string colour = plan.Kind == RegionKind.Town ? "#ffd966" : plan.Kind == RegionKind.Quarry ? "#d8d4c8" : plan.Kind == RegionKind.Course ? "#9fc8ff" : "#ff9a80";
                     if (plan.City)
                         name = "<size=17>" + name + "</size>";  // cities stand out
                     Gui.Shadowed(new Rect(p.x - 120f, p.y - 32f, 240f, 24f), "<b><color=" + colour + ">" + name + "</color></b>", Gui.Centered);

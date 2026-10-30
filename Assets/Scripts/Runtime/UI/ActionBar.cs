@@ -80,7 +80,7 @@ namespace Epacenur.Runtime
         }
     }
 
-    /// Your health (left) and prayer points (right): bars that empty as they're used, with the numbers on them.
+    /// Your health, prayer points and run energy: bars that empty as they're used, with the numbers on them.
     public sealed class StatusBars
     {
         static Game G => Game.Instance;
@@ -88,8 +88,10 @@ namespace Epacenur.Runtime
         public void Draw(Hud hud)
         {
             var whole = hud.StatusRect;
-            var r = new Rect(whole.x, whole.y, whole.width / 2f - 2f, whole.height);
-            DrawPrayer(new Rect(whole.x + whole.width / 2f + 2f, whole.y, whole.width / 2f - 2f, whole.height));
+            float w = (whole.width - 8f) / 3f;
+            var r = new Rect(whole.x, whole.y, w, whole.height);
+            DrawPrayer(new Rect(whole.x + w + 4f, whole.y, w, whole.height));
+            DrawEnergy(new Rect(whole.x + 2f * (w + 4f), whole.y, w, whole.height));
             var hp = G.Health;
             Gui.Bevel(r);
             // A small heart.
@@ -105,6 +107,24 @@ namespace Epacenur.Runtime
             Gui.Bar(bar, hp.Fraction, fill, new Color(0.22f, 0.05f, 0.05f), hp.Current + " / " + hp.Max);
             if (r.Contains(Event.current.mousePosition))
                 Gui.Tooltip(new Rect(r.x, r.y - 20f, 300f, 18f), "Hitpoints: eat cooked food to heal. Lost health returns 1 a minute.", Gui.Small);
+        }
+
+        void DrawEnergy(Rect r)
+        {
+            var en = G.Energy;
+            Gui.Bevel(r);
+            // A little boot.
+            var boot = new Color(0.9f, 0.75f, 0.3f);
+            Gui.Fill(new Rect(r.x + 7f, r.y + 4f, 5f, 9f), boot);
+            Gui.Fill(new Rect(r.x + 7f, r.y + 12f, 10f, 5f), boot);
+            var bar = new Rect(r.x + 22f, r.y + 4f, r.width - 26f, r.height - 8f);
+            float f = (float)(en.Value / RunEnergy.Max);
+            Gui.Fill(bar, new Color(0.2f, 0.16f, 0.04f));
+            Gui.Fill(new Rect(bar.x, bar.y, bar.width * f, bar.height), G.Player.IsRunning ? new Color(0.95f, 0.8f, 0.2f) : new Color(0.75f, 0.6f, 0.15f));
+            Gui.Fill(new Rect(bar.x, bar.y, bar.width * f, 2f), new Color(1f, 1f, 1f, 0.15f));
+            Gui.Shadowed(bar, "<b>" + Mathf.FloorToInt((float)en.Value) + "%</b>", Gui.Centered);
+            if (r.Contains(Event.current.mousePosition))
+                Gui.Tooltip(new Rect(r.x - 120f, r.y - 20f, 340f, 18f), "Run energy: running uses it, walking brings it back (faster with Agility).", Gui.Small);
         }
 
         void DrawPrayer(Rect r)

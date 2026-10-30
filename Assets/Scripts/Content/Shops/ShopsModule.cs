@@ -35,6 +35,8 @@ namespace Epacenur.Content
                     new ShopStock(MagicModule.Staff, 5),
                     new ShopStock(RunecraftingModule.Air, 1000),
                     new ShopStock(RunecraftingModule.Mind, 1000),
+                    new ShopStock(HerbloreModule.VialOfWater, 100),
+                    new ShopStock(HerbloreModule.EyeOfNewt, 200),
                 },
             });
         }

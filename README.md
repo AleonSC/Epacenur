@@ -57,6 +57,7 @@ The game opens on the main menu:
   In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
   once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
 - **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt), **Pray** (prayers), **Magic** and **Skills**.
+- **Run energy**: holding Shift runs only while you have run energy (the yellow bar); see Agility below.
 - **Screen layout**: the chat box is at the bottom left, the abilities with your health and prayer over them in the middle at the
   bottom, and the side panel at the bottom right. Put the chat box or the panel away for a clearer view (it comes back on its own
   when you open a bank, shop or make window).
@@ -76,17 +77,21 @@ The game opens on the main menu:
 ![The overworld round the start, seed 2024](Docs/overworld-map.png)
 
 *384 × 384 tiles round the start (seed 2024, as the world map draws it): Epacenur in the middle on its safe ground (green), the
-wilderness round it (tinted red, deeper the more dangerous), shrines (dotted squares), camps (brown), ponds, forests, highlands (tan).*
+wilderness round it (tinted red, deeper the more dangerous), shrines (dotted squares), camps (brown), agility courses (gold
+outlines), ponds, forests, highlands (tan).*
 
 ![1280 × 1280 tiles: towns and cities with their safe rings, and the wilderness between](Docs/wilderness-map.png)
 
 *Further out: towns and cities in their safe rings (green), the wilderness between them, deepest (dark red) where towns are far apart.*
 
 - **It never ends.** The world is worked out from a seed (`World.Seed`) one tile at a time, so the same place always comes out the same.
-  Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (5 chunks each way) and taken down behind you,
-  hidden by the fog. Felled trees and lit fires don't survive being unloaded.
+  Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (9 chunks each way: you can see about
+  140 tiles before the fog) and taken down behind you, out of sight. Felled trees and lit fires don't survive being unloaded.
+- **Day and night**: a day lasts 24 minutes of play (an in-game hour a minute). The sun rises in the east and sets in the west,
+  the sky and fog turn orange at dawn and dusk and dark blue at night, when a dim blue moon lights the world. The day and time
+  show under the minimap, and each world remembers its time of day.
 - **Regions** of 64 × 64 tiles each hold a town or city, a **camp** (about 1 in 5: a clearing with tents and its occupants),
-  a shrine, a quarry or plain countryside.
+  a shrine, a quarry, an agility course or plain countryside.
 - **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so
   neighbours are at least 3 regions apart, and about 1 cell in 5 has none, leaving wide wilds. About 1 in 4 is a **city**: more
   houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
@@ -310,6 +315,45 @@ content module.
   them). They drop runes, robes and staffs.
 - Magic counts toward your **combat level** like Ranged: 0.325 of 1.5 x your Magic, if it's your best style.
 - Dev tools: a **Magic kit** (staff of air, robes, runes of every kind).
+
+## Agility, Thieving and Herblore
+
+**Agility**
+- **Run energy** (the third bar over the action bar): running uses it (about 110 seconds from full), walking or standing
+  brings it back, faster the higher your Agility (0.4% a second at level 1, 1.2% at 99). With none left you can only walk.
+- **Courses** lie out in the countryside: a loop of path with **five obstacles** in order (a log over a ditch, a wall, a rope,
+  a pipe, stepping stones). Click one and you walk to its start and cross it; doing all five in order is a **lap**, worth
+  bonus xp. Five courses: **Field** (level 1, always just **west of Epacenur**), **Hill** (20), **Ranger's** (40), **Cliff** (60)
+  and **Sky** (80), harder ones further out. At a course's level you fall now and then (landing back at the start a few
+  hitpoints down); 30 levels on, never.
+
+**Thieving**
+- **Pickpocket** the people in towns (right-click, or left-click: it's their first option): **men and women** (level 1),
+  **farmers** (10), and further out **warriors** (25), **guards** (40) and **knights** (55), with OSRS xp and coins. You keep at it
+  until you're caught: they hit you for a hitpoint or two and you're **stunned** for 5 seconds.
+- **Market stalls**: every town square has two. **Steal-from** them: **bakery** (5, bread), **silk** (20), **herb** (35, grimy herbs)
+  and **rune** (50, runes) stalls, the better ones in towns further out. Their goods come back after a while.
+
+**Herblore**
+- **Herbs**: guam, tarromin, harralander, ranarr, irit and kwuarm come **grimy** (monsters drop them; so do herb stalls and
+  farmers' pockets). **Clean** one (left-click) to use it: OSRS levels and xp.
+- **Potions**: a clean herb in a **vial of water** (the general store sells them) makes an unfinished potion; add the second
+  ingredient for a **three-dose potion**:
+
+  | Potion | Level | Herb + | Does |
+  |---|---|---|---|
+  | Attack potion | 3 | guam + eye of newt | Attack +3 +10% |
+  | Strength potion | 12 | tarromin + limpwurt root | Strength +3 +10% |
+  | Energy potion | 26 | harralander + ashes | +20% run energy |
+  | Prayer potion | 38 | ranarr + snape grass | 7 + 25% of your Prayer level in points |
+  | Super attack | 45 | irit + eye of newt | Attack +5 +15% |
+  | Super strength | 55 | kwuarm + limpwurt root | Strength +5 +15% |
+
+  *One change from OSRS: the energy potion takes ashes, not chocolate dust.* Eyes of newt are sold in the general store and dropped
+  by goblins and dark wizards; limpwurt roots by bandits and hill giants; snape grass by hill giants and dark wizards.
+- **Boosts** show in green in the Skills tab and wear off by a level a minute. A second dose doesn't add to a boost, it only tops
+  it back up. Combat uses your boosted levels.
+- Dev tools: a **Herblore kit**; the dev plot has an **Agility** course and a **Thieving** plot with every stall and every kind of townsfolk.
 
 ## Death and gravestones
 

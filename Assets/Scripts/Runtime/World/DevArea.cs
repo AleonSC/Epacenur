@@ -43,6 +43,8 @@ namespace Epacenur.Runtime
                 new FiremakingArea { Plot = new RectInt(3, 14, 13, 9) },
                 new FlaxArea { Plot = new RectInt(32, 14, 13, 9) },
                 new RunecraftingArea { Plot = new RectInt(17, 16, 14, 8) },
+                new AgilityArea { Plot = new RectInt(32, 1, AgilityCourse.Width + 1, AgilityCourse.Depth + 2) },
+                new ThievingArea { Plot = new RectInt(3, 2, 13, 10) },
             };
         }
     }
@@ -164,6 +166,40 @@ namespace Epacenur.Runtime
             var rng = new System.Random(77);
             for (int z = Plot.y + 1; z < Plot.yMax - 1; z += 2)
                 world.AddNode(RunecraftingModule.EssenceRock, new Tile(Plot.xMax - 1, z), rng);
+        }
+    }
+
+    /// The easiest agility course, laid out as in the overworld.
+    public sealed class AgilityArea : SkillArea
+    {
+        public override string Name => "Agility";
+        public override Color GroundColor => new Color(0.45f, 0.5f, 0.35f);
+        public override Tile TeleportTile => new Tile(Plot.x + 1, Plot.y);
+
+        public override void Build(World world)
+        {
+            var course = ContentDb.Current.Course(AgilityModule.FieldCourse);
+            foreach (var p in AgilityCourse.Layout(new Tile(Plot.x + 1, Plot.y + 1)))
+                world.AddObstacle(course, p);
+        }
+    }
+
+    /// One of each market stall, and one of each kind of townsfolk wandering round them.
+    public sealed class ThievingArea : SkillArea
+    {
+        public override string Name => "Thieving";
+        public override Color GroundColor => new Color(0.5f, 0.45f, 0.4f);
+
+        public override void Build(World world)
+        {
+            var rng = new System.Random(66);
+            var stalls = new[] { ThievingModule.BakeryStall, ThievingModule.SilkStall, ThievingModule.HerbStall, ThievingModule.RuneStall };
+            for (int i = 0; i < stalls.Length; i++)
+                world.AddNode(stalls[i], new Tile(Plot.x + 1 + i * 3, Plot.yMax - 2), rng);
+            var home = new RectInt(Plot.x + 1, Plot.y + 1, Plot.width - 2, Plot.height - 4);
+            foreach (var npc in ContentDb.Current.Npcs)
+                if (npc.Pickpocket != null)
+                    world.AddNpc(npc, new Tile(home.x + rng.Next(home.width), home.y + rng.Next(home.height)), home);
         }
     }
 

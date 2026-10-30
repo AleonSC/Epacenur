@@ -14,6 +14,8 @@ namespace Epacenur.Runtime
         public abstract string Examine { get; }
         /// False when it can only be examined (a tree stump).
         public virtual bool HasAction => true;
+        /// Where you have to stand to use it (an agility obstacle's start), or null for any tile beside it.
+        public virtual Tile? ApproachTile => null;
         public abstract void Interact();
     }
 }

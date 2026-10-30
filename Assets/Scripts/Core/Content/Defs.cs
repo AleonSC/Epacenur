@@ -31,7 +31,8 @@ namespace Epacenur.Core
     public static class Verbs
     {
         public const string Wield = "Wield", Wear = "Wear", Eat = "Eat", Bury = "Bury", Light = "Light", Cook = "Cook",
-            AddToToolBelt = "Add to tool belt", AddToPouch = "Add to pouch", Use = "Use", Drop = "Drop", Examine = "Examine";
+            AddToToolBelt = "Add to tool belt", AddToPouch = "Add to pouch", Use = "Use", Drop = "Drop", Examine = "Examine",
+            Drink = "Drink";
     }
 
     /// How a melee attack lands. Armour defends against each differently, as in RuneScape.
@@ -96,6 +97,7 @@ namespace Epacenur.Core
     {
         public Terrain On;                    // Tree, Rock, Flax (plants), Water (fishing spots) or Essence (round shrines)
         public int MinDanger, MaxDanger = int.MaxValue;      // wilderness levels (0: safe ground round a town)
+        public int MinDistance, MaxDistance = int.MaxValue;  // tiles from the start (for things in towns, which are all safe)
         public Biome? Biome;                                 // only in this biome (null: any)
         public double Weight = 1;
     }
@@ -105,8 +107,10 @@ namespace Epacenur.Core
     {
         public RegionKind Region;
         public int MinDanger, MaxDanger = int.MaxValue;      // wilderness levels (0: safe)
+        public int MinDistance, MaxDistance = int.MaxValue;  // tiles from the start (for people in towns, which are all safe)
         public double Weight = 1;
         public int MinGroup = 3, MaxGroup = 5;
+        public bool Resident;  // towns: one of its people (towns get their animals and two groups of people)
     }
 
     public sealed class ItemDef
@@ -138,6 +142,9 @@ namespace Epacenur.Core
         /// Levels needed to wear it (weapons, armour) or use it as a tool (hatchets, pickaxes).
         public readonly List<SkillReq> Requires = new List<SkillReq>();
         public int Heals;            // food: hitpoints healed when eaten
+        public PotionDef Potion;     // potions: what a dose does when drunk
+        public string Process;       // an in-hand recipe its own verb does (ProcessVerb), e.g. cleaning a grimy herb
+        public string ProcessVerb;   // "Clean"
         public double BuryXp;        // bones: Prayer xp when buried
 
         /// Extra things you can do with it from the inventory, beyond what the game works out itself
@@ -169,7 +176,7 @@ namespace Epacenur.Core
     }
 
     /// How a node looks and behaves beyond its models (the game adds the extras).
-    public enum NodeLook { Tree, Rock, FishingSpot, Plant }
+    public enum NodeLook { Tree, Rock, FishingSpot, Plant, Stall }
 
     /// Something you gather from: a tree, a rock, a fishing spot.
     public sealed class NodeDef
@@ -266,6 +273,67 @@ namespace Epacenur.Core
         public float LabelHeight = 2f;            // how high it floats
         public string Help;                       // Make: a hint at the bottom of the make window
         public readonly List<StationSpawnRule> Spawns = new List<StationSpawnRule>();  // shrines the overworld builds round it
+    }
+
+    // ---- Herblore ----
+
+    /// A skill raised above its level for a while: flat + percent of the level (OSRS: an attack potion is 3 + 10%).
+    public struct SkillBoost
+    {
+        public string Skill;
+        public int Flat;
+        public double Percent;
+        public SkillBoost(string skill, int flat, double percent) { Skill = skill; Flat = flat; Percent = percent; }
+    }
+
+    /// One dose of a potion: what drinking it does, and what's left after (the next dose down, or a vial).
+    public sealed class PotionDef
+    {
+        public readonly List<SkillBoost> Boosts = new List<SkillBoost>();
+        public int PrayerFlat;           // prayer points restored: flat + percent of the Prayer level
+        public double PrayerPercent;
+        public double Energy;            // run energy restored (percent)
+        public string Leaves;            // the item left behind: the potion with a dose less, or an empty vial
+        public string Message;           // "You drink some of your attack potion."
+    }
+
+    // ---- Agility ----
+
+    /// How an obstacle looks (the game builds it to the length of its crossing).
+    public enum ObstacleLook { Log, Wall, Rope, Pipe, Stones, Net }
+
+    /// One obstacle of an agility course.
+    public sealed class ObstacleDef
+    {
+        public string Name, Action, Examine;  // "Log balance", "Walk-across"
+        public ObstacleLook Look;
+        public int Level;
+        public double Xp;
+        public int LowChance, HighChance;     // success out of 256 at level 1 and 99 (256: never fails)
+        public int FailDamage;                // up to this many hitpoints lost when you fall
+        public string Success, Fail;          // "You walk carefully across the slippery log...", "You slip and fall!"
+    }
+
+    /// An agility course: five obstacles round a loop (a course region), and a bonus for each full lap.
+    public sealed class CourseDef
+    {
+        public string Id, Name;
+        public int Level;                     // the obstacles' lowest level, shown on the map
+        public double LapXp;                  // for crossing all five in order
+        public ObstacleDef[] Obstacles = new ObstacleDef[0];
+        public readonly List<StationSpawnRule> Spawns = new List<StationSpawnRule>();  // where courses are, by wilderness level
+    }
+
+    // ---- Thieving ----
+
+    /// Picking someone's pocket: the level and xp, the chance, what you can get, and how hard they hit back.
+    public sealed class PickpocketDef
+    {
+        public int Level;
+        public double Xp;
+        public int LowChance, HighChance;     // success out of 256 at level 1 and 99
+        public DropTable Loot = new DropTable();
+        public int StunDamage;                // up to this many hitpoints when caught
     }
 
     // ---- Magic ----
@@ -373,6 +441,7 @@ namespace Epacenur.Core
         public Model Model;                           // feet at y = 0, facing +z
         public float Height = 1.5f;                   // for its health bar and click box
         public bool Aggressive;                       // attacks players nearby whose combat level is up to twice its own
+        public PickpocketDef Pickpocket;              // townsfolk: can have their pockets picked
         public readonly List<NpcSpawnRule> Spawns = new List<NpcSpawnRule>();  // where the overworld puts it
     }
 

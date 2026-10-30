@@ -37,11 +37,12 @@ namespace Epacenur.Runtime
                 }
                 Gui.DrawIcon(new Rect(cell.x + 3f, cell.y + 4f, 22f, 22f), def.Icon);
 
-                int level = G.Skills.GetLevel(def.Id);
+                int level = G.Skills.GetLevel(def.Id), current = G.Level(def.Id);
                 var numbers = new Rect(cell.x + 25f, cell.y + 1f, cell.width - 28f, cell.height - 2f);
                 Gui.Fill(new Rect(numbers.x + 4f, numbers.y + numbers.height / 2f, numbers.width - 4f, 1f), new Color(1f, 1f, 1f, 0.12f));
                 string text = "<color=" + Gui.TextHex + ">" + level + "</color>";
-                Gui.Shadowed(new Rect(numbers.x, numbers.y - 1f, numbers.width, 16f), text, Gui.RightSmall);
+                // Boosted (a potion): the current level on top, in green.
+                Gui.Shadowed(new Rect(numbers.x, numbers.y - 1f, numbers.width, 16f), current > level ? "<color=#66ff66>" + current + "</color>" : text, Gui.RightSmall);
                 Gui.Shadowed(new Rect(numbers.x, numbers.y + numbers.height / 2f - 1f, numbers.width, 16f), text, Gui.RightSmall);
             }
 

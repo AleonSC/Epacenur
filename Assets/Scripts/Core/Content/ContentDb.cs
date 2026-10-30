@@ -34,6 +34,9 @@ namespace Epacenur.Core
         readonly Dictionary<string, WeaponKindDef> weaponKinds = new Dictionary<string, WeaponKindDef>();
         public readonly List<WeaponKindDef> WeaponKinds = new List<WeaponKindDef>();
         readonly Dictionary<string, SpellDef> spells = new Dictionary<string, SpellDef>();
+        readonly Dictionary<string, CourseDef> courses = new Dictionary<string, CourseDef>();
+        /// Agility courses, easiest first.
+        public readonly List<CourseDef> Courses = new List<CourseDef>();
         /// Spells in the spellbook's order.
         public readonly List<SpellDef> Spells = new List<SpellDef>();
 
@@ -81,6 +84,7 @@ namespace Epacenur.Core
         public NpcDef Add(NpcDef d) => Add(npcs, Npcs, d.Id, d, "monster");
         public WeaponKindDef Add(WeaponKindDef d) => Add(weaponKinds, WeaponKinds, d.Id, d, "weapon kind");
         public SpellDef Add(SpellDef d) => Add(spells, Spells, d.Id, d, "spell");
+        public CourseDef Add(CourseDef d) => Add(courses, Courses, d.Id, d, "course");
         public BurnableDef Add(BurnableDef d)
         {
             if (burnables.ContainsKey(d.LogItemId))
@@ -98,6 +102,7 @@ namespace Epacenur.Core
         public StationDef Station(string id) => id != null && stations.TryGetValue(id, out var d) ? d : null;
         public ShopDef Shop(string id) => id != null && shops.TryGetValue(id, out var d) ? d : null;
         public NpcDef Npc(string id) => id != null && npcs.TryGetValue(id, out var d) ? d : null;
+        public CourseDef Course(string id) => id != null && courses.TryGetValue(id, out var d) ? d : null;
         public SpellDef Spell(string id) => id != null && spells.TryGetValue(id, out var d) ? d : null;
         public WeaponKindDef WeaponKind(string id) => id != null && weaponKinds.TryGetValue(id, out var d) ? d : null;
         public BurnableDef Burnable(string itemId) => itemId != null && burnables.TryGetValue(itemId, out var d) ? d : null;
@@ -156,7 +161,16 @@ namespace Epacenur.Core
             foreach (var sp in Spells)
                 foreach (var r in sp.Runes) Item(r.ItemId, "spell " + sp.Id);
             foreach (var it in Items)
+            {
                 Item(it.InfiniteRune, "item " + it.Id);
+                if (it.Potion != null) Item(it.Potion.Leaves, "item " + it.Id);
+                if (it.Process != null && !recipes.ContainsKey(it.Process)) p.Add("item " + it.Id + ": no recipe \"" + it.Process + "\"");
+            }
+            foreach (var c in Courses)
+                if (c.Obstacles.Length != AgilityCourse.Obstacles) p.Add("course " + c.Id + ": needs " + AgilityCourse.Obstacles + " obstacles");
+            foreach (var n in Npcs)
+                if (n.Pickpocket != null)
+                    foreach (var e in n.Pickpocket.Loot.Entries) Item(e.ItemId, "npc " + n.Id);
             foreach (var n in Npcs)
             {
                 foreach (var d in n.Drops.Entries) if (d.ItemId != null) Item(d.ItemId, "monster " + n.Id);
