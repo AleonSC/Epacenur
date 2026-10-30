@@ -114,9 +114,10 @@ outlines), ponds, forests, highlands (tan).*
   houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
   with an altar, a **smithy**, a **workshop**, a **farm** and **houses**, joined by dirt roads, and its own made-up name.
 - **Dirt** (roads, town squares, and the trampled ground of camps and cave mouths) is painted for each chunk
-  (`Runtime/World/DirtPaths.cs`): mottled brown earth with pebbles, its edge wandering and fraying into a band of worn, yellowed
-  grass that fades into the ground's own colour. The painting is spread over a few frames (3 ms a frame for all of it), so
-  streaming chunks in doesn't stutter.
+  (`Runtime/World/DirtPaths.cs`): mottled brown earth with the ground's earthy grain and a few pebbles, its edge wandering and
+  fraying into a band of worn, yellowed grass that fades into the ground. Away from the dirt it's painted with the ground's own
+  texture, texel for texel, so there's no seam. The painting is spread over frames (4 ms a frame for all of it), so streaming
+  chunks in doesn't stutter; a chunk's dirt shows once it's done.
 - **Safety and the wilderness**: within 48 tiles of a town's square (80 for a city) is **safe**. Beyond, the **wilderness**
   begins: **wilderness level 1** at the edge, one more every 6 tiles further from the nearest town, up to 60, then falling again
   as you near the next town. The rings' edges wander a little. Under the minimap you see **Safe** (and which town) or the
@@ -139,20 +140,28 @@ outlines), ponds, forests, highlands (tan).*
   moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
   shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
   everything: the tests check that nothing walkable is shut in, on several seeds.
-- **Hills and mountains**: under everything lies a slow **base** of broad valleys and uplands (up to 10 units). On it, **rolling
-  hills** (several layers of noise, twisted so they wind into valleys and spurs rather than round lumps), and in some stretches
-  of country **mountain ranges** with ridged crests rising 16 more. The **biome** shapes the land: marshes lie almost flat,
-  meadows roll gently, and the deep wilderness is broken by crags. Highlands are where the land rises high.
-- **Levelled at its own height**: each town, camp, shrine, quarry and agility course is levelled at the height the land had at
-  its middle (a town can sit on a hilltop or down in a valley), blending into the hills over 20 tiles round it.
+- **Hills and mountains**: under everything lies a slow **base** of broad valleys and uplands (up to 16 units). On it, big
+  **rolling hills** (up to 12, five layers of noise twisted so they wind into valleys and spurs), **knolls and hollows** on top of
+  them, and in some stretches of country **mountain ranges** with ridged crests up to 30 more and foothills round them, their high
+  slopes stepped into **terraces** in places. The land reaches 55-60 units at its highest. The **biome** shapes it: marshes lie almost
+  flat, meadows roll gentler, and the deep wilderness is broken by crags.
+- **Towns follow the land**: a town's ground rises and falls with the hills round it (a share of their rise, a few units at most),
+  its roads with it. **Every building stands on a level pad** of its own (and the square on one), blending into the slope over
+  3 tiles. Camps, shrines, quarries, courses and caves are still levelled flat at the height the land had at their middle.
 - **Water at its own level**: ponds and rivers lie in beds in the valley floors, their surface at the base height there, so
   lakes are found high and low. No ponds form on or right next to levelled ground.
-- **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 16) to **rock**, and the peaks (over 23) to
+- **Bare ground**: steep slopes turn to **earth**, steeper ones and high ground (over 27) to **rock**, and the peaks (over 38) to
   **snow**, on the ground and on the maps. Levelled ground stays green.
-- **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 24 tiles).
-  They narrow and end before reaching towns, camps and the like. **Wooden bridges** cross them every 32 tiles (two tiles wide, with
+- **Textured ground**: grass, earth, rock and snow each have a generated texture (blotches and strokes), tinted by biome.
+- **Grass, flowers and bushes**: tufts of grass blades grow over the grass (tall reeds in marshes, short in town, dry and
+  sparse in the wasteland, a few on bare earth), with clumps of flowers (most in meadows; purple heather in the highlands)
+  and the odd bush out in the country (most in woodland, never in towns or levelled places). You walk through them; they're
+  drawn only within 70 tiles, and the grass casts no shadows.
+- **Rivers** wind on for ever through the countryside, along the valleys they carve (the hills fall away to them over 40 tiles).
+  They narrow and end before reaching towns (they grow over the 40 tiles past a town's safe ring), and camps, shrines, quarries,
+  courses and caves are never put beside one. **Wooden bridges** cross them every 32 tiles (two tiles wide, with
   rails), so a river never cuts any land off: the tests walk 700 × 700 tiles on three seeds to check. Rivers have fishing spots too.
-- The slopes are steep in places (up to about 2.3 units between neighbouring tiles) but you can walk anywhere the tile grid lets
+- The slopes are steep in places (up to about 4 units between neighbouring tiles, on rocky mountainsides) but you can walk anywhere the tile grid lets
   you; the minimap and world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and

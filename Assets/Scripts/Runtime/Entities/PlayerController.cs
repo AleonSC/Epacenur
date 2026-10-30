@@ -65,7 +65,7 @@ namespace Epacenur.Runtime
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.stepOffset = 0.3f;
             cc.skinWidth = 0.03f;
-            cc.slopeLimit = 75f;  // the hills are walkable everywhere (the tile grid decides where you can go)
+            cc.slopeLimit = 80f;  // the hills are walkable everywhere (the tile grid decides where you can go)
             var p = go.AddComponent<PlayerController>();
             p.cc = cc;
             p.BuildModel();

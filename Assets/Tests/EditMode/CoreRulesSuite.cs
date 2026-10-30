@@ -862,7 +862,7 @@ public static class CoreRulesSuite
             "the quarry just north of the start is copper or tin (" + starterOre + ")");
         var hw = new Overworld(31);
         double highest = 0, steepest = 0;
-        bool levelWhereBuilt = true, waterLevel = true;
+        bool levelWhereBuilt = true, waterLevel = true, townsRoll = false;
         int riverTiles = 0, bridges = 0, snowOrRock = 0;
         var levels = new System.Collections.Generic.HashSet<int>();
         for (int x = -300; x < 300; x += 1)
@@ -874,7 +874,14 @@ public static class CoreRulesSuite
                 steepest = Math.Max(steepest, Math.Abs(hw.Elevation(x + 1, z) - e));
                 var terr = hw.At(t);
                 var plan = hw.PlanAt(t);
-                if (terr == Terrain.Floor || terr == Terrain.Wall || terr == Terrain.Path || terr == Terrain.Camp || terr == Terrain.Stone)
+                if (plan.Kind == RegionKind.Town)
+                {
+                    // Buildings stand on level pads of their own; the roads between rise and fall with the land.
+                    var b = plan.Buildings.Find(bb => bb.Footprint.Contains(t));
+                    if (b != null && Math.Abs(e - hw.PadHeight(plan, b)) > 1e-6) levelWhereBuilt = false;
+                    if (terr == Terrain.Path && Math.Abs(e - hw.LevelHeight(plan)) > 0.5) townsRoll = true;
+                }
+                else if (terr == Terrain.Camp || terr == Terrain.Stone)
                 {
                     if (Math.Abs(e - hw.LevelHeight(plan)) > 1e-6) levelWhereBuilt = false;
                     levels.Add((int)Math.Round(hw.LevelHeight(plan)));
@@ -886,10 +893,11 @@ public static class CoreRulesSuite
             }
         info("  hills: highest " + highest.ToString("0.0") + ", steepest step between tiles " + steepest.ToString("0.00") + "; " + riverTiles + " river tiles, "
             + bridges + " bridge tiles, " + snowOrRock + " bare (earth, rock or snow) samples; levelled places at heights " + string.Join(", ", levels));
-        Check(highest > 12 && Math.Abs(hw.Elevation(hw.Spawn) - hw.LevelHeight(hw.Plan(0, 0))) < 1e-9, "there are hills and mountains, and the town you start in is level");
-        Check(levelWhereBuilt && levels.Count > 2, "towns, camps and shrines are flat, each at its own height");
+        Check(highest > 30 && Math.Abs(hw.Elevation(hw.Spawn) - hw.SquareHeight(hw.Plan(0, 0))) < 1e-9, "there are hills and mountains, and the town square you start in is level");
+        Check(levelWhereBuilt && levels.Count > 2, "every building stands level; camps and shrines are flat, each at its own height");
+        Check(townsRoll, "town roads rise and fall with the land");
         Check(waterLevel, "ponds and rivers lie in their beds, the water level over them");
-        Check(steepest < 2.5, "no cliffs: neighbouring tiles are less than 2.5 apart");
+        Check(steepest < 4.5, "no sheer cliffs: neighbouring tiles are less than 4.5 apart");
         Check(riverTiles > 200 && bridges > 10, "rivers wind through the wilds, with bridges over them");
         Check(snowOrRock > 0, "steep and high ground is bare earth, rock or snow");
         var far = new Overworld(5);

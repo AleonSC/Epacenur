@@ -26,21 +26,19 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                     terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
 
-            var ground = Ground(world, x0, z0, size, root);
+            var heights = Ground(world, x0, z0, size, root);
 
-            // Dirt roads and the trampled ground of camps and cave mouths, fading into the grass round them.
-            DirtPaths.Build(world, ground, x0, z0, size, root);
-            // Flat overlays, one strip per run of tiles in a row: paving, gravel, floors, water (with a sandy edge).
-            Strips(terrain, Terrain.Stone, x0, z0, root, Paving, 0.014f, 0.025f, 0f);
-            Strips(terrain, Terrain.Quarry, x0, z0, root, Gravel, 0.012f, 0.02f, 0f);
-            Strips(terrain, Terrain.Rock, x0, z0, root, Gravel, 0.012f, 0.02f, 0f, t => ow.PlanAt(t).Kind == RegionKind.Quarry);
-            Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
-            Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
-            Strips(terrain, Terrain.Field, x0, z0, root, Tilled, 0.012f, 0.02f, 0f);
+            // Dirt roads and the trampled ground of camps and cave mouths, fading into the ground round them.
+            DirtPaths.Build(world, heights, x0, z0, size, root);
+            // Ground overlays (paving, gravel, floors, fields): sheets that follow the ground.
+            Sheet(ow, terrain, x0, z0, root, Paving, 0f, 0.025f, false, (k, t) => k == Terrain.Stone);
+            Sheet(ow, terrain, x0, z0, root, Gravel, 0f, 0.02f, false, (k, t) => k == Terrain.Quarry || (k == Terrain.Rock && ow.PlanAt(t).Kind == RegionKind.Quarry));
+            Sheet(ow, terrain, x0, z0, root, Planks, 0f, 0.03f, false, (k, t) => k == Terrain.Floor || k == Terrain.Door);
+            Sheet(ow, terrain, x0, z0, root, Tilled, 0f, 0.02f, false, (k, t) => k == Terrain.Field);
             // Water lies at its own level (it fills the valley floors), over a sandy edge that follows the banks;
             // bridges carry you over rivers.
-            Sheet(ow, terrain, x0, z0, root, Sand, 0.35f, 0.02f, false, k => k == Terrain.Water || k == Terrain.Bridge);
-            Sheet(ow, terrain, x0, z0, root, Water, 0f, 0f, true, k => k == Terrain.Water || k == Terrain.Bridge);
+            Sheet(ow, terrain, x0, z0, root, Sand, 0.35f, 0.02f, false, (k, t) => k == Terrain.Water || k == Terrain.Bridge);
+            Sheet(ow, terrain, x0, z0, root, Water, 0f, 0f, true, (k, t) => k == Terrain.Water || k == Terrain.Bridge);
             Bridges(ow, terrain, x0, z0, root);
 
             // Trees and rocks. Each chunk has its own random numbers, so it looks the same every time.
@@ -64,6 +62,9 @@ namespace Epacenur.Runtime
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Essence)?.Id ?? RunecraftingModule.EssenceRock, t, rng);
                 }
 
+            // Grass, flowers and bushes over the open ground.
+            Foliage.Build(ow, terrain, x0, z0, heights, root, new System.Random((int)(ow.Hash(cx, cz, 15) * int.MaxValue)));
+
             // A fishing spot on a pond's shore, moving along the part of it in this chunk.
             var shore = ow.Shore(tiles);
             if (shore.Count >= 4)
@@ -77,7 +78,7 @@ namespace Epacenur.Runtime
 
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
-        static Mesh Ground(World world, int x0, int z0, int size, Transform root)
+        static float[] Ground(World world, int x0, int z0, int size, Transform root)
         {
             var ow = world.Overworld;
             int n = size + 1;
@@ -88,7 +89,7 @@ namespace Epacenur.Runtime
                 {
                     float x = x0 - 0.5f + i, z = z0 - 0.5f + j;
                     verts[i * n + j] = new Vector3(x, (float)ow.Elevation(x, z), z);
-                    uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // the material repeats its tile texture per tile
+                    uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // 0..1 across the chunk (the material repeats its texture)
                 }
             // Each tile's two triangles go in the part of the mesh for its biome and band of danger, which has
             // that ground's material.
@@ -128,13 +129,16 @@ namespace Epacenur.Runtime
             go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
             go.AddComponent<OwnedMesh>().Mesh = mesh;
-            return mesh;
+            var heights = new float[n * n];
+            for (int k = 0; k < heights.Length; k++)
+                heights[k] = verts[k].y;
+            return heights;
         }
 
         /// A sheet of quads, one per tile that `which` picks (grown by `grow` each side): at the water's surface
         /// (`water`), or just over the ground, following it.
         static void Sheet(Overworld ow, Terrain[,] terrain, int x0, int z0, Transform root, Color colour, float grow, float lift, bool water,
-            System.Func<Terrain, bool> which)
+            System.Func<Terrain, Tile, bool> which)
         {
             int size = terrain.GetLength(0);
             var verts = new List<Vector3>();
@@ -142,7 +146,7 @@ namespace Epacenur.Runtime
             for (int x = 0; x < size; x++)
                 for (int z = 0; z < size; z++)
                 {
-                    if (!which(terrain[x, z]))
+                    if (!which(terrain[x, z], new Tile(x0 + x, z0 + z)))
                         continue;
                     float cx = x0 + x, cz = z0 + z, r = 0.5f + grow;
                     int start = verts.Count;
@@ -195,33 +199,6 @@ namespace Epacenur.Runtime
                         Visuals.Prim(PrimitiveType.Cube, root, new Vector3(t.X + ox, deck + 0.18f, t.Z + oz), new Vector3(0.1f, 0.42f, 0.1f), Planks * 0.75f);
                     }
                 }
-        }
-
-        /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges);
-        /// `where`, if given, picks which of those tiles count.
-        static void Strips(Terrain[,] terrain, Terrain kind, int x0, int z0, Transform root, Color colour, float y, float thickness, float grow,
-            System.Func<Tile, bool> where = null)
-        {
-            System.Func<int, int, bool> Is = (x, z) => terrain[x, z] == kind && (where == null || where(new Tile(x0 + x, z0 + z)));
-            int size = terrain.GetLength(0);
-            for (int z = 0; z < size; z++)
-            {
-                int x = 0;
-                while (x < size)
-                {
-                    if (!Is(x, z))
-                    {
-                        x++;
-                        continue;
-                    }
-                    int start = x;
-                    while (x < size && Is(x, z))
-                        x++;
-                    float len = x - start;
-                    var pos = new Vector3(x0 + start + (len - 1) / 2f, y + World.Height(new Tile(x0 + start, z0 + z)), z0 + z);
-                    Visuals.Prim(PrimitiveType.Cube, root, pos, new Vector3(len + grow * 2f, thickness, 1f + grow * 2f), colour);
-                }
-            }
         }
 
         // ---- Regions ----
