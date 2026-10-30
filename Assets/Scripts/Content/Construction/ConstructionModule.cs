@@ -116,7 +116,7 @@ namespace Epacenur.Content
             plank.GroundModel = new Model().Cube(0f, 0.03f, 0f, 0.14f, 0.05f, 0.7f, c).Turn(0f, 20f, 0f);
         }
 
-        /// Limestone: pale rocks on the safe ground round towns and in quarries. Mined for building stone.
+        /// Limestone: pale rocks in the quarries near towns (some quarries are mostly limestone). Mined for building stone.
         static void LimestoneNode(ContentDb db)
         {
             var pale = new Rgb(0.76f, 0.73f, 0.64f);

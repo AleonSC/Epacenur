@@ -704,7 +704,7 @@ public static class CoreRulesSuite
             const int lo = -96, hi = 160, size = hi - lo;  // a 256 x 256 window round the start
             bool same = true;
             var blocked = new bool[size, size];
-            int trees = 0, water = 0, rocks = 0, towns = 0, camps = 0;
+            int trees = 0, water = 0, rocks = 0, wildRocks = 0, towns = 0, camps = 0;
             for (int x = lo; x < hi; x++)
                 for (int z = lo; z < hi; z++)
                 {
@@ -714,6 +714,7 @@ public static class CoreRulesSuite
                     if (k == Terrain.Tree) trees++;
                     if (k == Terrain.Water) water++;
                     if (k == Terrain.Rock) rocks++;
+                    if (k == Terrain.Rock && ow.PlanAt(t).Kind != RegionKind.Quarry) wildRocks++;
                     blocked[x - lo, z - lo] = ow.IsBlocked(t);
                 }
             for (int rx = -1; rx <= 1; rx++)
@@ -764,11 +765,15 @@ public static class CoreRulesSuite
                 }
                 return true;
             });
-            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 20,
+            Check(same && kinds && doors && stranded == 0 && trees > 1500 && water > 100 && rocks > 10 && wildRocks == 0 && ow.Plan(0, 1).Kind == RegionKind.Quarry,
                 "seed " + seed + ": same every time, a home town with bank, shop, chapel, smithy, workshop and houses, doors and counters reachable, "
-                + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks, " + water + " water tiles, "
+                + towns + " towns and " + camps + " camps nearby, " + trees + " trees, " + rocks + " rocks (all in quarries, one just north of the start), " + water + " water tiles, "
                 + stranded + " walled-in tiles");
         }
+        var qw = new Overworld(2024);
+        var starterOre = Spawning.QuarryOre(qw, qw.Plan(0, 1)).Id;
+        Check(qw.Plan(0, 1).Kind == RegionKind.Quarry && (starterOre == MiningModule.CopperRock || starterOre == MiningModule.TinRock),
+            "the quarry just north of the start is copper or tin (" + starterOre + ")");
         var hw = new Overworld(31);
         double highest = 0, steepest = 0;
         bool levelWhereBuilt = true, waterLevel = true;

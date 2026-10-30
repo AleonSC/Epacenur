@@ -80,7 +80,7 @@ namespace Epacenur.Core
     /// ground, and beyond it the wilderness, more dangerous the further you are from any town (Danger),
     /// until you near the next. Other regions are goblin camps, shrines, quarries or wild countryside.
     /// Over that lies the countryside itself, in biomes (meadow, woodland, marsh, highlands, and wasteland
-    /// deep in the wilderness): forests, rocky ground and flax fields where smooth noises are high, and ponds.
+    /// deep in the wilderness): forests and flax fields where smooth noises are high, and ponds. Ore is only found in quarries.
     public sealed class Overworld
     {
         public const int RegionSize = 64, ChunkSize = 16;
@@ -91,7 +91,7 @@ namespace Epacenur.Core
         public const int MaxDanger = 60;
         public const int DeepWilderness = 24;                            // from this level the land is wasteland
         public readonly int Seed;
-        readonly ValueNoise forest, ponds, rocky, fields, hills, bumps, ranges, moisture, warp, edge;
+        readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge;
         readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
         readonly Dictionary<long, Settlement> settlements = new Dictionary<long, Settlement>();
         // Slow-changing fields are worked out on a coarse lattice and blended between its points.
@@ -103,7 +103,6 @@ namespace Epacenur.Core
             Seed = seed;
             forest = new ValueNoise(seed);
             ponds = new ValueNoise(seed + 101);
-            rocky = new ValueNoise(seed + 202);
             fields = new ValueNoise(seed + 303);
             hills = new ValueNoise(seed + 404);
             bumps = new ValueNoise(seed + 505);
@@ -152,10 +151,13 @@ namespace Epacenur.Core
             // courses and wild country.
             var settlement = SettlementOf(rx, rz);
             bool here = settlement != null && settlement.RX == rx && settlement.RZ == rz;
-            bool starter = rz == 0 && (rx == 1 || rx == -1);
+            bool starter = (rz == 0 && (rx == 1 || rx == -1)) || (rx == 0 && rz == 1 && !here);
             plan.City = here && settlement.City;
+            // Round the start: a shrine to the east, an agility course to the west and a quarry (copper and tin) to the north.
+            // Quarries are the only places with ore, so there are more of them than of the rest.
             plan.Kind = here ? RegionKind.Town : rx == 1 && rz == 0 ? RegionKind.Shrine : rx == -1 && rz == 0 ? RegionKind.Course
-                : roll < 0.22 ? RegionKind.Camp : roll < 0.31 ? RegionKind.Shrine : roll < 0.4 ? RegionKind.Quarry : roll < 0.47 ? RegionKind.Course
+                : rx == 0 && rz == 1 ? RegionKind.Quarry
+                : roll < 0.22 ? RegionKind.Camp : roll < 0.31 ? RegionKind.Shrine : roll < 0.44 ? RegionKind.Quarry : roll < 0.5 ? RegionKind.Course
                 : RegionKind.Wild;
             // Not in a lake: a camp, shrine, quarry or course needs dry ground under its middle. (Ponds have no pits,
             // so dry ground there always runs on out of the lake, and its ground is kept clear of water.)
@@ -576,13 +578,10 @@ namespace Epacenur.Core
                     if (near && np.KeepsClear(n))
                         return Terrain.Grass;
                 }
-            // What grows depends on the biome: highlands and wasteland are rocky, woodland thick with trees,
-            // meadows open with flax fields, the wasteland's trees few and far between.
+            // What grows depends on the biome: woodland thick with trees, meadows open with flax fields, the
+            // wasteland's trees few and far between. (No ore out here: rocks to mine are only in quarries.)
             double roll = Hash(t.X, t.Z, 7);
             var biome = BiomeAt(t);
-            double rockLevel = biome == Biome.Highlands ? 0.62 : biome == Biome.Wasteland ? 0.66 : biome == Biome.Marsh ? 0.8 : 0.74;
-            if (rocky.Fractal(t.X / 20.0, t.Z / 20.0, 3) > rockLevel)
-                return roll < 0.5 ? Terrain.Rock : Terrain.Grass;
             Warp(t.X, t.Z, 50.0, 20.0, out double wx, out double wz);
             double n0 = forest.Fractal(wx / 14.0, wz / 14.0, 4);
             // Flax fields in open meadows (not in forests).
