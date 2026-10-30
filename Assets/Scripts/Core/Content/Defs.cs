@@ -145,6 +145,7 @@ namespace Epacenur.Core
         public PotionDef Potion;     // potions: what a dose does when drunk
         public string Process;       // an in-hand recipe its own verb does (ProcessVerb), e.g. cleaning a grimy herb
         public string ProcessVerb;   // "Clean"
+        public string TrapKind;      // hunter traps: what they catch ("snare", "box"); laid with "Lay"
         public double BuryXp;        // bones: Prayer xp when buried
 
         /// Extra things you can do with it from the inventory, beyond what the game works out itself
@@ -251,6 +252,7 @@ namespace Epacenur.Core
         Bank,         // opens the bank
         Altar,        // recharges Prayer points
         Craft,        // makes its one recipe straight away, as many as you can (runecrafting altars)
+        SlayerMaster, // gives Slayer tasks (and spends Slayer points)
     }
 
     /// Where the overworld puts a station in a shrine region (runecrafting altars), by distance from the start.
@@ -474,6 +476,7 @@ namespace Epacenur.Core
         public float Height = 1.5f;                   // for its health bar and click box
         public bool Aggressive;                       // attacks players nearby whose combat level is up to twice its own
         public PickpocketDef Pickpocket;              // townsfolk: can have their pockets picked
+        public int SlayerLevel;                       // the Slayer level needed to hurt it at all (0: none)
         public readonly List<NpcSpawnRule> Spawns = new List<NpcSpawnRule>();  // where the overworld puts it
     }
 

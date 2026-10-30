@@ -66,6 +66,7 @@ namespace Epacenur.Core
         public Tile Spawn;                      // the town square
         public readonly List<Building> Buildings = new List<Building>();
         public readonly List<Tile> Lamps = new List<Tile>();  // lamp posts along the roads (they light up at night)
+        public readonly List<Tile> Patches = new List<Tile>();  // farming patches beside the roads: herb, allotment, herb, allotment
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
         public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry || t == Terrain.Bridge;
@@ -93,6 +94,7 @@ namespace Epacenur.Core
                     stalls++;
                 }
             PlaceLamps(w);
+            PlacePatches(w);
             return w;
         }
 
@@ -101,6 +103,46 @@ namespace Epacenur.Core
         /// Lamp posts on the grass beside the roads, the ones nearest the square first, at least LampSpacing
         /// tiles apart, never against a building.
         static void PlaceLamps(TownLayout w)
+        {
+            var spots = RoadsideSpots(w);
+            foreach (var s in spots)
+            {
+                if (w.Lamps.Count >= MaxLamps)
+                    break;
+                bool clear = true;
+                foreach (var l in w.Lamps)
+                    if (l.StepsTo(s) < LampSpacing)
+                        clear = false;
+                if (clear)
+                    w.Lamps.Add(s);
+            }
+        }
+
+        public const int PatchesPerTown = 4;
+
+        /// Farming patches: on the grass by the roads a little way out from the square, clear of lamps and of each other.
+        static void PlacePatches(TownLayout w)
+        {
+            foreach (var s in RoadsideSpots(w))
+            {
+                if (w.Patches.Count >= PatchesPerTown)
+                    break;
+                if (s.StepsTo(w.Spawn) < 8)
+                    continue;
+                bool clear = true;
+                foreach (var l in w.Lamps)
+                    if (l.StepsTo(s) < 2)
+                        clear = false;
+                foreach (var p in w.Patches)
+                    if (p.StepsTo(s) < 3)
+                        clear = false;
+                if (clear)
+                    w.Patches.Add(s);
+            }
+        }
+
+        /// Grass tiles straight beside a road and not against a building, nearest the square first.
+        static List<Tile> RoadsideSpots(TownLayout w)
         {
             var spots = new List<Tile>();
             for (int x = 1; x < w.Width - 1; x++)
@@ -126,17 +168,7 @@ namespace Epacenur.Core
                 int c = a.StepsTo(w.Spawn).CompareTo(b.StepsTo(w.Spawn));
                 return c != 0 ? c : a.X != b.X ? a.X.CompareTo(b.X) : a.Z.CompareTo(b.Z);
             });
-            foreach (var s in spots)
-            {
-                if (w.Lamps.Count >= MaxLamps)
-                    break;
-                bool clear = true;
-                foreach (var l in w.Lamps)
-                    if (l.StepsTo(s) < LampSpacing)
-                        clear = false;
-                if (clear)
-                    w.Lamps.Add(s);
-            }
+            return spots;
         }
 
         // ---- Town ----

@@ -228,10 +228,13 @@ namespace Epacenur.Runtime
         {
             if (plan.Kind == RegionKind.Town)
             {
+                var master = plan.Buildings.Find(x => x.Kind == BuildingKind.House);
                 foreach (var b in plan.Buildings)
-                    BuildBuilding(world, b, (int)(world.Overworld.Hash(plan.RX, plan.RZ, 16) * int.MaxValue));
+                    BuildBuilding(world, b, (int)(world.Overworld.Hash(plan.RX, plan.RZ, 16) * int.MaxValue), b == master);
                 foreach (var lamp in plan.Lamps)
                     LampPost.Create(lamp, world.BuildRoot);
+                for (int i = 0; i < plan.Patches.Count; i++)
+                    world.AddPatch(plan.Patches[i], i % 2 == 0 ? PatchKind.Herb : PatchKind.Allotment);
                 world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), RegionName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
             }
             else if (plan.Kind == RegionKind.Camp)
@@ -355,7 +358,7 @@ namespace Epacenur.Runtime
             return starts[(int)(ow.Hash(plan.RX, plan.RZ, 13) * starts.Length)] + ends[(int)(ow.Hash(plan.RX, plan.RZ, 14) * ends.Length)];
         }
 
-        static void BuildBuilding(World world, Building b, int townSeed)
+        static void BuildBuilding(World world, Building b, int townSeed, bool slayerMaster)
         {
             var root = world.BuildRoot;
             TownBuildings.Build(root, b, townSeed);
@@ -392,7 +395,14 @@ namespace Epacenur.Runtime
                     world.AddLabel(signAt, "Workshop", Gold);
                     break;
                 default:
-                    Table(root, feature);
+                    if (slayerMaster)
+                    {
+                        // One house in every town is the slayer master's.
+                        world.AddStation(SlayerModule.Master, feature).transform.localRotation = Quaternion.LookRotation(toDoor);
+                        world.AddLabel(signAt, "Slayer master", Gold);
+                    }
+                    else
+                        Table(root, feature);
                     break;
             }
         }

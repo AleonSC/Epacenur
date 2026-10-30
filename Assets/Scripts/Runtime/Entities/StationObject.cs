@@ -13,6 +13,12 @@ namespace Epacenur.Runtime
         public override string DisplayName => Def.Name;
         public override string Examine => Def.Examine;
 
+        public override void AddOptions(List<MenuOption> options)
+        {
+            if (Def.Kind == StationKind.SlayerMaster)
+                SlayerMaster.AddOptions(options);
+        }
+
         public override void Interact()
         {
             var g = Game.Instance;
@@ -33,6 +39,9 @@ namespace Epacenur.Runtime
                     break;
                 case StationKind.Craft:
                     g.Player.StartMaking(this, null, int.MaxValue);
+                    break;
+                case StationKind.SlayerMaster:
+                    SlayerMaster.Talk();
                     break;
                 default:
                     g.Hud.OpenMaking(this, null);

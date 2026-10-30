@@ -60,6 +60,21 @@ namespace Epacenur.Runtime
         public readonly Boosts Boosts = new Boosts();
         /// Which agility obstacle is next for a lap.
         public readonly LapTracker Laps = new LapTracker();
+        /// Your Slayer task and points.
+        public SlayerState Slayer = new SlayerState();
+
+        /// A monster you killed: Slayer xp and progress if it was your task.
+        public void OnNpcKilled(NpcDef npc)
+        {
+            double xp = Core.Slayer.Kill(Slayer, npc, out bool finished);
+            if (xp <= 0)
+                return;
+            Skills.AddXp(Core.Slayer.Skill, xp);
+            if (finished)
+                GameLog.Add("You've completed your task! You now have " + Slayer.points + " Slayer points. Speak to a slayer master for a new one.");
+            else if (Slayer.left % 5 == 0)
+                GameLog.Add("You still need to kill " + Slayer.left + " more.");
+        }
         float boostTimer;
 
         /// A skill's level as everything uses it: the real level plus any boost.
@@ -120,6 +135,7 @@ namespace Epacenur.Runtime
 
             var state = SaveGame.LoadWorldState(WorldInfo);
             World = World.Create(WorldInfo.seed, MapId.Overworld, state.items, state.explored, state.bases);
+            World.LoadPatches(state.patches);
             if (state.hasBed)
             {
                 bedBase = state.bedBase;

@@ -35,6 +35,12 @@ namespace Epacenur.Core
         public readonly List<WeaponKindDef> WeaponKinds = new List<WeaponKindDef>();
         readonly Dictionary<string, SpellDef> spells = new Dictionary<string, SpellDef>();
         readonly Dictionary<string, CourseDef> courses = new Dictionary<string, CourseDef>();
+        readonly Dictionary<string, CreatureDef> creatures = new Dictionary<string, CreatureDef>();
+        readonly Dictionary<string, SeedDef> seeds = new Dictionary<string, SeedDef>();
+        /// Hunter's creatures, easiest first.
+        public readonly List<CreatureDef> Creatures = new List<CreatureDef>();
+        /// Seeds, easiest first.
+        public readonly List<SeedDef> Seeds = new List<SeedDef>();
         readonly Dictionary<string, PieceDef> pieces = new Dictionary<string, PieceDef>();
         /// Building pieces, in the build menu's order.
         public readonly List<PieceDef> Pieces = new List<PieceDef>();
@@ -88,6 +94,8 @@ namespace Epacenur.Core
         public WeaponKindDef Add(WeaponKindDef d) => Add(weaponKinds, WeaponKinds, d.Id, d, "weapon kind");
         public SpellDef Add(SpellDef d) => Add(spells, Spells, d.Id, d, "spell");
         public CourseDef Add(CourseDef d) => Add(courses, Courses, d.Id, d, "course");
+        public CreatureDef Add(CreatureDef d) => Add(creatures, Creatures, d.Id, d, "creature");
+        public SeedDef Add(SeedDef d) => Add(seeds, Seeds, d.SeedId, d, "seed");
         public PieceDef Add(PieceDef d) => Add(pieces, Pieces, d.Id, d, "building piece");
         public BurnableDef Add(BurnableDef d)
         {
@@ -106,6 +114,9 @@ namespace Epacenur.Core
         public StationDef Station(string id) => id != null && stations.TryGetValue(id, out var d) ? d : null;
         public ShopDef Shop(string id) => id != null && shops.TryGetValue(id, out var d) ? d : null;
         public NpcDef Npc(string id) => id != null && npcs.TryGetValue(id, out var d) ? d : null;
+        public CreatureDef Creature(string id) => id != null && creatures.TryGetValue(id, out var d) ? d : null;
+        /// What a seed item grows, or null if it isn't a seed.
+        public SeedDef Seed(string seedItemId) => seedItemId != null && seeds.TryGetValue(seedItemId, out var d) ? d : null;
         public CourseDef Course(string id) => id != null && courses.TryGetValue(id, out var d) ? d : null;
         public PieceDef Piece(string id) => id != null && pieces.TryGetValue(id, out var d) ? d : null;
         public SpellDef Spell(string id) => id != null && spells.TryGetValue(id, out var d) ? d : null;
@@ -178,6 +189,13 @@ namespace Epacenur.Core
                 Item(it.InfiniteRune, "item " + it.Id);
                 if (it.Potion != null) Item(it.Potion.Leaves, "item " + it.Id);
                 if (it.Process != null && !recipes.ContainsKey(it.Process)) p.Add("item " + it.Id + ": no recipe \"" + it.Process + "\"");
+            }
+            foreach (var cr in Creatures)
+                foreach (var l in cr.Loot) Item(l.ItemId, "creature " + cr.Id);
+            foreach (var sd in Seeds)
+            {
+                Item(sd.SeedId, "seed " + sd.SeedId);
+                Item(sd.Product, "seed " + sd.SeedId);
             }
             foreach (var c in Courses)
                 if (c.Obstacles.Length != AgilityCourse.Obstacles) p.Add("course " + c.Id + ": needs " + AgilityCourse.Obstacles + " obstacles");

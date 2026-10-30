@@ -39,6 +39,10 @@ namespace Epacenur.Content
                     new ShopStock(RunecraftingModule.Mind, 1000),
                     new ShopStock(HerbloreModule.VialOfWater, 100),
                     new ShopStock(HerbloreModule.EyeOfNewt, 200),
+                    new ShopStock(HunterModule.BirdSnare, 10),
+                    new ShopStock(HunterModule.BoxTrap, 5),
+                    new ShopStock(FarmingModule.Spade, 5),
+                    new ShopStock(FarmingModule.PotatoSeed, 100),
                 },
             });
         }

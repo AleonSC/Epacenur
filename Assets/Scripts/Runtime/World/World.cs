@@ -141,6 +141,58 @@ namespace Epacenur.Runtime
         public readonly List<Npc> Npcs = new List<Npc>();
         public readonly List<GroundItem> GroundItems = new List<GroundItem>();
         public readonly List<Fire> Fires = new List<Fire>();
+        /// Hunter traps laid in the world now (they aren't saved).
+        public readonly List<TrapObject> Traps = new List<TrapObject>();
+        /// Every farming patch's state in this world (saved), by map and tile.
+        readonly Dictionary<long, PatchState> patches = new Dictionary<long, PatchState>();
+
+        static long PatchKey(int map, Tile t) => ChunkedGrid.Key(t.X, t.Z) ^ ((long)map << 62);
+
+        /// The state of the farming patch on a tile of the current map (made, empty, the first time it's asked for).
+        public PatchState Patch(Tile t)
+        {
+            long key = PatchKey((int)Map, t);
+            if (!patches.TryGetValue(key, out var p))
+                patches[key] = p = new PatchState { x = t.X, z = t.Z, map = (int)Map };
+            return p;
+        }
+
+        /// The patches with something growing in them, to save.
+        public IEnumerable<PatchState> PlantedPatches
+        {
+            get
+            {
+                foreach (var p in patches.Values)
+                    if (p.seed != null)
+                        yield return p;
+            }
+        }
+
+        public void LoadPatches(List<PatchState> list)
+        {
+            if (list == null)
+                return;
+            foreach (var p in list)
+                patches[PatchKey(p.map, new Tile(p.x, p.z))] = p;
+        }
+
+        /// A farming patch on a tile, which it blocks.
+        public PatchObject AddPatch(Tile tile, PatchKind kind)
+        {
+            var owner = OwnerAt(tile);
+            var patch = Own(PatchObject.Create(tile, kind, owner.Root), owner);
+            Grid.SetBlocked(tile, true);
+            return patch;
+        }
+
+        /// A hunter's trap laid on a tile.
+        public TrapObject AddTrap(Tile tile, ItemDef trap)
+        {
+            var owner = OwnerAt(tile);
+            var t = Own(TrapObject.Create(tile, trap, owner.Root), owner);
+            Traps.Add(t);
+            return t;
+        }
         public readonly List<WorldLabel> Labels = new List<WorldLabel>();
         public readonly List<SkillArea> Areas = new List<SkillArea>();
 
@@ -412,6 +464,7 @@ namespace Epacenur.Runtime
                 Npcs.Remove(c as Npc);
                 GroundItems.Remove(c as GroundItem);
                 Fires.Remove(c as Fire);
+                Traps.Remove(c as TrapObject);
             }
             Labels.RemoveAll(l => l.Owner == owner);
             Destroy(owner.Root.gameObject);
@@ -518,6 +571,10 @@ namespace Epacenur.Runtime
             AddStation(SmithingModule.Anvil, DevArea.Anvil);
             AddStation(CraftingModule.SpinningWheel, DevArea.SpinningWheel);
             AddStation(CraftingModule.TanningRack, DevArea.TanningRack);
+            AddStation(SlayerModule.Master, DevArea.SlayerMaster).transform.localRotation = Quaternion.LookRotation(Vector3.forward);
+            AddLabel(Local(DevArea.SlayerMaster) + Vector3.up * 2.3f, "Slayer master", new Color(1f, 0.85f, 0.3f));
+            for (int i = 0; i < DevArea.Patches.Length; i++)
+                AddPatch(DevArea.Patches[i], i % 2 == 0 ? PatchKind.Herb : PatchKind.Allotment);
             foreach (var lamp in DevArea.Lamps)
             {
                 LampPost.Create(lamp, dev.Root);

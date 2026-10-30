@@ -90,7 +90,7 @@ namespace Epacenur.Content
             return npc;
         }
 
-        static void Stall(ContentDb db, string id, string name, Rgb awning, Rgb goods, int level, float respawn,
+        public static void Stall(ContentDb db, string id, string name, Rgb awning, Rgb goods, int level, float respawn,
             int minDistance, int maxDistance, double weight, params NodeYield[] yields)
         {
             var wood = new Rgb(0.5f, 0.34f, 0.2f);

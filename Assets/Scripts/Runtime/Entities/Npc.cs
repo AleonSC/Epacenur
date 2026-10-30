@@ -126,6 +126,7 @@ namespace Epacenur.Runtime
             diedAt = Time.time;
             hitbox.enabled = false;
             path.Clear();
+            Game.Instance.OnNpcKilled(Def);
             var tile = Game.Instance.World.NearestWalkable(Tile);
             foreach (var item in Def.AlwaysDrops)
                 Game.Instance.World.SpawnGroundItem(item, 1, tile);

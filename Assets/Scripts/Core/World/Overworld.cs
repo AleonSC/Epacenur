@@ -33,6 +33,7 @@ namespace Epacenur.Core
         public TownLayout Town;                              // towns: the built-up tiles (local to Bounds)
         public readonly List<Building> Buildings = new List<Building>();
         public readonly List<Tile> Lamps = new List<Tile>();  // towns: lamp posts
+        public readonly List<Tile> Patches = new List<Tile>();  // towns: farming patches (even: herb, odd: allotment)
         public Area Camp;                                    // camps: the trampled ground; shrines: the paving round the altar; quarries: the pit
         public readonly List<Tile> Tents = new List<Tile>();
         public Area Level;
@@ -201,6 +202,12 @@ namespace Epacenur.Core
                         z0 = Math.Min(z0, plan.Bounds.Z + z); z1 = Math.Max(z1, plan.Bounds.Z + z);
                     }
             plan.Level = new Area(x0 - 2, z0 - 2, x1 - x0 + 5, z1 - z0 + 5);
+            foreach (var fp in plan.Town.Patches)
+            {
+                var patch = new Tile(plan.Bounds.X + fp.X, plan.Bounds.Z + fp.Z);
+                plan.Patches.Add(patch);
+                plan.Blocked.Add(patch);
+            }
             foreach (var l in plan.Town.Lamps)
             {
                 var lamp = new Tile(plan.Bounds.X + l.X, plan.Bounds.Z + l.Z);

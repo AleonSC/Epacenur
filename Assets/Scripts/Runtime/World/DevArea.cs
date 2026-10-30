@@ -33,6 +33,8 @@ namespace Epacenur.Runtime
         public static readonly Tile SpinningWheel = new Tile(20, 13);
         public static readonly Tile TanningRack = new Tile(18, 13);
         public static readonly Tile[] Lamps = { new Tile(20, 10), new Tile(28, 10) };
+        public static readonly Tile SlayerMaster = new Tile(24, 5);
+        public static readonly Tile[] Patches = { new Tile(19, 6), new Tile(21, 6), new Tile(27, 6), new Tile(29, 6) };
 
         public static List<SkillArea> CreateAreas()
         {

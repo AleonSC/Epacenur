@@ -97,6 +97,7 @@ namespace Epacenur.Runtime
             Add(Verbs.Bury, d => d.BuryXp > 0, slot => G.Player.Bury(slot), always);
             Add(Verbs.Eat, d => d.Heals > 0, slot => G.Player.Eat(slot), always);
             Add(Verbs.Drink, d => d.Potion != null, slot => G.Player.Drink(slot), always);
+            Add("Lay", d => d.TrapKind != null, slot => G.Player.LayTrap(slot), always);
             AddNamed(d => d.ProcessVerb, d => d.Process != null, slot => G.Player.Process(slot), always);
             Add(Verbs.Cook, d => ContentDb.Current.RecipeUsing(FiremakingModule.Fire, d.Id) != null,
                 slot => G.Player.CookFromInventory(G.Inventory[slot].ItemId), always);

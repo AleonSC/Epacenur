@@ -51,7 +51,7 @@ namespace Epacenur.Runtime
         /// First person: one attack per click, no faster than the weapon's speed.
         void FirstPersonAttack(Npc npc)
         {
-            if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead)
+            if (swingCooldown > 0f || Time.time < nextAttackAt || npc.IsDead || !CanWound(npc))
                 return;
             swingCooldown = AttackSeconds;
             SwingT = 1f;
@@ -61,8 +61,29 @@ namespace Epacenur.Runtime
 
         // ---- Combat (both modes) ----
 
-        /// Accuracy and max hit with the current weapon and attack style against a monster.
+        /// Some monsters can only be hurt by someone with a Slayer level (they say so, and you don't attack).
+        bool CanWound(Npc npc)
+        {
+            int need = npc.Def.SlayerLevel;
+            if (need <= 0 || G.Skills.GetLevel(Epacenur.Content.SlayerModule.Skill) >= need)
+                return true;
+            GameLog.Add("You need a Slayer level of " + need + " to know how to wound this monster.");
+            return false;
+        }
+
+        /// Accuracy and max hit against a monster: the weapon and style's, and a slayer helmet's boost on task.
         void Rolls(Npc npc, out double hitChance, out int maxHit)
+        {
+            BaseRolls(npc, out hitChance, out maxHit);
+            if (G.Slayer.task == npc.Def.Id && G.Equipment.IsWearing(EquipSlot.Head)
+                && G.Equipment[EquipSlot.Head].ItemId == Epacenur.Content.SlayerModule.Helmet)
+            {
+                hitChance = Mathf.Min(1f, (float)(hitChance * Epacenur.Content.SlayerModule.HelmetBoost));
+                maxHit = (int)(maxHit * Epacenur.Content.SlayerModule.HelmetBoost);
+            }
+        }
+
+        void BaseRolls(Npc npc, out double hitChance, out int maxHit)
         {
             var style = G.CurrentStyle;
             var b = G.Equipment.Bonuses;
@@ -88,6 +109,8 @@ namespace Epacenur.Runtime
         {
             if (npc == attackTarget && !npc.IsDead)
                 return;  // already on it: clicking again changes nothing
+            if (!CanWound(npc))
+                return;
             CancelAction();
             attackTarget = npc;
             npc.Engage(transform.position);
@@ -250,6 +273,8 @@ namespace Epacenur.Runtime
                 GameLog.Add("You need a target to use " + def.Name + ".");
                 return;
             }
+            if (!CanWound(target))
+                return;
             float reach = Mode == ViewMode.FirstPerson ? FirstPersonReach : 1.6f;
             if (FlatDistance(target) > reach)
             {

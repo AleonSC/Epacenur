@@ -436,6 +436,37 @@ Build anywhere in the overworld outside towns, at any angle, on flat ground or a
 - Sounds out in the world (a tree being chopped, a monster being hit) come from where they happen, fainter further away.
 - **Sound** (left of the minimap) steps the volume down: full, half, a quarter, off. It's remembered.
 
+## Slayer, Hunter and Farming
+
+**Slayer**
+- Every town has a **slayer master** in one of its houses. **Get-task** sets you a task: 10-30 (more of weaker ones) of one kind of
+  monster that suits your combat level. Each kill on task gives Slayer xp equal to the monster's hitpoints; the task shows under
+  the minimap. Finishing one gives **10 Slayer points** (50 every tenth in a row).
+- Right-click the master to spend points: **skip a task** (10 points) or buy a **slayer helmet** (60 points: good defence, and on
+  task your accuracy and max hit are 7/6 of normal).
+- Some monsters can only be hurt by slayers: **crawling hands** (Slayer 5, the wilds near safety) and **rockslugs** (Slayer 20,
+  further out).
+
+**Hunter**
+- **Lay** a trap from the inventory onto your tile, step away and wait: after a few seconds it's sprung, with a catch or not
+  (more often the higher your level). **Check** it for the catch, the xp and the trap back. A sprung trap left 90 seconds falls apart.
+- **Bird snares**: crimson swifts (1), copper longtails (9), cerulean twitches (11), tropical wagtails (19), for feathers, bones
+  and **bird meat** to cook. **Box traps** (Hunter 27): ferrets (27), chinchompas (53) and red chinchompas (63), worth selling.
+- What you catch depends on the **biome**: each creature lives in a few. One trap at a time, one more every 20 levels.
+- The general store sells bird snares and box traps.
+
+**Farming**
+- Every town has **four patches** beside its roads: two **herb patches** and two **allotments**. Use a seed on an empty patch to
+  plant it (Farming xp). It grows in **real time, even while you're logged out**: herbs in 80 minutes, most crops in 40, sweetcorn
+  and strawberries in an hour. Each patch shows its plants growing. **Inspect** says how long is left.
+- Once grown, **Pick** herbs (grimy, for Herblore) or **Harvest** a crop (with a **spade**), 3-10 times, for xp each time.
+- Herbs: guam (9), tarromin (19), harralander (26), ranarr (32), irit (44), kwuarm (56). Crops: potatoes (1), onions (5),
+  cabbages (7), tomatoes (12), sweetcorn (20), strawberries (31), all edible.
+- Seeds: potato seeds and a spade from the general store; more from farmers' pockets, goblins, bandits, hill giants, and **seed
+  stalls** (Thieving 27) in towns a little way out.
+- Dev tools: **Hunter kit**, **Farming kit** (every seed and a spade), **Grow all patches**, **Slayer points +100**. The dev plot
+  has a slayer master and four patches just south of the start.
+
 ## Death and gravestones
 
 - When you die you **keep your 3 most valuable items** (by value, counting each item of a stack, from your inventory and

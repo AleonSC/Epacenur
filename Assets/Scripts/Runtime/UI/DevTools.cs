@@ -104,6 +104,20 @@ namespace Epacenur.Runtime
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Ranged kit")) { Give("maple_shortbow"); Give("adamant_arrow", 300); }
             if (GUILayout.Button("Crafting kit")) { G.ToolBelt.Add(CraftingModule.Needle); Give(CraftingModule.Thread, 50); Give(CraftingModule.Leather, 10); Give(CraftingModule.Flax, 10); Give(CombatModule.Cowhide, 5); }
+            if (GUILayout.Button("Hunter kit")) { Give(HunterModule.BirdSnare, 3); Give(HunterModule.BoxTrap, 2); }
+            if (GUILayout.Button("Farming kit"))
+            {
+                G.ToolBelt.Add(FarmingModule.Spade);
+                foreach (var s in ContentDb.Current.Seeds)
+                    Give(s.SeedId, 5);
+            }
+            if (GUILayout.Button("Grow all patches"))
+            {
+                foreach (var p in G.World.PlantedPatches)
+                    p.planted = System.DateTime.UtcNow.AddDays(-1).Ticks;
+                GameLog.Add("Every planted patch is now fully grown.");
+            }
+            if (GUILayout.Button("Slayer points +100")) G.Slayer.points += 100;
             if (GUILayout.Button("Herblore kit"))
             {
                 foreach (var h in new[] { "guam", "tarromin", "harralander", "ranarr", "irit", "kwuarm" })

@@ -33,6 +33,7 @@ namespace Epacenur.Runtime
             public string[] tools;        // on the tool belt
             public int style;
             public string autocast;       // spell id, or null
+            public SlayerState slayer;
             public bool hasEnergy;
             public float energy;          // run energy, percent
             public int pouch;
@@ -91,6 +92,7 @@ namespace Epacenur.Runtime
                 worldVersion = WorldVersion,
                 style = game.StyleIndex,
                 autocast = game.Autocast?.Id,
+                slayer = game.Slayer,
                 hasEnergy = true,
                 energy = (float)game.Energy.Value,
                 pouch = game.Inventory.PouchCoins,
@@ -146,6 +148,7 @@ namespace Epacenur.Runtime
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
+            state.patches.AddRange(game.World.PlantedPatches);
             foreach (var b in game.World.Bases.All)
                 state.bases.Add(BaseSave.From(b));
             state.hasBed = game.BedBase > 0;
@@ -170,6 +173,7 @@ namespace Epacenur.Runtime
         {
             public List<GroundPile> items = new List<GroundPile>();
             public List<long> explored = new List<long>();
+            public List<PatchState> patches = new List<PatchState>();  // farming patches with something growing
             public List<BaseSave> bases = new List<BaseSave>();  // what's been built
             public bool hasBed;    // the bed last slept in: its base and cell
             public int bedBase;
@@ -234,6 +238,8 @@ namespace Epacenur.Runtime
                     game.Equipment.Set((EquipSlot)i, new ItemStack(d.equipped[i], 1));
             game.StyleIndex = System.Math.Max(0, System.Math.Min(d.style, 3));
             game.Autocast = db.Spell(d.autocast);
+            if (d.slayer != null)
+                game.Slayer = d.slayer;
             if (d.hasEnergy)
                 game.Energy.Set(d.energy);
             if (d.tools != null)

@@ -115,6 +115,11 @@ namespace Epacenur.Runtime
                         break;
                 }
             }
+            else if (thing is PatchObject patch && ContentDb.Current.Seed(itemId) != null)
+            {
+                patch.Plant(slot);
+                return;
+            }
             else if (thing is NodeObject node && def.ToolType != null && def.ToolType == node.Def.ToolType)
             {
                 Gather(node);  // a hatchet on a tree is the same as chopping it

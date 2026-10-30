@@ -16,6 +16,9 @@ namespace Epacenur.Runtime
         public virtual bool HasAction => true;
         /// Where you have to stand to use it (an agility obstacle's start), or null for any tile beside it.
         public virtual Tile? ApproachTile => null;
+
+        /// More right-click options after its main one (a slayer master's rewards).
+        public virtual void AddOptions(System.Collections.Generic.List<MenuOption> options) { }
         public abstract void Interact();
     }
 }

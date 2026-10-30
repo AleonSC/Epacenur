@@ -216,6 +216,9 @@ namespace Epacenur.Runtime
             string when = (clock.IsNight ? "<color=#9fb8ff>Night</color>" : "<color=" + Gui.GoldHex + ">Day</color>") + " " + (clock.Day + 1) + "  "
                 + "<color=#ffffff>" + clock.Clock + "</color>";
             Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), when, Gui.RightSmall);
+            string task = SlayerMaster.Status();
+            if (task != null)
+                Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + (G.Grave != null ? 58f : 40f), 290f, 20f), "<color=#ff9a80>" + task + "</color>", Gui.RightSmall);
             var g = G.Grave;
             if (g == null)
                 return;

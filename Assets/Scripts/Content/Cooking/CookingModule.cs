@@ -47,7 +47,7 @@ namespace Epacenur.Content
             Cook(db, "cook_swordfish", FishingModule.RawSwordfish, Swordfish, BurntFish, "swordfish", 45, 140, 86);
         }
 
-        static void Meat(ContentDb db, string id, string name, string examine, int value, Rgb colour, int heals)
+        public static void Meat(ContentDb db, string id, string name, string examine, int value, Rgb colour, int heals)
         {
             var item = db.Item(id, name, examine, value, colour);
             item.Icon = Looks.MeatIcon(colour);
@@ -65,7 +65,7 @@ namespace Epacenur.Content
 
         /// A recipe on a fire. The chance goes in a straight line from about 30% at `level` to certain at `stopBurning`
         /// (shrimps: 80 / 603).
-        static void Cook(ContentDb db, string id, string raw, string cooked, string burnt, string what, int level, double xp, int stopBurning)
+        public static void Cook(ContentDb db, string id, string raw, string cooked, string burnt, string what, int level, double xp, int stopBurning)
         {
             double perLevel = (256.0 - 80.0) / (stopBurning - level);
             int low = (int)System.Math.Round(80 - perLevel * (level - 1)), high = (int)System.Math.Round(low + perLevel * 98);

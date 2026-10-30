@@ -348,6 +348,7 @@ namespace Epacenur.Runtime
                 string name = MenuOption.Thing(obj.DisplayName);
                 if (obj.HasAction)
                     options.Add(new MenuOption(obj.Action, name, () => { if (firstPerson) obj.Interact(); else WalkToObject(obj); }));
+                obj.AddOptions(options);
                 var part = obj.GetComponent<BasePart>();
                 if (part != null && HasHammer)
                     examines.Add(new MenuOption("Remove", name, () => RemovePiece(part)));

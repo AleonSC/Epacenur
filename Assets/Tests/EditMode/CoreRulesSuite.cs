@@ -30,7 +30,7 @@ public static class CoreRulesSuite
         info("Content");
         var db = ContentDb.Load(Modules.All);
         Check(db.Validate().Count == 0, "every id the content refers to exists");
-        Check(db.Skills.Count == 20 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "20 skills; Hitpoints starts at 10");
+        Check(db.Skills.Count == 23 && db.Skill(SkillIds.Hitpoints).StartLevel == 10, "23 skills; Hitpoints starts at 10");
         bool dup = false;
         try { new ContentDb().Add(new ItemDef { Id = "x" }); var d2 = new ContentDb(); d2.Add(new ItemDef { Id = "x" }); d2.Add(new ItemDef { Id = "x" }); }
         catch (ArgumentException) { dup = true; }
@@ -100,7 +100,7 @@ public static class CoreRulesSuite
 
         info("Shop");
         var shop = new Shop(db.Shop(ShopsModule.GeneralStore));
-        Check(shop.Items.Count == 24 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
+        Check(shop.Items.Count == 28 && shop.Items[0].ItemId == FiremakingModule.Tinderbox && shop.Items[1].ItemId == Sword && shop.Items[2].ItemId == Shield, "stocks a tinderbox, a sword and a shield");
         inv.Clear();
         string why;
         Check(shop.Buy(inv, 1, 1, out why) == 0 && why == "You don't have enough coins.", "can't buy without coins");
@@ -110,9 +110,9 @@ public static class CoreRulesSuite
         Check(shop.Sell(inv, Sword, 1, out why) == 1 && inv.Count(Coins) == 18 && shop.Items[1].Stock == 4, "selling a sword pays 10 (40%)");
         Check(shop.Sell(inv, Coins, 1, out why) == 0, "coins can't be sold");
         inv.Add(Logs, 3);
-        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 25 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
+        Check(shop.Sell(inv, Logs, 5, out why) == 3 && shop.Items.Count == 29 && inv.Count(Coins) == 21, "the shop buys logs it doesn't stock (1 coin each)");
         for (int i = 0; i < 5; i++) shop.Restock();
-        Check(shop.Items.Count == 24 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
+        Check(shop.Items.Count == 28 && shop.Items[1].Stock == 5, "restocking brings stock back to normal and clears sold logs");
         inv.Clear();
         inv.SetPouch(0);
         inv.Add(Logs, 27);
@@ -189,8 +189,8 @@ public static class CoreRulesSuite
         var rng = new Random(1);
         bool allCoins = true;
         for (int i = 0; i < 200; i++)
-            if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || (id == Coins ? n < 1 || n > 30 : !id.StartsWith("grimy_") && id != HerbloreModule.EyeOfNewt)) allCoins = false;
-        Check(allCoins, "goblins always drop 1-30 coins, or a herb or an eye of newt");
+            if (!db.Npc(CombatModule.Goblin).Drops.Roll(rng, out string id, out int n) || (id == Coins ? n < 1 || n > 30 : !id.StartsWith("grimy_") && !id.EndsWith("_seed") && id != HerbloreModule.EyeOfNewt)) allCoins = false;
+        Check(allCoins, "goblins always drop 1-30 coins, or a herb, seeds or an eye of newt");
 
         // Two-handed weapons and shields.
         var eq2 = new Equipment();
@@ -677,6 +677,46 @@ public static class CoreRulesSuite
         hinv.Add(HerbloreModule.VialOfWater);
         Check(Making.Make(db.Recipe("mix_guam_unf"), hinv, 3, new Random(1), out bool hf) == "guam_potion_unf" && hinv.Count(HerbloreModule.VialOfWater) == 0,
             "a guam leaf in a vial of water makes an unfinished potion");
+
+                info("Slayer, Hunter and Farming");
+        var sk = new SkillSet();
+        var slay = new SlayerState();
+        Check(Slayer.Assign(slay, db, sk, new Random(3)) && slay.left >= 10 && db.Npc(slay.task).Pickpocket == null && db.Npc(slay.task).SlayerLevel <= 1,
+            "a new player's task is " + slay.left + " " + slay.task + " (no townsfolk, nothing needing Slayer)");
+        var onTask = db.Npc(slay.task);
+        int killsXp = 0;
+        bool fin = false;
+        int toKill = slay.left;
+        for (int i = 0; i < toKill; i++) killsXp += (int)Slayer.Kill(slay, onTask, out fin);
+        Check(fin && slay.task == null && slay.points == Slayer.PointsPerTask && killsXp == onTask.Hitpoints * toKill,
+            "each kill on task gives its hitpoints in Slayer xp; finishing gives " + Slayer.PointsPerTask + " points");
+        Check(Slayer.Kill(slay, onTask, out fin) == 0, "kills off task give nothing");
+        Check(db.Npc(SlayerModule.Rockslug).SlayerLevel == 20 && !Slayer.Candidates(db, sk).Exists(n => n.Id == SlayerModule.Rockslug),
+            "rockslugs need Slayer 20, and aren't set to beginners");
+
+        Check(Hunter.MaxTraps(1) == 1 && Hunter.MaxTraps(40) == 3, "one trap at level 1, three at 40");
+        var prey = Hunter.Prey(db, "snare", Biome.Meadow, 99);
+        Check(prey.Count > 0 && prey[0].Level >= prey[prey.Count - 1].Level && Hunter.Prey(db, "box", Biome.Meadow, 26).Count == 0,
+            "snares catch birds in meadows (best first); box traps need level 27 game");
+        int caught = 0;
+        var hrng = new Random(5);
+        for (int i = 0; i < 200; i++) if (Hunter.Catch(db, "snare", Biome.Woodland, 1, hrng) != null) caught++;
+        Check(caught > 60 && caught < 200, "a level 1 snare in the woods catches something now and then (" + caught + " of 200)");
+
+        var patch = new PatchState();
+        var guamSeed = db.Seed(FarmingModule.GuamSeed);
+        var now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        Check(Farming.Problem(patch, PatchKind.Herb, guamSeed, 8) != null && Farming.Problem(patch, PatchKind.Allotment, guamSeed, 9) != null
+            && Farming.Problem(patch, PatchKind.Herb, guamSeed, 9) == null, "guam needs Farming 9 and a herb patch");
+        Farming.Plant(patch, guamSeed, now, new Random(1));
+        Check(!Farming.IsGrown(patch, guamSeed, now.AddMinutes(79)) && Farming.Stage(patch, guamSeed, now.AddMinutes(40)) == 2
+            && Farming.IsGrown(patch, guamSeed, now.AddMinutes(80)), "herbs grow in 80 minutes of real time, in 4 stages");
+        int picks = 0;
+        while (Farming.Harvest(patch, guamSeed, now.AddMinutes(90))) picks++;
+        Check(picks >= 3 && picks <= 8 && Farming.IsEmpty(patch), "a grown herb patch gives 3-8 herbs (" + picks + "), then it's empty");
+        var homeLayout = new Overworld(2024).Plan(0, 0);
+        Check(homeLayout.Patches.Count == WorldGen.PatchesPerTown && homeLayout.Buildings.Exists(b => b.Kind == BuildingKind.House),
+            "every town has four farming patches and a house for its slayer master");
 
                 info("Crafting");
         var cinv3 = new Inventory();
