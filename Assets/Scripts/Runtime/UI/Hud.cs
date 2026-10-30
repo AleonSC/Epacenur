@@ -27,14 +27,22 @@ namespace Epacenur.Runtime
         readonly WorldMap worldMap = new WorldMap();
         readonly OptionMenu menu = new OptionMenu();
         bool showHelp = true;
+        /// The chat box (C) and the side panel with the inventory (B) can be put away.
+        public bool ChatOpen = true, PanelOpen = true;
 
         /// The window open at a station or shop keeper, or null.
         public Window Window { get; private set; }
 
         public Rect PanelRect => new Rect(W - SidePanel.Width - 10f, H - SidePanel.Height - 10f, SidePanel.Width, SidePanel.Height);
-        public Rect ChatRect => new Rect(10f, H - 160f, Mathf.Clamp(W - SidePanel.Width - 40f, 200f, 520f), 150f);
-        public Rect BarRect => new Rect(10f, ChatRect.y - 58f, 12f + Abilities.All.Length * (Gui.Slot + Gui.Gap) - Gui.Gap, 52f);
+        /// Bottom left, as wide as fits beside the action bar.
+        public Rect ChatRect => new Rect(10f, H - 160f, Mathf.Clamp((W - BarWidth) / 2f - 20f, 200f, 520f), 150f);
+        static float BarWidth => 12f + Abilities.All.Length * (Gui.Slot + Gui.Gap) - Gui.Gap;
+        /// The abilities, in the middle at the bottom, with your health and prayer over them.
+        public Rect BarRect => new Rect((W - BarWidth) / 2f, H - 62f, BarWidth, 52f);
         public Rect StatusRect => new Rect(BarRect.x, BarRect.y - 24f, BarRect.width, 22f);
+        /// The buttons that put away and bring back the chat box and the side panel.
+        Rect ChatToggleRect => ChatOpen ? new Rect(10f, ChatRect.y - 24f, 64f, 22f) : new Rect(10f, H - 32f, 64f, 22f);
+        Rect PanelToggleRect => PanelOpen ? new Rect(W - 100f, PanelRect.y - 26f, 90f, 22f) : new Rect(W - 100f, H - 32f, 90f, 22f);
         public Rect WindowRect
         {
             get
@@ -70,6 +78,10 @@ namespace Epacenur.Runtime
             }
             if (Input.GetKeyDown(KeyCode.M) && GUIUtility.keyboardControl == 0)
                 worldMap.Toggle();
+            if (Input.GetKeyDown(KeyCode.C) && GUIUtility.keyboardControl == 0)
+                ChatOpen = !ChatOpen;
+            if (Input.GetKeyDown(KeyCode.B) && GUIUtility.keyboardControl == 0)
+                TogglePanel();
         }
 
         Game G => Game.Instance;
@@ -82,10 +94,19 @@ namespace Epacenur.Runtime
         /// The make window for things made in your hands from the inventory (fletching).
         public void OpenMakingInHand(List<RecipeDef> recipes) => OpenWindow(new MakeWindow(null, null, recipes), null);
 
+        /// Puts the side panel away or brings it back.
+        public void TogglePanel()
+        {
+            PanelOpen = !PanelOpen;
+            if (!PanelOpen)
+                G.Player.CancelUse();  // a picked item or spell can't be aimed at a hidden inventory
+        }
+
         public void OpenWindow(Window window, Interactable at)
         {
             window.At = at;
             Window = window;
+            PanelOpen = true;  // the bank, shop and make windows work with your inventory
             Panel.ShowInventory();
             G.Rig.LockCursor(false);  // first person: free the mouse to use the window
         }
@@ -112,7 +133,8 @@ namespace Epacenur.Runtime
             if (Cursor.lockState == CursorLockMode.Locked)
                 return false;
             var m = MouseGui;
-            return (menu.IsOpen && menu.Rect.Contains(m)) || PanelRect.Contains(m) || ChatRect.Contains(m) || BarRect.Contains(m)
+            return (menu.IsOpen && menu.Rect.Contains(m)) || (PanelOpen && PanelRect.Contains(m)) || (ChatOpen && ChatRect.Contains(m))
+                || ChatToggleRect.Contains(m) || PanelToggleRect.Contains(m) || BarRect.Contains(m)
                 || StatusRect.Contains(m) || LogOutRect.Contains(m) || MapButtonRect.Contains(m) || Minimap.RectFor(this).Contains(m)
                 || (worldMap.IsOpen && worldMap.RectFor(this).Contains(m)) || devTools.Contains(m) || (Window != null && WindowRect.Contains(m));
         }
@@ -165,7 +187,12 @@ namespace Epacenur.Runtime
             overlays.DrawScreen(this);
             actionBar.Draw(this);
             statusBars.Draw(this);
-            Panel.Draw(this, PanelRect);
+            if (PanelOpen)
+                Panel.Draw(this, PanelRect);
+            if (GUI.Button(ChatToggleRect, ChatOpen ? "Hide chat" : "Chat"))
+                ChatOpen = !ChatOpen;
+            if (GUI.Button(PanelToggleRect, PanelOpen ? "Hide panel" : "Inventory"))
+                TogglePanel();
             Window?.Draw(this, WindowRect);
             if (G.Player.Mode == ViewMode.FirstPerson)
                 overlays.DrawCrosshair(this);

@@ -47,6 +47,8 @@ The game opens on the main menu:
 | Attack a goblin | Left-click it: you walk up and keep hitting it until it dies | Look at it and left-click once per hit (within reach) |
 | Pick up an item on the ground | Left-click it ("Take"): you walk onto its tile and pick it up | Look at it and left-click (within reach) |
 | Switch view | **V** | **V** |
+| Show / hide the chat box | **C** (or the button over it) | **C** |
+| Show / hide the inventory panel | **B** (or the button over it) | **B** |
 
 - **Right-click menu**: right-click anything for RuneScape's "Choose Option" menu, listing every option for
   what's under the cursor, e.g. *Attack Goblin (level-2)*, *Take Coins (12)*, *Walk here*, *Examine Goblin*, *Cancel*.
@@ -54,7 +56,10 @@ The game opens on the main menu:
   ("Chop down Tree / 2 more options"). Inventory items get Wield / Wear, Drop and Examine. Worn items get Remove and Examine.
   In first person, right-click lists the options for what you aim at (within reach), and the mouse is grabbed again
   once you choose. The menu closes when you pick something, click elsewhere, or move the mouse away from it.
-- **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt), **Pray** (prayers) and **Skills**.
+- **Panel tabs**: **Inv** (inventory and money pouch), **Worn** (equipment), **Tools** (tool belt), **Pray** (prayers), **Magic** and **Skills**.
+- **Screen layout**: the chat box is at the bottom left, the abilities with your health and prayer over them in the middle at the
+  bottom, and the side panel at the bottom right. Put the chat box or the panel away for a clearer view (it comes back on its own
+  when you open a bank, shop or make window).
 - **Walking and running**: walking is about RuneScape's pace (2 tiles a second on a clicked path). Hold **Shift** to run:
   4.4 tiles a second on a path, 5.4 with WASD, faster than walking ever was before. The top-left shows "Running" while you hold it.
   Goblins chase faster than you walk, so run to get away.
@@ -82,6 +87,10 @@ other towns with their bank (yellow), general store (orange) and chapel (white),
 - **Countryside**: **forests** where a smooth noise is high, **rocky ground** with copper and tin rocks you can mine, and **ponds**,
   each with a moving **net fishing spot** on its shore. Trees and rocks never touch, even diagonally, and water keeps clear of roads,
   so you can always walk round them: the tests check that nothing walkable is shut in, on several seeds.
+- **Hills**: the ground rises and falls in rolling hills (up to about 10 units high, higher in some stretches of country than
+  others, with small bumps on top). Towns, camps, shrines and ponds sit on level ground that blends into the hills round them,
+  and ponds only form in low country. The slopes are gentle enough to walk anywhere the tile grid lets you; the minimap and
+  world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
   Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. Saves remember which map
