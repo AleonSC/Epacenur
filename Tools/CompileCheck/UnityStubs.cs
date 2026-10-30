@@ -58,7 +58,7 @@ namespace UnityEngine
     public enum CursorLockMode { None, Locked, Confined }
     public static class Cursor { public static CursorLockMode lockState; public static bool visible; }
     public enum CameraClearFlags { Skybox, SolidColor }
-    public sealed class Camera : Behaviour { public static Camera main; public Ray ScreenPointToRay(Vector3 p) => default(Ray); public Vector3 WorldToScreenPoint(Vector3 p) => p;
+    public sealed class Camera : Behaviour { public float[] layerCullDistances; public bool layerCullSpherical; public static Camera main; public Ray ScreenPointToRay(Vector3 p) => default(Ray); public Vector3 WorldToScreenPoint(Vector3 p) => p;
         public float fieldOfView, nearClipPlane, farClipPlane; public CameraClearFlags clearFlags; public Color backgroundColor; }
     public sealed class AudioListener : Behaviour { }
     public enum AudioRolloffMode { Logarithmic, Linear, Custom }
