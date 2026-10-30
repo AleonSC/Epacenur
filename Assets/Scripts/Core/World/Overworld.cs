@@ -303,22 +303,20 @@ namespace Epacenur.Core
                     plan.Essence.Add(new Tile(c.X + essence[i].X, c.Z + essence[i].Z));
         }
 
-        /// An open pit of gravel with ore rocks in rows (never touching, so you can walk between them all),
-        /// heaps of spoil in its corners and a mine cart at the top.
+        /// A mine head: a gravel yard with the shaft in the middle (a winch over a hole: climb down to the mine,
+        /// Mines), heaps of spoil in two corners and a mine cart beside the shaft. No ore up here.
         void PlanQuarry(RegionPlan plan)
         {
             int dx = (int)(Hash(plan.RX, plan.RZ, 3) * 16) - 8, dz = (int)(Hash(plan.RX, plan.RZ, 4) * 16) - 8;
-            var q = plan.Camp = new Area(plan.Center.X + dx - 7, plan.Center.Z + dz - 6, 14, 12);
-            for (int x = q.X + 2; x < q.XMax - 2; x += 3)
-                for (int z = q.Z + 2; z < q.ZMax - 2; z += 3)
-                    if (Hash(x, z, 61) < 0.85)
-                        plan.Rocks.Add(new Tile(x, z));
-            foreach (var corner in new[] { new Tile(q.X, q.Z), new Tile(q.XMax - 1, q.Z), new Tile(q.X, q.ZMax - 1), new Tile(q.XMax - 1, q.ZMax - 1) })
+            var q = plan.Camp = new Area(plan.Center.X + dx - 4, plan.Center.Z + dz - 4, 9, 8);
+            plan.CaveMouth = new Tile(q.X + 4, q.Z + 4);
+            plan.Blocked.Add(plan.CaveMouth);
+            foreach (var corner in new[] { new Tile(q.X, q.ZMax - 1), new Tile(q.XMax - 1, q.ZMax - 1) })
             {
                 plan.Rubble.Add(corner);
                 plan.Blocked.Add(corner);
             }
-            plan.Cart = new Tile(q.X + q.Width / 2, q.ZMax - 1);
+            plan.Cart = new Tile(plan.CaveMouth.X + 2, plan.CaveMouth.Z);
             plan.Blocked.Add(plan.Cart);
             plan.Level = new Area(q.X - 3, q.Z - 3, q.Width + 6, q.Height + 6);
         }
@@ -338,11 +336,13 @@ namespace Epacenur.Core
         /// Where you stand to go into a cave: just south of its mouth.
         public static Tile CaveApproach(RegionPlan plan) => new Tile(plan.CaveMouth.X, plan.CaveMouth.Z - 1);
 
-        /// The dungeon under a cave: its layout (the same every time) and how dangerous it is (the wilderness level at its mouth).
+        /// The dungeon under a cave, or the mine down a mine shaft: its layout (the same every time) and how
+        /// dangerous it is (the wilderness level at its mouth).
         public DungeonLayout Dungeon(RegionPlan plan, out int danger)
         {
             danger = Danger(plan.CaveMouth);
-            return Dungeons.Generate((int)(Hash(plan.RX, plan.RZ, 81) * int.MaxValue));
+            int seed = (int)(Hash(plan.RX, plan.RZ, 81) * int.MaxValue);
+            return plan.Kind == RegionKind.Quarry ? Mines.Generate(seed, Mines.TierOf(this, plan)) : Dungeons.Generate(seed);
         }
 
         /// A loop of path with five obstacles along it (which course: Spawning, by wilderness level).

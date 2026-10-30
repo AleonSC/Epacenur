@@ -204,6 +204,13 @@ namespace Epacenur.Runtime
             return patch;
         }
 
+        /// The way down into a mine.
+        public MineShaft AddMineShaft(RegionPlan mine)
+        {
+            var owner = OwnerAt(mine.CaveMouth);
+            return Own(MineShaft.Create(mine, owner.Root), owner);
+        }
+
         /// The way into a cave's dungeon.
         public CaveMouth AddCaveMouth(RegionPlan cave, string name)
         {
@@ -650,8 +657,16 @@ namespace Epacenur.Runtime
             devGrid.SetBlocked(ladder, true);
             AddLabel(Local(ladder) + Vector3.up * 2.6f, "Ladder up", new Color(1f, 0.85f, 0.3f));
 
-            // Monsters: a group in each room but the ladder's and the boss's.
             var rng = new System.Random((int)(Overworld.Hash(CurrentCave.RX, CurrentCave.RZ, 82) * int.MaxValue));
+            if (d.IsMine)
+            {
+                // A mine: its ore rocks, and no monsters.
+                foreach (var kv in d.Ores)
+                    AddNode(kv.Value, kv.Key, rng);
+                FinishDungeon(d);
+                return;
+            }
+            // Monsters: a group in each room but the ladder's and the boss's.
             var groups = Dungeons.Groups(DungeonDanger, d.Rooms.Count - 2, rng, out NpcDef boss);
             int g = 0;
             for (int i = 0; i < d.Rooms.Count && g < groups.Count; i++)
@@ -670,6 +685,11 @@ namespace Epacenur.Runtime
                 AddNpc(boss, room.Center, new RectInt(room.X, room.Z, room.Width, room.Height));
                 AddLabel(Local(room.Center) + Vector3.up * 0.2f, boss.Name + "'s lair", new Color(1f, 0.5f, 0.4f));
             }
+            FinishDungeon(d);
+        }
+
+        void FinishDungeon(DungeonLayout d)
+        {
             ShowPiles(DungeonPiles(CaveKey));
             devColours = new Color32[d.Width * d.Height];
             for (int x = 0; x < d.Width; x++)

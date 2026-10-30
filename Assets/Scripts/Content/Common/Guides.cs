@@ -50,7 +50,7 @@ namespace Epacenur.Content
             Guide("Building a base",
                 "With a hammer, press G (or Build under the minimap) and pick a piece. Its ghost shows where it goes: green if it can, red with the reason if not. Click to place it; R turns it.",
                 "Your first foundation can go anywhere outside towns, at any angle; everything after snaps to that base's grid. Walls, doorways and windows go on foundations' edges, roofs over them, furniture in them.",
-                "Planks come from a saw on logs, nails from an anvil or the general store, limestone from quarries. Stone pieces need Construction 20.",
+                "Planks come from a saw on logs, nails from an anvil or the general store, limestone from the mines (tiers 1 and 2). Stone pieces need Construction 20.",
                 "Build a storage chest to keep things, a bed to wake up in, and stations (a furnace, an anvil, an altar...) to work at home. Right-click a piece with a hammer to take it down for half its cost."),
             Guide("The bank, pouch and tool belt",
                 "The bank keeps every kind of item in one slot, any amount. Every town has one, and a storage chest in your base works the same way.",
