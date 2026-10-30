@@ -2,7 +2,7 @@ using Epacenur.Core;
 
 namespace Epacenur.Content
 {
-    /// Runecrafting: mine rune essence (it never runs out), take it to an altar in a ring of standing
+    /// Runecrafting: mine rune essence (it never runs out; boulders of it ring every altar), take it to an altar in a ring of standing
     /// stones out in the wilds, and craft it all into that altar's runes at once (OSRS levels and xp).
     /// The air altar is always just east of the start; the others lie further out the better their runes.
     public sealed class RunecraftingModule : IContentModule
@@ -28,11 +28,13 @@ namespace Epacenur.Content
                 .Rect(14f, 13f, 5f, 3f, EssenceColour * 1.15f);
             ess.GroundModel = new Model().Cube(0f, 0.06f, 0f, 0.18f, 0.12f, 0.18f, EssenceColour);
 
-            // Essence rocks: big pale boulders, out in the rocky ground anywhere. Mined forever.
+            // Essence rocks: big pale boulders round each altar's ring of stones. Mined forever.
             var boulder = new Model()
                 .Sphere(0f, 0.45f, 0f, 1.2f, 0.95f, 1.05f, EssenceColour * 0.9f)
                 .Sphere(0.3f, 0.3f, 0.25f, 0.6f, 0.5f, 0.6f, EssenceColour * 0.8f)
-                .Sphere(-0.35f, 0.75f, -0.1f, 0.4f, 0.35f, 0.4f, EssenceColour * 1.05f);
+                .Sphere(-0.35f, 0.75f, -0.1f, 0.4f, 0.35f, 0.4f, EssenceColour * 1.05f)
+                .Cube(0.15f, 0.95f, 0.1f, 0.14f, 0.3f, 0.14f, new Rgb(0.7f, 0.85f, 1f)).Turn(10f, 30f, 15f).Glowing()  // faintly glowing crystals
+                .Cube(-0.4f, 0.55f, 0.35f, 0.1f, 0.22f, 0.1f, new Rgb(0.7f, 0.85f, 1f)).Turn(-20f, 0f, 25f).Glowing();
             var node = db.Add(new NodeDef
             {
                 Id = EssenceRock, Name = "Rune essence", Action = "Mine", Examine = "A pale rock that hums faintly.",
@@ -46,7 +48,7 @@ namespace Epacenur.Content
                 FullMessage = "Your inventory is too full to hold any more essence.",
                 LevelMessage = "You need a Mining level of {0} to mine this rock.",
             });
-            node.Spawns.Add(new SpawnRule { On = Terrain.Rock, Weight = 1.5 });
+            node.Spawns.Add(new SpawnRule { On = Terrain.Essence });
 
             // The runes and their altars: level, xp per essence, value, colour, and how far out the altar lies.
             Rune(db, Air, "Air", 1, 5, 4, new Rgb(0.85f, 0.9f, 0.95f), 0, 600, 3, true);

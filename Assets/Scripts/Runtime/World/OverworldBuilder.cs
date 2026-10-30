@@ -6,13 +6,13 @@ using UnityEngine;
 namespace Epacenur.Runtime
 {
     /// Builds the overworld's 3D pieces from the generator (Core: Overworld): a chunk's ground, roads,
-    /// ponds, trees, rocks and fishing spot, and a region's buildings, goblin camp and place names.
+    /// ponds, trees, rocks and fishing spot, and a region's buildings, goblin camp, shrine, quarry and place names.
     public static class OverworldBuilder
     {
         static readonly Color Dirt = new Color(0.55f, 0.45f, 0.3f), CampDirt = new Color(0.45f, 0.38f, 0.27f);
         static readonly Color Planks = new Color(0.5f, 0.36f, 0.22f), Water = new Color(0.2f, 0.42f, 0.7f), Sand = new Color(0.76f, 0.68f, 0.48f);
         static readonly Color Stone = new Color(0.62f, 0.6f, 0.56f), Timber = new Color(0.55f, 0.4f, 0.25f), Trim = new Color(0.35f, 0.25f, 0.16f);
-        static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f);
+        static readonly Color Gold = new Color(1f, 0.85f, 0.3f), Paving = new Color(0.58f, 0.58f, 0.6f), Gravel = new Color(0.5f, 0.47f, 0.42f);
 
         // ---- Chunks ----
 
@@ -32,6 +32,8 @@ namespace Epacenur.Runtime
             Strips(terrain, Terrain.Path, x0, z0, root, Dirt, 0.012f, 0.02f, 0f);
             Strips(terrain, Terrain.Camp, x0, z0, root, CampDirt, 0.012f, 0.02f, 0f);
             Strips(terrain, Terrain.Stone, x0, z0, root, Paving, 0.014f, 0.025f, 0f);
+            Strips(terrain, Terrain.Quarry, x0, z0, root, Gravel, 0.012f, 0.02f, 0f);
+            Strips(terrain, Terrain.Rock, x0, z0, root, Gravel, 0.012f, 0.02f, 0f, t => ow.PlanAt(t).Kind == RegionKind.Quarry);
             Strips(terrain, Terrain.Floor, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Door, x0, z0, root, Planks, 0.015f, 0.03f, 0f);
             Strips(terrain, Terrain.Water, x0, z0, root, Sand, 0.008f, 0.016f, 0.35f);
@@ -52,6 +54,8 @@ namespace Epacenur.Runtime
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Rock)?.Id ?? MiningModule.CopperRock, t, rng);
                     else if (terrain[x, z] == Terrain.Flax)
                         world.AddNode(Spawning.NodeAt(ow, t, Terrain.Flax)?.Id ?? CraftingModule.FlaxPlant, t, rng);
+                    else if (terrain[x, z] == Terrain.Essence)
+                        world.AddNode(Spawning.NodeAt(ow, t, Terrain.Essence)?.Id ?? RunecraftingModule.EssenceRock, t, rng);
                 }
 
             // A fishing spot on a pond's shore, moving along the part of it in this chunk.
@@ -63,7 +67,6 @@ namespace Epacenur.Runtime
             }
         }
 
-        /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges).
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
         static void Ground(Overworld ow, int x0, int z0, int size, Transform root, Material groundMat)
@@ -101,21 +104,25 @@ namespace Epacenur.Runtime
             go.AddComponent<OwnedMesh>().Mesh = mesh;
         }
 
-        static void Strips(Terrain[,] terrain, Terrain kind, int x0, int z0, Transform root, Color colour, float y, float thickness, float grow)
+        /// One flat box per horizontal run of `kind` tiles. `grow` widens each run (for sandy pond edges);
+        /// `where`, if given, picks which of those tiles count.
+        static void Strips(Terrain[,] terrain, Terrain kind, int x0, int z0, Transform root, Color colour, float y, float thickness, float grow,
+            System.Func<Tile, bool> where = null)
         {
+            System.Func<int, int, bool> Is = (x, z) => terrain[x, z] == kind && (where == null || where(new Tile(x0 + x, z0 + z)));
             int size = terrain.GetLength(0);
             for (int z = 0; z < size; z++)
             {
                 int x = 0;
                 while (x < size)
                 {
-                    if (terrain[x, z] != kind)
+                    if (!Is(x, z))
                     {
                         x++;
                         continue;
                     }
                     int start = x;
-                    while (x < size && terrain[x, z] == kind)
+                    while (x < size && Is(x, z))
                         x++;
                     float len = x - start;
                     var pos = new Vector3(x0 + start + (len - 1) / 2f, y + World.Height(new Tile(x0 + start, z0 + z)), z0 + z);
@@ -149,6 +156,14 @@ namespace Epacenur.Runtime
                     world.AddStation(altar.Id, plan.Altar);
                 foreach (var stone in plan.Stones)
                     StandingStone(world, stone, (int)(world.Overworld.Hash(stone.X, stone.Z, 7) * 4));
+            }
+            else if (plan.Kind == RegionKind.Quarry)
+            {
+                // The ore rocks themselves grow with their chunks (Terrain.Rock); here, the spoil heaps and the cart.
+                foreach (var heap in plan.Rubble)
+                    Rubble(world, heap, (int)(world.Overworld.Hash(heap.X, heap.Z, 8) * 3));
+                MineCart(world, plan.Cart, Spawning.QuarryOre(world.Overworld, plan));
+                world.AddLabel(World.Local(plan.Cart) + Vector3.up * 1.6f, RegionName(world.Overworld, plan), new Color(0.85f, 0.85f, 0.8f));
             }
             SpawnMonsters(world, plan);
         }
@@ -209,6 +224,11 @@ namespace Epacenur.Runtime
             {
                 var altar = Spawning.ShrineAltar(ow, plan);
                 return altar != null ? altar.Name : null;
+            }
+            if (plan.Kind == RegionKind.Quarry)
+            {
+                var ore = Spawning.QuarryOre(ow, plan);
+                return ore != null ? ore.Name.Replace(" rocks", "") + " quarry" : "Quarry";
             }
             if (plan.Kind != RegionKind.Camp)
                 return null;
@@ -330,7 +350,6 @@ namespace Epacenur.Runtime
             box.size = new Vector3(0.9f, 0.8f, 0.7f);
         }
 
-        /// A goblin tent: a sloping hide roof on poles (its tile is blocked by the plan).
         /// A tall grey stone, leaning a little (`look`: which of four shapes).
         static void StandingStone(World world, Tile tile, int look)
         {
@@ -345,6 +364,54 @@ namespace Epacenur.Runtime
             box.size = new Vector3(0.7f, h, 0.7f);
         }
 
+        /// A heap of broken stone in a quarry (`look`: which of three shapes; its tile is blocked by the plan).
+        static void Rubble(World world, Tile tile, int look)
+        {
+            var t = new GameObject("Rubble").transform;
+            t.SetParent(world.BuildRoot, false);
+            t.localPosition = World.Local(tile);
+            t.localRotation = Quaternion.Euler(0f, look * 70f, 0f);
+            Visuals.Prim(PrimitiveType.Sphere, t, new Vector3(0f, 0.15f, 0f), new Vector3(1.1f, 0.6f, 1f), Stone * 0.8f);
+            for (int i = 0; i < 5 + look; i++)
+            {
+                float a = i * 1.3f, r = 0.25f + (i % 2) * 0.12f;
+                Visuals.Prim(PrimitiveType.Cube, t, new Vector3(Mathf.Cos(a) * r, 0.35f + (i % 3) * 0.08f, Mathf.Sin(a) * r), Vector3.one * (0.22f + (i % 3) * 0.06f),
+                    Stone * (0.7f + (i % 4) * 0.08f)).transform.localRotation = Quaternion.Euler(i * 23f, i * 47f, i * 31f);
+            }
+            var box = t.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, 0.3f, 0f);
+            box.size = new Vector3(1f, 0.6f, 1f);
+        }
+
+        /// A wooden mine cart heaped with ore, on a short stretch of track (its tile is blocked by the plan).
+        static void MineCart(World world, Tile tile, NodeDef rock)
+        {
+            var t = new GameObject("Mine cart").transform;
+            t.SetParent(world.BuildRoot, false);
+            t.localPosition = World.Local(tile);
+            var wood = new Color(0.42f, 0.29f, 0.17f);
+            var iron = new Color(0.3f, 0.3f, 0.32f);
+            foreach (float x in new[] { -0.3f, 0.3f })  // rails, on sleepers
+                Visuals.Prim(PrimitiveType.Cube, t, new Vector3(x, 0.05f, 0f), new Vector3(0.05f, 0.05f, 1f), iron);
+            foreach (float z in new[] { -0.35f, 0f, 0.35f })
+                Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0f, 0.02f, z), new Vector3(0.85f, 0.04f, 0.12f), wood * 0.8f);
+            Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0f, 0.45f, 0f), new Vector3(0.7f, 0.45f, 0.8f), wood);
+            Visuals.Prim(PrimitiveType.Cube, t, new Vector3(0f, 0.68f, 0f), new Vector3(0.74f, 0.05f, 0.84f), iron);  // an iron rim
+            foreach (float x in new[] { -0.3f, 0.3f })
+                foreach (float z in new[] { -0.25f, 0.25f })
+                    Visuals.Prim(PrimitiveType.Cylinder, t, new Vector3(x, 0.17f, z), new Vector3(0.22f, 0.03f, 0.22f), iron)
+                        .transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            var ore = new Color(0.55f, 0.5f, 0.45f);
+            if (rock != null && rock.Yields.Length > 0)
+                ore = ModelBuilder.ToColor(ContentDb.Current.Item(rock.Yields[0].ItemId).Colour);
+            for (int i = 0; i < 5; i++)
+                Visuals.Prim(PrimitiveType.Sphere, t, new Vector3(-0.18f + (i % 3) * 0.18f, 0.72f + (i / 3) * 0.06f, -0.15f + (i % 2) * 0.3f), Vector3.one * 0.24f, ore);
+            var box = t.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, 0.4f, 0f);
+            box.size = new Vector3(0.8f, 0.8f, 0.9f);
+        }
+
+        /// A goblin tent: a sloping hide roof on poles (its tile is blocked by the plan).
         static void Tent(World world, Tile tile)
         {
             var t = new GameObject("Tent").transform;

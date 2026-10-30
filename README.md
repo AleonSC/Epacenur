@@ -84,6 +84,11 @@ other towns with their bank (yellow), general store (orange) and chapel (white),
 - **Regions** of 64 × 64 tiles each hold a **town** (about 1 in 8; the one you start in, Epacenur, always is), a **goblin camp**
   (1 in 5: a clearing with tents and 4 goblins) or plain countryside. Towns have a square, a **bank**, a **general store**, a **chapel**
   with an altar and a few **houses**, joined by dirt roads that run out to the region's edges. Every town has its own made-up name.
+- **Quarries** (about 1 in 12 regions): an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
+  and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its distance from the start; it's
+  named on the world map, e.g. "Iron quarry"); the rest are a mix. No monsters live there.
+- **Trees** each have their own shape: plain trees round, oaks broad and lumpy, willows hung with long fronds, maples in autumn
+  reds and golds, yews in dark tiers. All have roots flaring into the ground.
 - **Countryside**: **forests** where a smooth noise is high, **rocky ground** with copper and tin rocks you can mine, and **ponds**,
   each with a moving **net fishing spot** on its shore. Trees and rocks never touch, even diagonally, and water keeps clear of roads,
   so you can always walk round them: the tests check that nothing walkable is shut in, on several seeds.
@@ -260,7 +265,8 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
 
 ## Runecrafting and Magic
 
-- **Rune essence** rocks are big pale boulders out in rocky ground (and on the dev plot's Runecrafting plot). Mine them with
+- **Rune essence** rocks are big pale boulders with glowing crystals, ringing every altar just outside its standing stones
+  (and on the dev plot's Runecrafting plot). Mine them with
   any pickaxe (Mining, 5 xp each); they **never run out**.
 - **Altars** stand in rings of standing stones out in the wilds (shrines, on the world map by name). **Craft-rune** at one
   (or use essence on it) to turn all your essence into its runes at once. OSRS levels and xp: air 1, mind 2, water 5,

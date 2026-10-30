@@ -465,13 +465,13 @@ public static class CoreRulesSuite
             {
                 var t = new Tile(x, z);
                 var rock = Spawning.NodeAt(sow, t, Terrain.Rock);
-                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && rock.Id != RunecraftingModule.EssenceRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
+                if (rock.Id != MiningModule.CopperRock && rock.Id != MiningModule.TinRock && Spawning.Distance(sow, t) < 80) nearOnlyBasics = false;
                 if (Spawning.NodeAt(sow, t, Terrain.Tree).Id == WoodcuttingModule.Oak) nearHasOak = true;
                 var farTile = new Tile(x + 1100, z);
                 if (Spawning.NodeAt(sow, farTile, Terrain.Rock).Id == MiningModule.AdamantiteRock) farHasAdamant = true;
                 if (Spawning.NodeAt(sow, farTile, Terrain.Tree).Id == WoodcuttingModule.Yew) farHasYew = true;
             }
-        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper, tin and essence near the start, adamantite and yews far out");
+        Check(nearOnlyBasics && nearHasOak && farHasAdamant && farHasYew, "copper and tin near the start, adamantite and yews far out");
         var homeGroups = Spawning.GroupsIn(sow, sow.Plan(0, 0));
         Check(homeGroups.Count == 1 && (homeGroups[0].Npc.Id == CombatModule.Chicken || homeGroups[0].Npc.Id == CombatModule.Cow), "the home town has chickens or cows (" + homeGroups[0].Npc.Name + ")");
         int campCount = 0, goblinCamps = 0, wildFar = 0, dangerous = 0;
@@ -558,6 +558,32 @@ public static class CoreRulesSuite
                 if (altarDef.Id == "law_altar") farLaw = true;
             }
         Check(!nearFire && farLaw, "better altars lie further out");
+        var airShrine = rw.Plan(1, 0);
+        int essenceRocks = 0;
+        foreach (var e in airShrine.Essence)
+            if (rw.At(e) == Terrain.Essence && Spawning.NodeAt(rw, e, Terrain.Essence).Id == RunecraftingModule.EssenceRock && e.StepsTo(airShrine.Altar) <= 5) essenceRocks++;
+        Check(essenceRocks >= 2 && essenceRocks == airShrine.Essence.Count && Spawning.NodeAt(rw, new Tile(5, 5), Terrain.Rock).Id != RunecraftingModule.EssenceRock,
+            "rune essence boulders ring the altar (" + essenceRocks + " at the air altar), not out in rocky ground");
+
+        int quarries = 0, ownOre = 0, quarryRocks = 0;
+        bool quarryNamed = true;
+        for (int rx = -12; rx <= 12; rx++)
+            for (int rz = -12; rz <= 12; rz++)
+            {
+                var plan = rw.Plan(rx, rz);
+                if (plan.Kind != RegionKind.Quarry) continue;
+                quarries++;
+                var ore = Spawning.QuarryOre(rw, plan);
+                if (ore == null || Spawning.GroupsIn(rw, plan).Count != 0) quarryNamed = false;
+                foreach (var t in plan.Rocks)
+                {
+                    if (rw.At(t) != Terrain.Rock) quarryNamed = false;
+                    quarryRocks++;
+                    if (Spawning.NodeAt(rw, t, Terrain.Rock) == ore) ownOre++;
+                }
+                if (rw.At(plan.Cart) != Terrain.Quarry || !rw.IsBlocked(plan.Cart)) quarryNamed = false;
+            }
+        Check(quarries > 10 && quarryNamed && ownOre > quarryRocks / 2, quarries + " quarries nearby, each mostly one ore (" + ownOre + " of " + quarryRocks + " rocks), with no monsters");
         Check(db.Npc(MagicModule.DarkWizard).AttackType == AttackType.Magic && new Bonuses { MagicDefence = 3 }.Defence(AttackType.Magic) == 3,
             "dark wizards cast spells, which magic defence blocks");
 
