@@ -19,6 +19,7 @@ namespace Epacenur.Core
         Stone,  // paving round a shrine's altar
         Essence, // a rune essence boulder round a shrine
         Quarry, // the gravel floor of a quarry
+        Bridge, // a wooden bridge over a river
         Stall,  // a market stall in a town square (which one: Spawning, by distance)
     }
 
@@ -67,7 +68,7 @@ namespace Epacenur.Core
         public readonly List<Tile> Lamps = new List<Tile>();  // lamp posts along the roads (they light up at night)
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
-        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry;
+        public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry || t == Terrain.Bridge;
     }
 
     /// Builds towns from a seed: a square in the middle with a bank, general store, chapel and houses

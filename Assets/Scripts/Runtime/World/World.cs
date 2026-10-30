@@ -72,7 +72,7 @@ namespace Epacenur.Runtime
                 return h;
             if (heights.Count > 250000)
                 heights.Clear();
-            h = (float)heightMap.Elevation(t);
+            h = (float)heightMap.SurfaceHeight(t);  // the ground, or the water's surface, or a bridge's deck
             heights[key] = h;
             return h;
         }
@@ -446,6 +446,27 @@ namespace Epacenur.Runtime
             return groundMats[key];
         }
 
+        /// Bare ground: earth on steep slopes, rock on steeper ones and high up, snow on the peaks. One material each.
+        public Material BareMaterial(Ground ground)
+        {
+            int i = (int)ground;
+            if (bareMats[i] == null)
+            {
+                if (groundTex == null)
+                    groundTex = Visuals.TileTexture(new Color(0.93f, 0.93f, 0.93f), new Color(0.8f, 0.8f, 0.8f));
+                var m = Visuals.NewMat(BareColour(ground) * 1.07f);
+                m.mainTexture = groundTex;
+                m.mainTextureScale = new Vector2(Overworld.ChunkSize, Overworld.ChunkSize);
+                bareMats[i] = m;
+            }
+            return bareMats[i];
+        }
+
+        readonly Material[] bareMats = new Material[4];
+
+        public static Color BareColour(Ground ground) =>
+            ground == Ground.Earth ? new Color(0.45f, 0.36f, 0.25f) : ground == Ground.Rock ? new Color(0.5f, 0.49f, 0.46f) : new Color(0.9f, 0.92f, 0.96f);
+
         public const int DangerBands = 4;
         readonly Material[] groundMats = new Material[5 * DangerBands];
         Texture2D groundTex;
@@ -745,7 +766,8 @@ namespace Epacenur.Runtime
             var k = ow.At(t);
             if (k != Terrain.Grass && k != Terrain.Tree)
                 return TerrainColour(k);
-            var g = GroundColour(ow.BiomeAt(t), DangerBand(ow.Danger(t)));
+            var ground = k == Terrain.Grass ? ow.GroundAt(t) : Ground.Grass;
+            var g = ground != Ground.Grass ? BareColour(ground) : GroundColour(ow.BiomeAt(t), DangerBand(ow.Danger(t)));
             float f = k == Terrain.Tree ? 0.62f : 1.05f;
             return new Color32((byte)Mathf.Clamp(g.r * f * 255f, 0f, 255f), (byte)Mathf.Clamp(g.g * f * 255f, 0f, 255f), (byte)Mathf.Clamp(g.b * f * 255f, 0f, 255f), 255);
         }
@@ -766,6 +788,7 @@ namespace Epacenur.Runtime
                 case Terrain.Essence: return MapEssence;
                 case Terrain.Quarry: return MapQuarry;
                 case Terrain.Stall: return MapWall;
+                case Terrain.Bridge: return MapFloor;
                 default: return MapGrass;
             }
         }
