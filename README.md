@@ -1,8 +1,8 @@
 # Epacenur
 
 A RuneScape-style skilling game for **Unity 6**. You can play top down, clicking tiles, or in first person.
-You start in a **procedurally generated world**: a town with a bank, a general store and a chapel, and around it forests,
-ponds and a goblin camp. There's also a separate **dev plot** for testing skills, reached from the dev tools (F1).
+You start in a **procedurally generated world**: a city with a bank, a general store and a chapel, on safe ground with forests
+and ponds round it, and beyond, the wilderness, more dangerous the further you go, until you near the next town. There's also a separate **dev plot** for testing skills, reached from the dev tools (F1).
 Skills so far: **Woodcutting**, **Mining**, **Smithing**, **Firemaking**, **Fishing**, **Cooking**, **Prayer**, and melee combat
 (Attack, Strength, Defence and Hitpoints) against goblins that fight back.
 
@@ -75,26 +75,46 @@ The game opens on the main menu:
 
 ![The overworld round the start, seed 2024](Docs/overworld-map.png)
 
-*384 × 384 tiles round the start (seed 2024; the faint grid is the 64-tile regions): the town you start in (red square in the middle),
-other towns with their bank (yellow), general store (orange) and chapel (white), goblin camps (brown), ponds, forests and rocks.*
+*384 × 384 tiles round the start (seed 2024, as the world map draws it): Epacenur in the middle on its safe ground (green), the
+wilderness round it (tinted red, deeper the more dangerous), shrines (dotted squares), camps (brown), ponds, forests, highlands (tan).*
+
+![1280 × 1280 tiles: towns and cities with their safe rings, and the wilderness between](Docs/wilderness-map.png)
+
+*Further out: towns and cities in their safe rings (green), the wilderness between them, deepest (dark red) where towns are far apart.*
 
 - **It never ends.** The world is worked out from a seed (`World.Seed`) one tile at a time, so the same place always comes out the same.
   Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (5 chunks each way) and taken down behind you,
   hidden by the fog. Felled trees and lit fires don't survive being unloaded.
-- **Regions** of 64 × 64 tiles each hold a **town** (about 1 in 8; the one you start in, Epacenur, always is), a **goblin camp**
-  (1 in 5: a clearing with tents and 4 goblins) or plain countryside. Towns have a square, a **bank**, a **general store**, a **chapel**
-  with an altar and a few **houses**, joined by dirt roads that run out to the region's edges. Every town has its own made-up name.
-- **Quarries** (about 1 in 12 regions): an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
-  and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its distance from the start; it's
+- **Regions** of 64 × 64 tiles each hold a town or city, a **camp** (about 1 in 5: a clearing with tents and its occupants),
+  a shrine, a quarry or plain countryside.
+- **Towns and cities lie far apart**: at most one in each cell of 5 × 5 regions (320 tiles), somewhere near its middle, so
+  neighbours are at least 3 regions apart, and about 1 cell in 5 has none, leaving wide wilds. About 1 in 4 is a **city**: more
+  houses, spread wider. **Epacenur**, where you start, is a city. Each has a square, a **bank**, a **general store**, a **chapel**
+  with an altar, a **smithy**, a **workshop** and **houses**, joined by dirt roads, and its own made-up name.
+- **Safety and the wilderness**: within 48 tiles of a town's square (80 for a city) is **safe**. Beyond, the **wilderness**
+  begins: **wilderness level 1** at the edge, one more every 6 tiles further from the nearest town, up to 60, then falling again
+  as you near the next town. The rings' edges wander a little. Under the minimap you see **Safe** (and which town) or the
+  **wilderness level** (yellow, turning red), and the biome; the chat tells you when you leave a town's safety, go into the
+  **deep wilderness** (level 24 and up) and come back. Deeper in the wilderness the **monsters are fiercer** and the **resources
+  better** (see Tiers). On the safe ground there are only chickens, cows and goblins, none of them aggressive.
+- **Biomes**: the country is **meadow** (open, flax fields, few trees), **woodland** (thick forest), **marsh** (wet, with many
+  ponds), **highlands** (up in the hills: rocky, few trees) or, deep in the wilderness, **wasteland** (scorched, rocky, the odd
+  yew). Each has its own ground colour, browning the deeper into the wilderness you are, and its favourite trees and rocks:
+  willows in marshes, oaks and maples in woodland, coal and mithril in the highlands, yews and adamantite in the wasteland.
+- **Shapes**: the noises behind it all are layered (fine detail on big shapes) and warped (winding, not round blobs), and never
+  repeat however far you go.
+- **Quarries** (about 1 in 11 regions): an open gravel pit with rows of ore rocks you can walk between, spoil heaps in its corners
+  and a mine cart heaped with ore. Most of a quarry's rocks are one ore (the one that suits its wilderness level; it's
   named on the world map, e.g. "Iron quarry"); the rest are a mix. No monsters live there.
 - **Trees** each have their own shape: plain trees round, oaks broad and lumpy, willows hung with long fronds, maples in autumn
   reds and golds, yews in dark tiers. All have roots flaring into the ground.
-- **Countryside**: **forests** where a smooth noise is high, **rocky ground** with copper and tin rocks you can mine, and **ponds**,
-  each with a moving **net fishing spot** on its shore. Trees and rocks never touch, even diagonally, and water keeps clear of roads,
-  so you can always walk round them: the tests check that nothing walkable is shut in, on several seeds.
+- **Countryside**: **forests** where a smooth noise is high, **rocky ground** with rocks you can mine, and **ponds**, each with a
+  moving **fishing spot** on its shore. Trees and rocks never touch, even diagonally, water keeps clear of roads, and ponds are
+  shaped so they never shut in an island; camps, shrines and quarries only go on dry ground. So you can always walk round
+  everything: the tests check that nothing walkable is shut in, on several seeds.
 - **Hills**: the ground rises and falls in rolling hills (up to about 10 units high, higher in some stretches of country than
-  others, with small bumps on top). Towns, camps, shrines and ponds sit on level ground that blends into the hills round them,
-  and ponds only form in low country. The slopes are gentle enough to walk anywhere the tile grid lets you; the minimap and
+  others, with small bumps on top). Towns, camps, shrines, quarries and ponds sit on level ground that blends into the hills
+  round them, and ponds only form in low country. The slopes are gentle enough to walk anywhere the tile grid lets you; the minimap and
   world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
@@ -206,17 +226,19 @@ so they don't take up slots.
 - A dead goblin always drops **bones**, plus **1–30 coins** (weighted towards small amounts), and respawns after 15 s.
   Its stats and drops are in `CombatModule` in `Assets/Scripts/Content/Combat`.
 
-## Tiers: further out, better things
+## Tiers: deeper in the wilderness, better things
 
-The further you go from the start, the better the trees, rocks and fishing, and the tougher the monsters. Where things
-appear is data: each tree, rock, fishing spot and monster has spawn rules (how far out, how likely) in its content module.
+The deeper into the wilderness you go (its level: how far you are from the nearest town's safe ground), the better the
+trees, rocks and fishing, and the tougher the monsters. Where things appear is data: each tree, rock, fishing spot, altar
+and monster has spawn rules (from and to which wilderness level, how likely, and for some, a biome they like) in its
+content module.
 
-| | Near the start | Further out |
+| | Safe ground round towns | Deeper in the wilderness (from level) |
 |---|---|---|
-| **Trees** | normal (1), oak (15, from 30 tiles out) | willow (30, 120+), maple (45, 250+), yew (60, 500+) |
-| **Rocks** | copper and tin (1) | iron (15, 80+), coal (30, 200+), mithril (55, 450+), adamantite (70, 800+) |
-| **Fishing** | net: shrimps (1), anchovies (15) | lure (fly fishing rod + feathers): trout (20), salmon (30), from 60+; cage: lobster (40); harpoon: tuna (35), swordfish (50), from 250+ |
-| **Monsters** | chickens, cows, goblins | wolves (150+), bandit camps (300+), hill giants (450+) |
+| **Trees** | normal (1), oak (15) | willow (30, level 3; anywhere in marshes), maple (45, 10; 6 in woodland), yew (60, 20; 18 in wasteland) |
+| **Rocks** | copper and tin (1) | iron (15, level 2), coal (30, 6; 3 in highlands), mithril (55, 16; 12 in highlands), adamantite (70, 28; 26 in wasteland) |
+| **Fishing** | net: shrimps (1), anchovies (15) | lure (fly fishing rod + feathers): trout (20), salmon (30), from level 2; cage: lobster (40); harpoon: tuna (35), swordfish (50), from 10 |
+| **Monsters** | chickens, cows, goblins | wolves (level 6), wizards (8), bandit camps (10), bandits (14), hill giants (18) |
 
 - **Metals**: bronze, iron, steel, mithril, adamant. Smelt bars at a furnace (iron ore alone; steel, mithril and adamant
   also need 2, 4 and 6 coal), then smith a dagger, hatchet, mace, sword, scimitar, pickaxe, full helm, 2h sword, platelegs
@@ -229,7 +251,7 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
   feathers (the general store sells feathers and the new fishing tools too).
 - **Monsters**: chickens and cows are harmless; **wolves, bandits and hill giants are aggressive**: they attack you if you
   come within 4 tiles, unless your combat level is more than twice theirs. Hill giants drop **big bones** (15 Prayer xp),
-  coins and the odd piece of iron or steel; bandits coins and iron weapons. Camps further out are bandit camps.
+  coins and the odd piece of iron or steel; bandits coins and iron weapons. Camps deeper in the wilderness are bandit camps.
 - The dev plot's mining area has every kind of rock, its pond every kind of fishing spot, and the dev tools give bars of
   every metal, fishing gear and adamant gear.
 
@@ -270,7 +292,7 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
   any pickaxe (Mining, 5 xp each); they **never run out**.
 - **Altars** stand in rings of standing stones out in the wilds (shrines, on the world map by name). **Craft-rune** at one
   (or use essence on it) to turn all your essence into its runes at once. OSRS levels and xp: air 1, mind 2, water 5,
-  earth 9, fire 14, body 20, nature 44, law 54. Better altars lie further out. **An air altar is always in the region just
+  earth 9, fire 14, body 20, nature 44, law 54. Better altars lie deeper in the wilderness. **An air altar is always in the region just
   east of Epacenur**, so you can start straight away.
 - **Magic** (the new Magic tab): spells use runes, at OSRS levels.
   - **Combat spells**: Wind, Water, Earth and Fire **Strike** (levels 1-13) and **Bolt** (17-35). Click one to **autocast**
@@ -318,8 +340,10 @@ appear is data: each tree, rock, fishing spot and monster has spawn rules (how f
 ## World map
 
 - **M**, or **World map** under the minimap: the overworld from above, north up. **Drag** to move round it, **scroll** to zoom
-  (in close you see every tile; zoomed out, a whole countryside). Regions you haven't seen yet are **shaded**; the towns and
-  goblin camps you have seen are **named**. You and your gravestone are marked; hover for the place and tile. Esc closes it.
+  (in close you see every tile; zoomed out, a whole countryside). Regions you haven't seen yet are **shaded**; the towns,
+  cities (in bigger letters), camps, shrines and quarries you have seen are **named**. The **wilderness is tinted red**, deeper the
+  more dangerous, so the safe rings round towns show. You and your gravestone are marked; hover for the place, its wilderness
+  level and biome, and the tile. Esc closes it.
 - It's drawn from the world's generator a region at a time (a few each frame) and remembered. What's been seen is saved with
   the world. On the dev plot it shows the dev plot.
 

@@ -95,7 +95,8 @@ namespace Epacenur.Core
     public sealed class SpawnRule
     {
         public Terrain On;                    // Tree, Rock, Flax (plants), Water (fishing spots) or Essence (round shrines)
-        public int MinDistance, MaxDistance = int.MaxValue;  // tiles from the start
+        public int MinDanger, MaxDanger = int.MaxValue;      // wilderness levels (0: safe ground round a town)
+        public Biome? Biome;                                 // only in this biome (null: any)
         public double Weight = 1;
     }
 
@@ -103,7 +104,7 @@ namespace Epacenur.Core
     public sealed class NpcSpawnRule
     {
         public RegionKind Region;
-        public int MinDistance, MaxDistance = int.MaxValue;
+        public int MinDanger, MaxDanger = int.MaxValue;      // wilderness levels (0: safe)
         public double Weight = 1;
         public int MinGroup = 3, MaxGroup = 5;
     }
@@ -248,7 +249,7 @@ namespace Epacenur.Core
     /// Where the overworld puts a station in a shrine region (runecrafting altars), by distance from the start.
     public sealed class StationSpawnRule
     {
-        public int MinDistance, MaxDistance = int.MaxValue;
+        public int MinDanger, MaxDanger = int.MaxValue;      // wilderness levels (0: safe)
         public double Weight = 1;
         public bool Starter;  // the shrine just east of the start always has this one
     }

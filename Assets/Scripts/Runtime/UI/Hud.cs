@@ -61,6 +61,7 @@ namespace Epacenur.Runtime
             if (G == null)
                 return;
             scale = Mathf.Clamp(Screen.height / 760f, 0.75f, 3f);
+            UpdateZone();
             if (Input.GetKeyDown(KeyCode.F1))
                 devTools.Toggle();
             if (Input.GetKeyDown(KeyCode.H))
@@ -149,7 +150,63 @@ namespace Epacenur.Runtime
             if (g == null)
                 return;
             string text = g.world == G.WorldInfo.id ? "Gravestone: <color=#ffffff>" + Gravestone.Time(g) + "</color>" : "Gravestone in another world";
-            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<color=" + Gui.MutedHex + ">" + text + "</color>", Gui.RightSmall);
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 24f, 290f, 20f), "<color=" + Gui.MutedHex + ">" + text + "</color>", Gui.RightSmall);
+        }
+
+        // ---- Safety and the wilderness ----
+
+        Tile zoneTile = new Tile(int.MinValue, 0);
+        int zoneDanger = -1;
+        Biome zoneBiome;
+        string zoneTown;
+
+        /// "Safe" in green, or the wilderness level, yellow turning red the deeper it is.
+        public static string DangerText(int danger)
+        {
+            if (danger == 0)
+                return "<color=#8fe08a>Safe</color>";
+            float t = Mathf.Min(1f, danger / 40f);
+            var c = new Color32(255, (byte)(220 - 170 * t), (byte)(90 - 50 * t), 255);
+            return "<color=#" + c.r.ToString("x2") + c.g.ToString("x2") + c.b.ToString("x2") + ">Wilderness level " + danger + "</color>";
+        }
+
+        /// Works out where you are when you move to a new tile, and says so in the chat when you leave the safety
+        /// of a town for the wilderness, go deep into it, or come back.
+        void UpdateZone()
+        {
+            if (G.World.Map != MapId.Overworld)
+            {
+                zoneDanger = -1;
+                return;
+            }
+            var here = G.Player.CurrentTile;
+            if (here == zoneTile)
+                return;
+            zoneTile = here;
+            var ow = G.World.Overworld;
+            int danger = ow.Danger(here);
+            zoneBiome = ow.BiomeAt(here);
+            var town = ow.NearestSettlement(here);
+            zoneTown = town != null ? OverworldBuilder.SettlementName(ow, town) : null;
+            if (zoneDanger >= 0)
+            {
+                if (zoneDanger == 0 && danger > 0)
+                    GameLog.Add("<color=#ffb070>You leave the safety of " + zoneTown + " for the wilderness. Monsters grow fiercer the further you go.</color>");
+                else if (zoneDanger > 0 && danger == 0)
+                    GameLog.Add("<color=#8fe08a>You reach the safety of " + zoneTown + ".</color>");
+                else if (zoneDanger < Overworld.DeepWilderness && danger >= Overworld.DeepWilderness)
+                    GameLog.Add("<color=#ff6b5e>You enter the deep wilderness. The best resources are here, and the fiercest monsters.</color>");
+            }
+            zoneDanger = danger;
+        }
+
+        /// Under the minimap: safe (near which town) or the wilderness level, and the biome.
+        void DrawZone()
+        {
+            if (zoneDanger < 0)
+                return;
+            string where = zoneDanger == 0 && zoneTown != null ? DangerText(0) + " <color=" + Gui.MutedHex + ">- " + zoneTown + "</color>" : DangerText(zoneDanger);
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<b>" + where + "</b>  <color=" + Gui.MutedHex + ">" + zoneBiome + "</color>", Gui.RightSmall);
         }
         bool confirmLogOut;
 
@@ -198,6 +255,7 @@ namespace Epacenur.Runtime
                 overlays.DrawCrosshair(this);
             minimap.Draw(this);
             DrawLogOut();
+            DrawZone();
             DrawGraveTimer();
             if (GUI.Button(MapButtonRect, "World map"))
                 worldMap.Toggle();

@@ -5,15 +5,12 @@ namespace Epacenur.Core
 {
     /// Which node grows on an overworld tile, and which monsters live in a region, from the spawn rules
     /// content gives (NodeDef.Spawns, NpcDef.Spawns). Picks depend only on the seed and the place, so they
-    /// come out the same every time. Further from the start, better things are in the running.
+    /// come out the same every time. Deeper into the wilderness (Overworld.Danger), better resources and
+    /// fiercer monsters are in the running; some rules hold only in one biome.
     public static class Spawning
     {
-        /// Tiles from the start (straight-line).
-        public static double Distance(Overworld ow, Tile t)
-        {
-            double dx = t.X - ow.Spawn.X, dz = t.Z - ow.Spawn.Z;
-            return Math.Sqrt(dx * dx + dz * dz);
-        }
+        /// The wilderness level of a tile (0: safe).
+        public static int Danger(Overworld ow, Tile t) => ow.Danger(t);
 
         /// The node on a Tree, Rock, Flax, Water or Essence tile (null if no rule covers it). Most of a
         /// quarry's rocks are its own ore (QuarryOre); the rest are whatever grows at that distance.
@@ -34,18 +31,20 @@ namespace Epacenur.Core
         /// The node whose spawn rules for `on` cover `t`, chosen by weight with `roll` (0..1).
         static NodeDef Pick(Overworld ow, Tile t, Terrain on, double roll)
         {
-            double d = Distance(ow, t), total = 0;
+            int d = ow.Danger(t);
+            var biome = ow.BiomeAt(t);
+            double total = 0;
             var db = ContentDb.Current;
             foreach (var n in db.Nodes)
                 foreach (var r in n.Spawns)
-                    if (r.On == on && d >= r.MinDistance && d < r.MaxDistance)
+                    if (Holds(r, on, d, biome))
                         total += r.Weight;
             if (total <= 0)
                 return null;
             double pick = roll * total;
             foreach (var n in db.Nodes)
                 foreach (var r in n.Spawns)
-                    if (r.On == on && d >= r.MinDistance && d < r.MaxDistance)
+                    if (Holds(r, on, d, biome))
                     {
                         if (pick < r.Weight)
                             return n;
@@ -54,10 +53,14 @@ namespace Epacenur.Core
             return null;
         }
 
-        /// The altar a shrine region holds (StationDef.Spawns by distance), or null.
+        static bool Holds(SpawnRule r, Terrain on, int danger, Biome biome) =>
+            r.On == on && danger >= r.MinDanger && danger < r.MaxDanger && (r.Biome == null || r.Biome == biome);
+
+        /// The altar a shrine region holds (StationDef.Spawns by danger), or null.
         public static StationDef ShrineAltar(Overworld ow, RegionPlan plan)
         {
-            double d = Distance(ow, plan.Center), total = 0;
+            int d = ow.Danger(plan.Center);
+            double total = 0;
             var db = ContentDb.Current;
             if (plan.RX == 1 && plan.RZ == 0)
                 foreach (var s in db.Stations)
@@ -66,14 +69,14 @@ namespace Epacenur.Core
                             return s;
             foreach (var s in db.Stations)
                 foreach (var r in s.Spawns)
-                    if (d >= r.MinDistance && d < r.MaxDistance)
+                    if (d >= r.MinDanger && d < r.MaxDanger)
                         total += r.Weight;
             if (total <= 0)
                 return null;
             double pick = ow.Hash(plan.RX, plan.RZ, 50) * total;
             foreach (var s in db.Stations)
                 foreach (var r in s.Spawns)
-                    if (d >= r.MinDistance && d < r.MaxDistance)
+                    if (d >= r.MinDanger && d < r.MaxDanger)
                     {
                         if (pick < r.Weight)
                             return s;
@@ -88,19 +91,21 @@ namespace Epacenur.Core
             public int Count;
         }
 
-        /// The monster groups living in a region: a camp has one (its occupants); wild country up to two;
-        /// a town a few chickens and the like; shrines and quarries none.
+        /// The monster groups living in a region: a camp has one (its occupants); wild country up to two, or
+        /// three deep in the wilderness; a town a few chickens and the like; shrines and quarries none.
         public static List<Group> GroupsIn(Overworld ow, RegionPlan plan)
         {
             var groups = new List<Group>();
             int count = plan.Kind == RegionKind.Shrine || plan.Kind == RegionKind.Quarry ? 0 : plan.Kind == RegionKind.Camp ? 1 : plan.Kind == RegionKind.Town ? 1 : 1 + (ow.Hash(plan.RX, plan.RZ, 30) < 0.5 ? 1 : 0);
-            double d = Distance(ow, plan.Center);
+            int d = ow.Danger(plan.Center);
+            if (plan.Kind == RegionKind.Wild && d >= 15)
+                count++;
             for (int g = 0; g < count; g++)
             {
                 double total = 0;
                 foreach (var n in ContentDb.Current.Npcs)
                     foreach (var r in n.Spawns)
-                        if (r.Region == plan.Kind && d >= r.MinDistance && d < r.MaxDistance)
+                        if (r.Region == plan.Kind && d >= r.MinDanger && d < r.MaxDanger)
                             total += r.Weight;
                 if (total <= 0)
                     break;
@@ -109,7 +114,7 @@ namespace Epacenur.Core
                 foreach (var n in ContentDb.Current.Npcs)
                 {
                     foreach (var r in n.Spawns)
-                        if (r.Region == plan.Kind && d >= r.MinDistance && d < r.MaxDistance)
+                        if (r.Region == plan.Kind && d >= r.MinDanger && d < r.MaxDanger)
                         {
                             if (pick < r.Weight)
                             {

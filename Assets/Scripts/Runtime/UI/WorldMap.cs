@@ -7,7 +7,7 @@ namespace Epacenur.Runtime
 {
     /// The world map (M, or the button under the minimap): the overworld from above, north up. Drag to move
     /// round it, scroll to zoom. Places you haven't seen yet are shaded; towns and goblin camps you have are
-    /// named. You, and your gravestone, are marked. On the dev plot it shows the dev plot.
+    /// named. The wilderness is tinted red, deeper the more dangerous, so the safe rings round towns show. You, and your gravestone, are marked. On the dev plot it shows the dev plot.
     ///
     /// The map is drawn from the world's generator, a 64-tile region at a time, a few each frame (sharper
     /// close up, coarser zoomed out), and remembered.
@@ -80,7 +80,7 @@ namespace Epacenur.Runtime
             GUI.EndGroup();
 
             Gui.Shadowed(new Rect(r.x + 10f, r.yMax - 24f, r.width - 20f, 20f),
-                hover ?? "<color=" + Gui.MutedHex + ">Drag to move round the map, scroll to zoom. Shaded areas haven't been seen yet.</color>", Gui.Small);
+                hover ?? "<color=" + Gui.MutedHex + ">Drag to move round the map, scroll to zoom. Shaded areas haven't been seen yet; red is wilderness, deeper the more dangerous.</color>", Gui.Small);
         }
 
         // ---- Overworld ----
@@ -150,7 +150,9 @@ namespace Epacenur.Runtime
                         continue;
                     var p = ToView(v, plan.Center.X, plan.Center.Z);
                     string colour = plan.Kind == RegionKind.Town ? "#ffd966" : plan.Kind == RegionKind.Quarry ? "#d8d4c8" : "#ff9a80";
-                    Gui.Shadowed(new Rect(p.x - 100f, p.y - 30f, 200f, 20f), "<b><color=" + colour + ">" + name + "</color></b>", Gui.Centered);
+                    if (plan.City)
+                        name = "<size=17>" + name + "</size>";  // cities stand out
+                    Gui.Shadowed(new Rect(p.x - 120f, p.y - 32f, 240f, 24f), "<b><color=" + colour + ">" + name + "</color></b>", Gui.Centered);
                 }
         }
 
@@ -164,7 +166,7 @@ namespace Epacenur.Runtime
                 for (int x = 0; x < n; x++)
                 {
                     var t = new Tile(rx * RegionSize + x * step, rz * RegionSize + y * step);
-                    pixels[y * n + x] = World.HillShade(World.TerrainColour(ow.At(t)), ow, t, step);
+                    pixels[y * n + x] = Wilderness(World.HillShade(World.MapColour(ow, t), ow, t, step), ow.Danger(t));
                 }
             var plan = ow.Plan(rx, rz);
             foreach (var t in plan.Blocked)  // the bank booths, altars, shop keepers and tents themselves
@@ -177,6 +179,15 @@ namespace Epacenur.Runtime
             tex.SetPixels32(pixels);
             tex.Apply();
             return tex;
+        }
+
+        /// Tints the wilderness red, deeper the more dangerous, so the safe rings round the towns show.
+        static Color32 Wilderness(Color32 c, int danger)
+        {
+            if (danger == 0)
+                return c;
+            float t = 0.08f + 0.4f * Mathf.Min(1f, danger / 45f);
+            return new Color32((byte)(c.r + (170 - c.r) * t), (byte)(c.g + (40 - c.g) * t), (byte)(c.b + (32 - c.b) * t), 255);
         }
 
         void ClearCache(int seed)
@@ -248,9 +259,12 @@ namespace Epacenur.Runtime
             {
                 var ow = G.World.Overworld;
                 var plan = ow.PlanAt(t);
-                string name = G.World.Explored.Contains(ChunkedGrid.Key(plan.RX, plan.RZ)) ? OverworldBuilder.RegionName(ow, plan) : "Unexplored";
+                bool seen = G.World.Explored.Contains(ChunkedGrid.Key(plan.RX, plan.RZ));
+                string name = seen ? OverworldBuilder.RegionName(ow, plan) : "Unexplored";
                 if (name != null)
                     where = name + "  -  " + where;
+                if (seen)
+                    where = Hud.DangerText(ow.Danger(t)) + "  -  " + ow.BiomeAt(t) + "  -  " + where;
             }
             return where;
         }

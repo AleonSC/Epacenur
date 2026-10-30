@@ -16,7 +16,7 @@ namespace Epacenur.Runtime
 
         // ---- Chunks ----
 
-        public static void BuildChunk(World world, int cx, int cz, Material groundMat)
+        public static void BuildChunk(World world, int cx, int cz)
         {
             var ow = world.Overworld;
             int size = Overworld.ChunkSize, x0 = cx * size, z0 = cz * size;
@@ -26,7 +26,7 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                     terrain[x, z] = ow.At(new Tile(x0 + x, z0 + z));
 
-            Ground(ow, x0, z0, size, root, groundMat);
+            Ground(world, x0, z0, size, root);
 
             // Flat overlays, one strip per run of tiles in a row: roads, camps, floors, water (with a sandy edge).
             Strips(terrain, Terrain.Path, x0, z0, root, Dirt, 0.012f, 0.02f, 0f);
@@ -69,8 +69,9 @@ namespace Epacenur.Runtime
 
         /// The chunk's ground: a sheet over the hills, a corner at each tile corner (neighbouring chunks
         /// work out the same heights along their shared edge, so there are no gaps).
-        static void Ground(Overworld ow, int x0, int z0, int size, Transform root, Material groundMat)
+        static void Ground(World world, int x0, int z0, int size, Transform root)
         {
+            var ow = world.Overworld;
             int n = size + 1;
             var verts = new Vector3[n * n];
             var uv = new Vector2[n * n];
@@ -81,25 +82,37 @@ namespace Epacenur.Runtime
                     verts[i * n + j] = new Vector3(x, (float)ow.Elevation(x, z), z);
                     uv[i * n + j] = new Vector2(i / (float)size, j / (float)size);  // the material repeats its tile texture per tile
                 }
-            var tris = new int[size * size * 6];
-            int k = 0;
+            // Each tile's two triangles go in the part of the mesh for its biome and band of danger, which has
+            // that ground's material.
+            var parts = new Dictionary<int, List<int>>();
             for (int i = 0; i < size; i++)
                 for (int j = 0; j < size; j++)
                 {
+                    var tile = new Tile(x0 + i, z0 + j);
+                    int key = (int)ow.BiomeAt(tile) * World.DangerBands + World.DangerBand(ow.Danger(tile));
+                    if (!parts.TryGetValue(key, out var tris))
+                        parts[key] = tris = new List<int>();
                     int a = i * n + j, b = a + 1, c = a + n, d = c + 1;
-                    tris[k++] = a; tris[k++] = b; tris[k++] = c;
-                    tris[k++] = c; tris[k++] = b; tris[k++] = d;
+                    tris.Add(a); tris.Add(b); tris.Add(c);
+                    tris.Add(c); tris.Add(b); tris.Add(d);
                 }
             var mesh = new Mesh { name = "Ground" };
             mesh.vertices = verts;
             mesh.uv = uv;
-            mesh.triangles = tris;
+            mesh.subMeshCount = parts.Count;
+            var mats = new Material[parts.Count];
+            int part = 0;
+            foreach (var kv in parts)
+            {
+                mesh.SetTriangles(kv.Value, part);
+                mats[part++] = world.GroundMaterial((Biome)(kv.Key / World.DangerBands), kv.Key % World.DangerBands);
+            }
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             var go = new GameObject("Ground");
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = groundMat;
+            go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
             go.AddComponent<OwnedMesh>().Mesh = mesh;
         }
@@ -139,8 +152,7 @@ namespace Epacenur.Runtime
             {
                 foreach (var b in plan.Buildings)
                     BuildBuilding(world, b);
-                bool home = plan.RX == 0 && plan.RZ == 0;
-                world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), home ? "Epacenur" : TownName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
+                world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), RegionName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
             }
             else if (plan.Kind == RegionKind.Camp)
             {
@@ -235,6 +247,9 @@ namespace Epacenur.Runtime
             var groups = Spawning.GroupsIn(ow, plan);
             return (groups.Count > 0 ? groups[0].Npc.Name : "Goblin") + " camp";
         }
+
+        /// A town or city's name.
+        public static string SettlementName(Overworld ow, Settlement s) => RegionName(ow, ow.Plan(s.RX, s.RZ));
 
         /// A made-up name for a town, the same every time.
         public static string TownName(Overworld ow, RegionPlan plan)

@@ -76,8 +76,8 @@ namespace Epacenur.Content
                 .Add(RunecraftingModule.Earth, 5, 12, 10).Add(RunecraftingModule.Fire, 5, 12, 10).Add(RunecraftingModule.Body, 3, 8, 8)
                 .Add(RunecraftingModule.Nature, 1, 3, 3).Add(RunecraftingModule.Law, 1, 2, 2)
                 .Add(WizardHat, 1, 1, 3).Add(WizardRobe, 1, 1, 2).Add(WizardSkirt, 1, 1, 2).Add(Staff, 1, 1, 3).Add(ItemIds.Coins, 5, 40, 12);
-            wizard.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDistance = 200, Weight = 1.2, MinGroup = 2, MaxGroup = 4 });
-            wizard.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MinDistance = 150, MaxDistance = 700, Weight = 1, MinGroup = 3, MaxGroup = 4 });
+            wizard.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Wild, MinDanger = 8, Weight = 1.2, MinGroup = 2, MaxGroup = 4 });
+            wizard.Spawns.Add(new NpcSpawnRule { Region = RegionKind.Camp, MinDanger = 6, MaxDanger = 26, Weight = 1, MinGroup = 3, MaxGroup = 4 });
         }
 
         static void StaffItem(ContentDb db, string id, string name, string examine, int value, string rune, Rgb orb)
