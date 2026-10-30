@@ -631,6 +631,14 @@ public static class CoreRulesSuite
         int stallCount = 0;
         for (int x = 0; x < 64; x++) for (int z = 0; z < 64; z++) if (homeTown.Map[x, z] == Terrain.Stall) stallCount++;
         Check(stallCount == 2, "every town square has two market stalls");
+        bool lampsOk = homeTown.Lamps.Count >= 4;
+        foreach (var l in homeTown.Lamps)
+        {
+            if (homeTown.Map[l.X, l.Z] != Terrain.Grass) lampsOk = false;
+            foreach (var m in homeTown.Lamps) if (m != l && m.StepsTo(l) < WorldGen.LampSpacing) lampsOk = false;
+        }
+        Check(lampsOk && agw.IsBlocked(new Tile(homeTown.Lamps[0].X, homeTown.Lamps[0].Z)),
+            "towns have lamp posts beside their roads, spread out (" + homeTown.Lamps.Count + " in Epacenur)");
         Check(Spawning.NodeAt(agw, agw.Spawn, Terrain.Stall).Id == ThievingModule.BakeryStall, "near the start they're bakery stalls");
 
         var boosts = new Boosts();

@@ -64,6 +64,7 @@ namespace Epacenur.Core
         public Terrain[,] Map;
         public Tile Spawn;                      // the town square
         public readonly List<Building> Buildings = new List<Building>();
+        public readonly List<Tile> Lamps = new List<Tile>();  // lamp posts along the roads (they light up at night)
 
         public bool InBounds(Tile t) => t.X >= 0 && t.Z >= 0 && t.X < Width && t.Z < Height;
         public static bool IsWalkable(Terrain t) => t == Terrain.Grass || t == Terrain.Floor || t == Terrain.Door || t == Terrain.Path || t == Terrain.Camp || t == Terrain.Stone || t == Terrain.Quarry;
@@ -90,7 +91,51 @@ namespace Epacenur.Core
                     w.Map[c.X, c.Z] = Terrain.Stall;
                     stalls++;
                 }
+            PlaceLamps(w);
             return w;
+        }
+
+        public const int MaxLamps = 12, LampSpacing = 7;
+
+        /// Lamp posts on the grass beside the roads, the ones nearest the square first, at least LampSpacing
+        /// tiles apart, never against a building.
+        static void PlaceLamps(TownLayout w)
+        {
+            var spots = new List<Tile>();
+            for (int x = 1; x < w.Width - 1; x++)
+                for (int z = 1; z < w.Height - 1; z++)
+                {
+                    if (w.Map[x, z] != Terrain.Grass)
+                        continue;
+                    bool byRoad = false, byBuilding = false;
+                    for (int dx = -1; dx <= 1; dx++)
+                        for (int dz = -1; dz <= 1; dz++)
+                        {
+                            var n = w.Map[x + dx, z + dz];
+                            if (n == Terrain.Wall || n == Terrain.Door || n == Terrain.Floor || n == Terrain.Stall)
+                                byBuilding = true;
+                            if (n == Terrain.Path && (dx == 0 || dz == 0))
+                                byRoad = true;
+                        }
+                    if (byRoad && !byBuilding)
+                        spots.Add(new Tile(x, z));
+                }
+            spots.Sort((a, b) =>
+            {
+                int c = a.StepsTo(w.Spawn).CompareTo(b.StepsTo(w.Spawn));
+                return c != 0 ? c : a.X != b.X ? a.X.CompareTo(b.X) : a.Z.CompareTo(b.Z);
+            });
+            foreach (var s in spots)
+            {
+                if (w.Lamps.Count >= MaxLamps)
+                    break;
+                bool clear = true;
+                foreach (var l in w.Lamps)
+                    if (l.StepsTo(s) < LampSpacing)
+                        clear = false;
+                if (clear)
+                    w.Lamps.Add(s);
+            }
         }
 
         // ---- Town ----

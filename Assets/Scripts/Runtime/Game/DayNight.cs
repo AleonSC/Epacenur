@@ -52,6 +52,8 @@ namespace Epacenur.Runtime
         }
 
         public bool IsNight => Height < -0.05f;
+        /// Lamps go on a little before sunset and off a little after sunrise.
+        public bool LampsLit => Height < 0.12f;
 
         /// How high the sun is: 1 overhead at noon, 0 on the horizon, -1 at midnight.
         float Height => Mathf.Sin((Time - SunriseAt) * Mathf.PI * 2f);

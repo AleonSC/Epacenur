@@ -141,6 +141,8 @@ namespace Epacenur.Runtime
             {
                 foreach (var b in plan.Buildings)
                     BuildBuilding(world, b);
+                foreach (var lamp in plan.Lamps)
+                    LampPost.Create(lamp, world.BuildRoot);
                 bool home = plan.RX == 0 && plan.RZ == 0;
                 world.AddLabel(World.Local(plan.Center) + new Vector3(0f, 0.3f, 2f), home ? "Epacenur" : TownName(world.Overworld, plan), new Color(1f, 0.9f, 0.5f));
             }

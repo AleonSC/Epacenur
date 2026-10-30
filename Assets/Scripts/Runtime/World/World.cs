@@ -396,6 +396,11 @@ namespace Epacenur.Runtime
             AddStation(SmithingModule.Anvil, DevArea.Anvil);
             AddStation(CraftingModule.SpinningWheel, DevArea.SpinningWheel);
             AddStation(CraftingModule.TanningRack, DevArea.TanningRack);
+            foreach (var lamp in DevArea.Lamps)
+            {
+                LampPost.Create(lamp, dev.Root);
+                Grid.SetBlocked(lamp, true);
+            }
 
             Areas.AddRange(DevArea.CreateAreas());
             foreach (var area in Areas)

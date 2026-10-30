@@ -67,7 +67,7 @@ namespace UnityEngine
     public static class QualitySettings { public static float shadowDistance; }
     public enum FogMode { Linear = 1 }
     public static class RenderSettings { public static Rendering.AmbientMode ambientMode; public static Color ambientLight, fogColor; public static bool fog; public static FogMode fogMode; public static float fogStartDistance, fogEndDistance; }
-    public class Renderer : Component { public Material sharedMaterial; public Rendering.ShadowCastingMode shadowCastingMode; }
+    public class Renderer : Component { public bool enabled; public Material sharedMaterial; public Rendering.ShadowCastingMode shadowCastingMode; }
     public class Texture : Object { public TextureWrapMode wrapMode; public FilterMode filterMode; public int anisoLevel; }
     public enum TextureFormat { RGBA32 }
     public enum TextureWrapMode { Repeat, Clamp }

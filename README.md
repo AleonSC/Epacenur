@@ -85,6 +85,8 @@ other towns with their bank (yellow), general store (orange) and chapel (white),
 - **Day and night**: a day lasts 24 minutes of play (an in-game hour a minute). The sun rises in the east and sets in the west,
   the sky and fog turn orange at dawn and dusk and dark blue at night, when a dim blue moon lights the world. The day and time
   show under the minimap, and each world remembers its time of day.
+- **Lamp posts** line the roads of every town (up to 12, the ones round the square first). They light up a little before
+  sunset and go out after sunrise, each casting a warm glow round it.
 - **Regions** of 64 × 64 tiles each hold a **town** (about 1 in 8; the one you start in, Epacenur, always is), a **goblin camp**
   (1 in 5: a clearing with tents and 4 goblins) or plain countryside. Towns have a square, a **bank**, a **general store**, a **chapel**
   with an altar and a few **houses**, joined by dirt roads that run out to the region's edges. Every town has its own made-up name.
