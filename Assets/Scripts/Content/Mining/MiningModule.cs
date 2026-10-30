@@ -70,16 +70,11 @@ namespace Epacenur.Content
             float respawn, Rgb oreColour, int minDanger, int maxDanger, double weight,
             Biome? likes = null, int likesFrom = 0)
         {
-            var empty = new Model()
-                .Sphere(0f, 0.32f, 0f, 0.95f, 0.7f, 0.85f, Looks.Rock)
-                .Sphere(0.22f, 0.2f, 0.18f, 0.55f, 0.45f, 0.55f, new Rgb(0.42f, 0.4f, 0.38f))
-                .Sphere(-0.25f, 0.18f, -0.1f, 0.5f, 0.4f, 0.55f, new Rgb(0.42f, 0.4f, 0.38f));
-            var full = new Model().Include(empty);
-            for (int i = 0; i < 6; i++)  // streaks of ore on the surface
-            {
-                float a = i * 1.05f + 0.2f;
-                full.Sphere((float)Math.Cos(a) * 0.38f, 0.35f + (i % 3) * 0.1f, (float)Math.Sin(a) * 0.33f, 0.16f, 0.1f, 0.16f, oreColour);
-            }
+            // Craggy rocks with the ore jutting out in crystals (the rarest shine faintly); mined out, chipped hollows.
+            int seed = Looks.Seed(id);
+            var crag = Looks.Crag(Looks.Rock, seed);
+            var empty = Looks.Chipped(crag, Looks.Rock);
+            var full = Looks.Veins(crag, oreColour, seed, level >= 55);
             var node = new NodeDef
             {
                 Id = id, Name = name, Action = "Mine", Examine = "A rock containing " + metal + ".",

@@ -114,29 +114,44 @@ namespace Epacenur.Runtime
                         }
                     }
 
-                    // The odd bush, out in the country.
+                    // The odd bush, out in the country: a dome of leafy clumps, darker underneath and lighter on top;
+                    // some in berry or in flower.
                     double bushChance = biome == Biome.Woodland ? 0.07 : biome == Biome.Highlands ? 0.04 : biome == Biome.Meadow || biome == Biome.Marsh ? 0.03 : 0.02;
                     if (!town && !levelled && rng.NextDouble() < bushChance)
                     {
                         var green = biome == Biome.Wasteland ? new Color(0.4f, 0.36f, 0.22f) : baseColour * 0.75f;
-                        var green2 = green * 1.2f;
+                        var shades = new[] { green * 0.78f, green, green * 1.18f + new Color(0.03f, 0.03f, 0f) };
                         float px = t.X + (float)rng.NextDouble() * 0.4f - 0.2f, pz = t.Z + (float)rng.NextDouble() * 0.4f - 0.2f;
                         float y = HeightAt(heights, n, x0, z0, px, pz);
                         float s = 0.7f + (float)rng.NextDouble() * 0.5f;
-                        int lumps = 2 + rng.Next(3);
-                        for (int i = 0; i < lumps; i++)
+                        // Three tiers: a ring of low clumps, a smaller ring above, a crown.
+                        int low = 4 + rng.Next(2), mid = 3 + rng.Next(2);
+                        float turn = (float)rng.NextDouble() * 6.28f;
+                        for (int tier = 0; tier < 3; tier++)
                         {
-                            float ang = i * 2.1f + (float)rng.NextDouble(), r = i == 0 ? 0f : 0.25f * s;
-                            var c = i % 2 == 0 ? green : green2;
-                            if (!bushes.TryGetValue(c, out var list))
-                                bushes[c] = list = new List<CombineInstance>();
-                            float w = s * (i == 0 ? 0.9f : 0.65f);
-                            list.Add(new CombineInstance
+                            int count = tier == 0 ? low : tier == 1 ? mid : 1;
+                            float ring = tier == 0 ? 0.3f : tier == 1 ? 0.17f : 0f, up = tier == 0 ? 0.22f : tier == 1 ? 0.42f : 0.56f;
+                            float lump = tier == 0 ? 0.42f : tier == 1 ? 0.4f : 0.36f;
+                            for (int i = 0; i < count; i++)
                             {
-                                mesh = sphere,
-                                transform = Matrix4x4.TRS(new Vector3(px + Mathf.Cos(ang) * r, y + w * 0.35f, pz + Mathf.Sin(ang) * r),
-                                    Quaternion.identity, new Vector3(w, w * 0.75f, w)),
-                            });
+                                float ang = turn + i * 6.28f / count + tier * 0.5f + (float)rng.NextDouble() * 0.4f;
+                                float w = s * lump * (0.85f + (float)rng.NextDouble() * 0.3f);
+                                AddLump(bushes, sphere, shades[tier], new Vector3(px + Mathf.Cos(ang) * ring * s, y + up * s, pz + Mathf.Sin(ang) * ring * s),
+                                    new Vector3(w, w * (0.75f + (float)rng.NextDouble() * 0.15f), w));
+                            }
+                        }
+                        // In berry (red, purple or blue) or in flower (white, yellow or pink), now and then.
+                        if (biome != Biome.Wasteland && rng.NextDouble() < 0.35)
+                        {
+                            var dot = BushDots[rng.Next(BushDots.Length)];
+                            int dots = 7 + rng.Next(6);
+                            for (int i = 0; i < dots; i++)
+                            {
+                                float ang = (float)rng.NextDouble() * 6.28f, rise = 0.15f + (float)rng.NextDouble() * 0.85f;  // up the dome
+                                float r = Mathf.Cos(rise * 1.2f) * 0.52f * s, h = (0.2f + Mathf.Sin(rise * 1.2f) * 0.5f) * s;
+                                float d = 0.07f + (float)rng.NextDouble() * 0.03f;
+                                AddLump(bushes, sphere, dot, new Vector3(px + Mathf.Cos(ang) * r, y + h, pz + Mathf.Sin(ang) * r), new Vector3(d, d, d));
+                            }
                         }
                     }
                 }
@@ -183,6 +198,20 @@ namespace Epacenur.Runtime
             r.sharedMaterials = mats;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             go.AddComponent<OwnedMesh>().Mesh = mesh;
+        }
+
+        static readonly Color[] BushDots =
+        {
+            new Color(0.8f, 0.12f, 0.12f), new Color(0.45f, 0.15f, 0.5f), new Color(0.25f, 0.3f, 0.75f),
+            new Color(0.95f, 0.95f, 0.9f), new Color(0.95f, 0.85f, 0.25f), new Color(0.95f, 0.55f, 0.7f),
+        };
+
+        /// One round piece of a bush (a clump of leaves, a berry or a flower), in its colour's batch.
+        static void AddLump(Dictionary<Color, List<CombineInstance>> bushes, Mesh sphere, Color c, Vector3 at, Vector3 size)
+        {
+            if (!bushes.TryGetValue(c, out var list))
+                bushes[c] = list = new List<CombineInstance>();
+            list.Add(new CombineInstance { mesh = sphere, transform = Matrix4x4.TRS(at, Quaternion.identity, size) });
         }
 
         static void MakeBushes(Dictionary<Color, List<CombineInstance>> bushes, Transform root)

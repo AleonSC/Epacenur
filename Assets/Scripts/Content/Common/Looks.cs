@@ -5,6 +5,87 @@ namespace Epacenur.Content
     /// Colours and shapes several modules share.
     public static class Looks
     {
+        /// A craggy rock (about a tile across, three quarters high): tilted blocks of `stone` heaped on a darker
+        /// slab, lighter on top, a crack, and loose stones round its foot. `seed` gives each kind of rock its own
+        /// shape (each one is also turned and sized a little differently where it stands).
+        public static Model Crag(Rgb stone, int seed)
+        {
+            var rng = new System.Random(seed);
+            System.Func<float, float> wiggle = range => ((float)rng.NextDouble() - 0.5f) * 2f * range;
+            var m = new Model()
+                .Cube(0f, 0.1f, 0f, 1f, 0.22f, 0.88f, stone * 0.78f).Turn(wiggle(3f), 20f + wiggle(25f), wiggle(3f))                       // the slab it sits on
+                .Cube(0.02f, 0.36f, 0f, 0.7f, 0.6f, 0.64f, stone).Turn(8f + wiggle(6f), 35f + wiggle(30f), 12f + wiggle(6f))                // the main block
+                .Cube(0.27f, 0.28f, 0.2f, 0.5f, 0.44f, 0.46f, stone * 0.9f).Turn(-12f + wiggle(8f), 70f + wiggle(30f), 18f + wiggle(8f))
+                .Cube(-0.28f, 0.26f, -0.13f, 0.48f, 0.42f, 0.5f, stone * 1.05f).Turn(15f + wiggle(8f), 10f + wiggle(30f), -14f + wiggle(8f))
+                .Cube(-0.04f, 0.6f, 0.02f, 0.42f, 0.22f, 0.38f, stone * 1.14f).Turn(18f + wiggle(8f), 50f + wiggle(40f), -10f + wiggle(8f))  // a lighter cap
+                .Cube(0.06f, 0.42f, 0.31f, 0.03f, 0.34f, 0.04f, stone * 0.45f).Turn(0f, 35f, 22f);                                          // a crack
+            for (int i = 0; i < 3; i++)  // loose stones round the foot
+            {
+                float a = i * 2.2f + wiggle(0.5f), r = 0.52f + wiggle(0.06f), s = 0.11f + (float)rng.NextDouble() * 0.07f;
+                m.Cube((float)System.Math.Cos(a) * r, s * 0.4f, (float)System.Math.Sin(a) * r, s, s * 0.8f, s * 1.1f, stone * (0.85f + i * 0.08f))
+                    .Turn(wiggle(20f), wiggle(180f), wiggle(20f));
+            }
+            return m;
+        }
+
+        /// A seed for a name (the same every time, unlike string.GetHashCode).
+        public static int Seed(string name)
+        {
+            int h = 17;
+            foreach (char c in name)
+                h = h * 31 + c;
+            return h & 0xffff;
+        }
+
+        /// Ore showing in a crag: crystals jutting out of its faces with brighter tips, and flecks between them.
+        /// `glow`: the tips shine faintly (the rarest ores).
+        public static Model Veins(Model crag, Rgb ore, int seed, bool glow = false)
+        {
+            var rng = new System.Random(seed * 7 + 3);
+            var m = new Model().Include(crag);
+            // Clusters of crystals: round its sides and on its top, pointing out of it (each one's length, y, is
+            // tilted outward, then turned to face round), each with a brighter tip.
+            for (int i = 0; i < 9; i++)
+            {
+                bool top = i >= 6;
+                float a = top ? i * 2.4f + (float)rng.NextDouble() : i * 1.05f + (float)rng.NextDouble() * 0.5f;
+                float r = top ? 0.16f + (float)rng.NextDouble() * 0.1f : 0.42f + (float)rng.NextDouble() * 0.06f;
+                float h = top ? 0.64f + (float)rng.NextDouble() * 0.06f : 0.24f + (i % 3) * 0.13f;
+                float x = (float)System.Math.Cos(a) * r, z = (float)System.Math.Sin(a) * r * 0.9f;
+                float deg = a * 57.2958f, tilt = top ? -15f - (float)rng.NextDouble() * 20f : -45f - (float)rng.NextDouble() * 25f;
+                float len = 0.24f + (float)rng.NextDouble() * 0.12f, thick = 0.09f + (float)rng.NextDouble() * 0.03f;
+                m.Cube(x, h, z, thick, len, thick, ore).Turn(0f, -deg, tilt);
+                float tip = len * 0.5f;
+                double t = tilt * System.Math.PI / 180.0;
+                float outward = (float)-System.Math.Sin(t) * tip, up = (float)System.Math.Cos(t) * tip;
+                m.Cube(x + (float)System.Math.Cos(a) * outward, h + up, z + (float)System.Math.Sin(a) * outward * 0.9f, thick * 0.8f, thick * 0.8f, thick * 0.8f, ore * 1.35f)
+                    .Turn(45f, -deg, tilt);
+                if (glow)
+                    m.Glowing();
+            }
+            // Patches of ore on its faces.
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 1.57f + 0.8f + (float)rng.NextDouble() * 0.4f;
+                m.Sphere((float)System.Math.Cos(a) * 0.4f, 0.3f + (i % 2) * 0.16f, (float)System.Math.Sin(a) * 0.36f, 0.2f, 0.14f, 0.2f, ore * 0.85f)
+                    .Turn(0f, -a * 57.2958f, -50f);
+            }
+            return m;
+        }
+
+        /// A crag that's been mined out: chipped, darker hollows where its ore was.
+        public static Model Chipped(Model crag, Rgb stone)
+        {
+            var m = new Model().Include(crag);
+            for (int i = 0; i < 5; i++)
+            {
+                float a = i * 1.26f + 0.3f, r = i == 4 ? 0.1f : 0.42f, h = i == 4 ? 0.68f : 0.28f + (i % 2) * 0.16f;
+                m.Sphere((float)System.Math.Cos(a) * r, h, (float)System.Math.Sin(a) * r * 0.9f, 0.22f, 0.12f, 0.2f, stone * (0.5f + (i % 2) * 0.08f))
+                    .Turn(0f, -a * 57.2958f, i == 4 ? 0f : -55f);
+            }
+            return m;
+        }
+
         public static readonly Rgb Bronze = new Rgb(0.72f, 0.5f, 0.28f);
         public static readonly Rgb Handle = new Rgb(0.45f, 0.3f, 0.16f);
         public static readonly Rgb Iron = new Rgb(0.45f, 0.46f, 0.5f);
