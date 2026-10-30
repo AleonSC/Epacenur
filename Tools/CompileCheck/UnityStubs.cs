@@ -31,7 +31,7 @@ namespace UnityEngine
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity; public static Quaternion Euler(Vector3 e) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
-    public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); }
     public struct Rect { public float x, y, width, height; public float xMax => 0f; public float yMax => 0f; public Vector2 center => default(Vector2); public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public bool Contains(Vector2 p) => true; }
@@ -64,6 +64,7 @@ namespace UnityEngine
     public enum LightType { Spot, Directional, Point }
     public enum LightShadows { None, Hard, Soft }
     public sealed class Light : Behaviour { public LightType type; public float intensity, range; public Color color; public LightShadows shadows; }
+    public static class QualitySettings { public static float shadowDistance; }
     public enum FogMode { Linear = 1 }
     public static class RenderSettings { public static Rendering.AmbientMode ambientMode; public static Color ambientLight, fogColor; public static bool fog; public static FogMode fogMode; public static float fogStartDistance, fogEndDistance; }
     public class Renderer : Component { public Material sharedMaterial; public Rendering.ShadowCastingMode shadowCastingMode; }

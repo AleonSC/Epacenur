@@ -145,11 +145,16 @@ namespace Epacenur.Runtime
         /// Under the minimap: how long your gravestone has left.
         void DrawGraveTimer()
         {
+            // The time of day first.
+            var clock = G.Clock;
+            string when = (clock.IsNight ? "<color=#9fb8ff>Night</color>" : "<color=" + Gui.GoldHex + ">Day</color>") + " " + (clock.Day + 1) + "  "
+                + "<color=#ffffff>" + clock.Clock + "</color>";
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), when, Gui.RightSmall);
             var g = G.Grave;
             if (g == null)
                 return;
             string text = g.world == G.WorldInfo.id ? "Gravestone: <color=#ffffff>" + Gravestone.Time(g) + "</color>" : "Gravestone in another world";
-            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 4f, 290f, 20f), "<color=" + Gui.MutedHex + ">" + text + "</color>", Gui.RightSmall);
+            Gui.Shadowed(new Rect(W - 300f, LogOutRect.yMax + 22f, 290f, 20f), "<color=" + Gui.MutedHex + ">" + text + "</color>", Gui.RightSmall);
         }
         bool confirmLogOut;
 

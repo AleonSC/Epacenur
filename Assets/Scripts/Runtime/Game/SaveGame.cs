@@ -146,6 +146,9 @@ namespace Epacenur.Runtime
             var state = new WorldState();
             state.items.AddRange(game.World.Piles);
             state.explored.AddRange(game.World.Explored);
+            state.hasTime = true;
+            state.time = game.Clock.Time;
+            state.day = game.Clock.Day;
             PlayerPrefs.SetString(PilesKey(game.WorldInfo), JsonUtility.ToJson(state));
 
             // What the main menu shows.
@@ -157,7 +160,14 @@ namespace Epacenur.Runtime
         }
 
         /// What a world keeps between sessions: the items on its ground and the regions seen.
-        [Serializable] public class WorldState { public List<GroundPile> items = new List<GroundPile>(); public List<long> explored = new List<long>(); }
+        [Serializable] public class WorldState
+        {
+            public List<GroundPile> items = new List<GroundPile>();
+            public List<long> explored = new List<long>();
+            public bool hasTime;   // older saves: no time of day yet
+            public float time;     // DayNight.Time
+            public int day;
+        }
 
         static string PilesKey(WorldInfo w) => "Epacenur.WorldItems." + w.id;
 

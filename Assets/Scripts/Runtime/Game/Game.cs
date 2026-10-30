@@ -122,6 +122,8 @@ namespace Epacenur.Runtime
             World = World.Create(WorldInfo.seed, MapId.Overworld, state.items, state.explored);
             Player = PlayerController.Create(World.Spawn);
             Rig = CameraRig.Create(cam, Player);
+            // A new world starts on a fresh morning.
+            Clock = new DayNight(Sun, cam, state.hasTime ? state.time : 0.3f, state.day);
             Hud = gameObject.AddComponent<Hud>();
 
             Skills.XpGained += (id, tenths) => Hud.AddXpDrop(id, tenths);
@@ -161,6 +163,11 @@ namespace Epacenur.Runtime
         bool loggedOut;
 
         /// The camera, the sun and the sky, shared by the menu and the game.
+        /// The directional light: the sun by day, the moon by night.
+        public static Light Sun { get; private set; }
+        /// The time of day in this world.
+        public DayNight Clock { get; private set; }
+
         public static Camera SetUpScene()
         {
             var cam = Camera.main;
@@ -188,14 +195,16 @@ namespace Epacenur.Runtime
             sun.intensity = 1.1f;
             sun.color = new Color(1f, 0.96f, 0.88f);
             sun.shadows = LightShadows.Soft;
+            Sun = sun;
+            QualitySettings.shadowDistance = 70f;  // shadows near you; the far hills don't need them
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.5f, 0.53f, 0.58f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = sky;
-            RenderSettings.fogStartDistance = 36f;
-            RenderSettings.fogEndDistance = 78f;  // short of where the loaded chunks end (at least 80 tiles out)
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 140f;  // short of where the loaded chunks end (at least 144 tiles out)
             return cam;
         }
 
@@ -327,6 +336,7 @@ namespace Epacenur.Runtime
                 }
             }
             Prayer.SetMax(Skills.GetLevel(SkillIds.Prayer));
+            Clock.Update(Time.deltaTime);
             // Boosts wear off a level a minute.
             if (Boosts.Any)
             {

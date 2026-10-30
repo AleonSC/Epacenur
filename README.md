@@ -80,8 +80,11 @@ The game opens on the main menu:
 other towns with their bank (yellow), general store (orange) and chapel (white), goblin camps (brown), ponds, forests and rocks.*
 
 - **It never ends.** The world is worked out from a seed (`World.Seed`) one tile at a time, so the same place always comes out the same.
-  Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (5 chunks each way) and taken down behind you,
-  hidden by the fog. Felled trees and lit fires don't survive being unloaded.
+  Only the area round you exists: it's built in 16 × 16 tile **chunks** as you walk (9 chunks each way: you can see about
+  140 tiles before the fog) and taken down behind you, out of sight. Felled trees and lit fires don't survive being unloaded.
+- **Day and night**: a day lasts 24 minutes of play (an in-game hour a minute). The sun rises in the east and sets in the west,
+  the sky and fog turn orange at dawn and dusk and dark blue at night, when a dim blue moon lights the world. The day and time
+  show under the minimap, and each world remembers its time of day.
 - **Regions** of 64 × 64 tiles each hold a **town** (about 1 in 8; the one you start in, Epacenur, always is), a **goblin camp**
   (1 in 5: a clearing with tents and 4 goblins) or plain countryside. Towns have a square, a **bank**, a **general store**, a **chapel**
   with an altar and a few **houses**, joined by dirt roads that run out to the region's edges. Every town has its own made-up name.

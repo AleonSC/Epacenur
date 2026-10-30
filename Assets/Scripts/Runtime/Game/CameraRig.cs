@@ -76,7 +76,7 @@ namespace Epacenur.Runtime
         {
             Cam.fieldOfView = Mode == ViewMode.FirstPerson ? 72f : 50f;
             Cam.nearClipPlane = Mode == ViewMode.FirstPerson ? 0.05f : 0.3f;
-            Cam.farClipPlane = 82f;  // the fog hides everything past 78
+            Cam.farClipPlane = 150f;  // the fog hides everything past 140
         }
 
         void LateUpdate()

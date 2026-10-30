@@ -30,8 +30,9 @@ namespace Epacenur.Runtime
     /// they walk (floating origin): World.TileCenter and World.TileAt convert.
     public sealed class World : MonoBehaviour
     {
-        public const int LoadRadius = 5;     // chunks loaded in each direction round the player
-        public const int ChunksPerFrame = 2; // streaming budget
+        public const int LoadRadius = 9;     // chunks loaded in each direction round the player (at least 144 tiles: past the fog)
+        public const int StartRadius = 3;    // loaded at once on arriving; the rest streams in, nearest first
+        public const int ChunksPerFrame = 3; // streaming budget
         const int OriginShiftTiles = 256;    // move the origin when the player gets this far from it
 
         public static Tile Origin { get; private set; }
@@ -132,7 +133,7 @@ namespace Epacenur.Runtime
             // Darker grass far out under everything (it follows the player), so the map never floats in the sky.
             world.backdrop = Visuals.Prim(PrimitiveType.Cube, null, new Vector3(0f, -0.3f, 0f), new Vector3(480f, 0.5f, 480f), new Color(0.24f, 0.4f, 0.19f)).transform;
             world.backdrop.name = "Backdrop";
-            world.Enter(map, world.Overworld.Spawn, LoadRadius);
+            world.Enter(map, world.Overworld.Spawn, StartRadius);
             return world;
         }
 
