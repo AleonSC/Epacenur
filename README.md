@@ -213,6 +213,11 @@ outlines), ponds, forests, highlands (tan).*
 - The slopes are steep in places (up to about 4 units between neighbouring tiles, on rocky mountainsides) but you can walk anywhere the tile grid lets
   you; the minimap and world map shade the hills. (`Overworld.Elevation`; each chunk's ground is a mesh over it.)
 - Far from the start, numbers get big; the game moves its **origin** with you (floating origin), so it plays the same a million tiles out.
+- **Worked out ahead, off the main thread** (`Runtime/World/WorldWorker.cs`): a worker thread works out the chunks about to
+  load (their tiles, heights, ground and map colours) before their turn, so building them is quick, and further-out chunks
+  wait until it has; it also draws the world map's region pictures, so opening the map doesn't stutter (they fill in nearest
+  first). The generator's caches are safe to share (`Core/Common/SharedCache.cs`), and the tests check that threads working
+  it out at once get exactly what one does alone.
 - **Dev tools (F1)**: **Teleport to dev plot** takes you to the dev plot, a separate small map (with its Mining, Goblins, Fishing and
   Firemaking plots, bank booth, shop, altar, furnace and anvil). **Teleport to main world** brings you back. Saves remember which map
   you're on. Saves from before the endless world start in the town square.

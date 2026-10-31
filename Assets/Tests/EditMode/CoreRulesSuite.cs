@@ -1396,6 +1396,39 @@ public static class CoreRulesSuite
         gb.GroundWeights(gbHome.Center.X + 0.5, gbHome.Center.Z + 0.5, out double gbE, out double gbR, out double gbS);
         Check(gbRange && gbJump < 0.1 && gbRock > 0 && gbSnow > 0 && gbEarth > 0 && gbE + gbR + gbS == 0,
             "bare ground blends in smoothly from corner to corner (no jumps: at most " + gbJump.ToString("0.00") + " over a two-hundredth of a tile), with earth, rock and snow about, and towns grassy");
+        // ---- Shared between threads ----
+        var thShared = new Overworld(777);
+        var thErrors = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var thThreads = new System.Threading.Thread[4];
+        for (int i = 0; i < thThreads.Length; i++)
+        {
+            int which = i;
+            thThreads[i] = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    // Each thread works over the same ground, from a different corner, so they clash often.
+                    for (int k = 0; k < 160 * 160; k++)
+                    {
+                        int x = which % 2 == 0 ? k % 160 : 159 - k % 160, z = which < 2 ? k / 160 : 159 - k / 160;
+                        thShared.At(new Tile(x * 2 - 160, z * 2 - 160));
+                        thShared.GroundWeights(x * 2 - 160.5, z * 2 - 160.5, out _, out _, out _);
+                    }
+                }
+                catch (Exception e) { thErrors.Enqueue(e.GetType().Name + ": " + e.Message); }
+            });
+            thThreads[i].Start();
+        }
+        foreach (var t in thThreads) t.Join();
+        var thAlone = new Overworld(777);
+        bool thSame = true;
+        for (int x = -160; x < 160; x += 2)
+            for (int z = -160; z < 160; z += 2)
+            {
+                if (thShared.At(new Tile(x, z)) != thAlone.At(new Tile(x, z)) || thShared.Elevation(x, z) != thAlone.Elevation(x, z)) thSame = false;
+            }
+        Check(thErrors.Count == 0 && thSame && thShared.Plan(0, 0) == thShared.Plan(0, 0),
+            "four threads working the world out at once get exactly what one does alone" + (thErrors.Count > 0 ? " (" + string.Join("; ", thErrors.ToArray()) + ")" : ""));
         var mkCity = new Overworld(12345).Plan(0, 0);
         Check(mkCity.City && mkCity.HasTradingPost && mkCity.Blocked.Contains(mkCity.TradingPost), "the starting city has a trading post on its square");
 

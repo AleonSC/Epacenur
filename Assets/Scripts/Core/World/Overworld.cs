@@ -107,11 +107,12 @@ namespace Epacenur.Core
         public const int DeepWilderness = 24;                            // from this level the land is wasteland
         public readonly int Seed;
         readonly ValueNoise forest, ponds, fields, hills, bumps, ranges, moisture, warp, edge, ridges, basin, rivers, knolls;
-        readonly Dictionary<long, RegionPlan> plans = new Dictionary<long, RegionPlan>();
-        readonly Dictionary<long, Settlement> settlements = new Dictionary<long, Settlement>();
+        // The caches are shared: a worker thread works the world out ahead of you (Runtime: WorldWorker).
+        readonly SharedCache<long, RegionPlan> plans = new SharedCache<long, RegionPlan>();
+        readonly SharedCache<long, Settlement> settlements = new SharedCache<long, Settlement>();
         // Slow-changing fields are worked out on a coarse lattice and blended between its points.
         readonly CoarseField moistureField, dangerField, baseField, riverField, hillsField, riverAllowField;
-        readonly Dictionary<long, double> pondCorners = new Dictionary<long, double>();
+        readonly SharedCache<long, double> pondCorners = new SharedCache<long, double>(1 << 18);
 
         public Overworld(int seed)
         {
@@ -209,8 +210,7 @@ namespace Epacenur.Core
                 PlanQuarry(plan);
             else if (plan.Kind == RegionKind.Wild)
                 PlanLandmark(plan);
-            plans[key] = plan;
-            return plan;
+            return plans.GetOrAdd(key, plan);  // (if another thread got there first, its plan: the same, and everyone has the one)
         }
 
         void PlanTown(RegionPlan plan)
@@ -496,14 +496,12 @@ namespace Epacenur.Core
                 long key = ChunkedGrid.Key((int)hx, (int)hz);
                 if (elevations.TryGetValue(key, out double known))
                     return known;
-                if (elevations.Count > 1 << 20)
-                    elevations.Clear();
                 return elevations[key] = WorkOutElevation(x, z);
             }
             return WorkOutElevation(x, z);
         }
 
-        readonly Dictionary<long, double> elevations = new Dictionary<long, double>();
+        readonly SharedCache<long, double> elevations = new SharedCache<long, double>(1 << 20);
 
         double WorkOutElevation(double x, double z)
         {
@@ -537,7 +535,7 @@ namespace Epacenur.Core
             return level + TownRelief(Natural(x, z, 0) - level);
         }
 
-        readonly Dictionary<Building, double> padHeights = new Dictionary<Building, double>();
+        readonly SharedCache<Building, double> padHeights = new SharedCache<Building, double>();
         const double PadBlend = 3;  // tiles from a pad's edge to the town's own ground
 
         /// The height a building's floor is levelled at: the town's ground at its middle.
@@ -920,14 +918,7 @@ namespace Epacenur.Core
             int cx = FloorDiv(t.X, ChunkSize), cz = FloorDiv(t.Z, ChunkSize);
             long key = ChunkedGrid.Key(cx, cz);
             if (!known.TryGetValue(key, out var tiles))
-            {
-                if (known.Count > 4096)
-                    known.Clear();
-                tiles = new byte[ChunkSize * ChunkSize];
-                for (int i = 0; i < tiles.Length; i++)
-                    tiles[i] = Unknown;
-                known[key] = tiles;
-            }
+                tiles = known.GetOrAdd(key, Fresh());
             int k = (t.X - cx * ChunkSize) * ChunkSize + (t.Z - cz * ChunkSize);
             if (tiles[k] == Unknown)
                 tiles[k] = (byte)WorkOut(t);
@@ -935,7 +926,16 @@ namespace Epacenur.Core
         }
 
         const byte Unknown = 255, Dry = 0, WetPond = 1, WetRiver = 2;
-        readonly Dictionary<long, byte[]> wetness = new Dictionary<long, byte[]>();
+        readonly SharedCache<long, byte[]> wetness = new SharedCache<long, byte[]>(4096);
+
+        /// A chunk's worth of tiles not worked out yet.
+        static byte[] Fresh()
+        {
+            var tiles = new byte[ChunkSize * ChunkSize];
+            for (int i = 0; i < tiles.Length; i++)
+                tiles[i] = Unknown;
+            return tiles;
+        }
 
         /// Whether a tile is under a pond or a river (or dry), worked out once and remembered by chunk: trees
         /// ask it of all their neighbours.
@@ -944,14 +944,7 @@ namespace Epacenur.Core
             int cx = FloorDiv(t.X, ChunkSize), cz = FloorDiv(t.Z, ChunkSize);
             long key = ChunkedGrid.Key(cx, cz);
             if (!wetness.TryGetValue(key, out var tiles))
-            {
-                if (wetness.Count > 4096)
-                    wetness.Clear();
-                tiles = new byte[ChunkSize * ChunkSize];
-                for (int i = 0; i < tiles.Length; i++)
-                    tiles[i] = Unknown;
-                wetness[key] = tiles;
-            }
+                tiles = wetness.GetOrAdd(key, Fresh());
             int k = (t.X - cx * ChunkSize) * ChunkSize + (t.Z - cz * ChunkSize);
             if (tiles[k] == Unknown)
                 tiles[k] = IsPond(t) ? WetPond : IsRiver(t) ? WetRiver : Dry;
@@ -959,7 +952,7 @@ namespace Epacenur.Core
         }
 
         bool IsWet(Tile t) => Wetness(t) != Dry;
-        readonly Dictionary<long, byte[]> known = new Dictionary<long, byte[]>();
+        readonly SharedCache<long, byte[]> known = new SharedCache<long, byte[]>(4096);
 
         Terrain WorkOut(Tile t)
         {
@@ -1040,8 +1033,6 @@ namespace Epacenur.Core
             long key = ChunkedGrid.Key(i, j);
             if (pondCorners.TryGetValue(key, out double v))
                 return v;
-            if (pondCorners.Count > 1 << 18)
-                pondCorners.Clear();
             double lowest = double.MaxValue;
             for (int di = -1; di <= 1; di++)
                 for (int dj = -1; dj <= 1; dj++)
@@ -1117,7 +1108,7 @@ namespace Epacenur.Core
     {
         readonly int spacing;
         readonly Func<double, double, double> exact;
-        readonly Dictionary<long, double> values = new Dictionary<long, double>();
+        readonly SharedCache<long, double> values = new SharedCache<long, double>(1 << 20);
 
         public CoarseField(int spacing, Func<double, double, double> exact)
         {
@@ -1130,8 +1121,6 @@ namespace Epacenur.Core
             long key = ChunkedGrid.Key(i, j);
             if (values.TryGetValue(key, out double v))
                 return v;
-            if (values.Count > 1 << 20)
-                values.Clear();
             return values[key] = exact((double)i * spacing, (double)j * spacing);
         }
 

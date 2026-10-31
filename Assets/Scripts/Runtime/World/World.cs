@@ -130,6 +130,8 @@ namespace Epacenur.Runtime
 
         public MapId Map { get; private set; }
         public Overworld Overworld { get; private set; }
+        /// Works the overworld out ahead of you on another thread (chunks about to load, the world map's pictures).
+        public WorldWorker Worker { get; private set; }
         public WalkGrid Grid => Map != MapId.Overworld ? (WalkGrid)devGrid : baseGrid;
 
         /// In a dungeon: the cave it's under, and its layout and wilderness level.
@@ -259,6 +261,7 @@ namespace Epacenur.Runtime
         {
             var world = new GameObject("World").AddComponent<World>();
             world.Overworld = new Overworld(seed);
+            world.Worker = new WorldWorker(world.Overworld);
             if (explored != null)
                 world.Explored.UnionWith(explored);
             if (piles != null)
@@ -280,6 +283,7 @@ namespace Epacenur.Runtime
 
         void OnDestroy()
         {
+            Worker?.Stop();
             if (backdrop != null)
                 Destroy(backdrop.gameObject);
         }
@@ -337,8 +341,36 @@ namespace Epacenur.Runtime
                 return;
             var tile = GroundTile(player.CurrentTile);
             ShiftOriginIfFar(tile, false);
+            AskAhead(tile);
             LoadAround(tile, LoadRadius, ChunksPerFrame, StreamMillis);
             UnloadBeyond(tile, LoadRadius + 1);
+        }
+
+        Tile askedAround = new Tile(int.MinValue, 0);
+        float askedAt;
+        readonly List<long> ahead = new List<long>();
+
+        /// Has the worker work out the chunks that'll load next (the ones not loaded within reach, nearest first,
+        /// and a ring beyond), now and then and whenever you step into another chunk.
+        void AskAhead(Tile tile)
+        {
+            var at = new Tile(chunkGrid.ChunkOf(tile.X), chunkGrid.ChunkOf(tile.Z));
+            if (at == askedAround && Time.time - askedAt < 0.5f)
+                return;
+            askedAround = at;
+            askedAt = Time.time;
+            ahead.Clear();
+            for (int r = 0; r <= LoadRadius + 1; r++)
+                for (int dx = -r; dx <= r; dx++)
+                    for (int dz = -r; dz <= r; dz++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dz)) != r)
+                            continue;
+                        long key = ChunkedGrid.Key(at.X + dx, at.Z + dz);
+                        if (!chunks.ContainsKey(key))
+                            ahead.Add(key);
+                    }
+            Worker.Want(ahead);
         }
 
         // ---- Floating origin ----
@@ -383,6 +415,10 @@ namespace Epacenur.Runtime
                         int cx = pcx + dx, cz = pcz + dz;
                         if (chunks.ContainsKey(ChunkedGrid.Key(cx, cz)))
                             continue;
+                        // Streaming: further out, wait for the worker to have worked a chunk out (then it builds
+                        // quickly); close by, build it now regardless.
+                        if (maxMillis != float.MaxValue && r >= 2 && !Worker.IsReady(ChunkedGrid.Key(cx, cz)))
+                            continue;
                         LoadChunk(cx, cz);
                         budget--;
                         if (clock.Elapsed.TotalMilliseconds > maxMillis)
@@ -418,7 +454,7 @@ namespace Epacenur.Runtime
             var owner = NewOwner("Chunk " + cx + ", " + cz);
             chunks[key] = owner;
             chunkGrid.Load(cx, cz, Overworld.IsBlocked);
-            chunkColours[key] = ChunkColours(cx, cz);
+            chunkColours[key] = Worker.TakeColours(key) ?? ChunkColoursFor(Overworld, cx, cz);
             building = owner;
             OverworldBuilder.BuildChunk(this, cx, cz);
             ShowPiles(key);
@@ -1104,7 +1140,8 @@ namespace Epacenur.Runtime
             return new Color32((byte)Mathf.Clamp(c.r * f, 0f, 255f), (byte)Mathf.Clamp(c.g * f, 0f, 255f), (byte)Mathf.Clamp(c.b * f, 0f, 255f), c.a);
         }
 
-        Color32[] ChunkColours(int cx, int cz)
+        /// A chunk's colours on the maps (safe to work out on the worker thread: it only asks the overworld).
+        public static Color32[] ChunkColoursFor(Overworld ow, int cx, int cz)
         {
             int size = Overworld.ChunkSize;
             var c = new Color32[size * size];
@@ -1112,7 +1149,7 @@ namespace Epacenur.Runtime
                 for (int z = 0; z < size; z++)
                 {
                     var t = new Tile(cx * size + x, cz * size + z);
-                    c[x * size + z] = HillShade(MapColour(Overworld, t), Overworld, t, 1);
+                    c[x * size + z] = HillShade(MapColour(ow, t), ow, t, 1);
                 }
             return c;
         }

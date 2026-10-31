@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Epacenur.Core;
@@ -9,8 +10,8 @@ namespace Epacenur.Runtime
     /// round it, scroll to zoom. Places you haven't seen yet are shaded; towns and goblin camps you have are
     /// named. The wilderness is tinted red, deeper the more dangerous, so the safe rings round towns show. You, and your gravestone, are marked. On the dev plot it shows the dev plot.
     ///
-    /// The map is drawn from the world's generator, a 64-tile region at a time, a few each frame (sharper
-    /// close up, coarser zoomed out), and remembered.
+    /// The map is drawn from the world's generator, a 64-tile region at a time (sharper close up, coarser zoomed
+    /// out), worked out on the world's worker thread so opening it doesn't stutter, and remembered.
     public sealed class WorldMap
     {
         static Game G => Game.Instance;
@@ -103,22 +104,36 @@ namespace Epacenur.Runtime
             int rx0 = Overworld.RegionOf(Mathf.FloorToInt(min.x)), rx1 = Overworld.RegionOf(Mathf.CeilToInt(max.x));
             int rz0 = Overworld.RegionOf(Mathf.FloorToInt(min.y)), rz1 = Overworld.RegionOf(Mathf.CeilToInt(max.y));
 
-            // Build the missing pictures nearest the middle first, within this frame's budget.
-            var missing = new List<long>();
-            for (int rx = rx0; rx <= rx1; rx++)
-                for (int rz = rz0; rz <= rz1; rz++)
-                    if (!cache[level].ContainsKey(ChunkedGrid.Key(rx, rz)))
-                        missing.Add(ChunkedGrid.Key(rx, rz));
-            if (missing.Count > 0 && Event.current.type == EventType.Repaint)
+            // The pictures are worked out on the world's worker thread (nearest the middle first); here they only
+            // become textures, a few a frame.
+            if (Event.current.type == EventType.Repaint)
             {
+                var clock = Stopwatch.StartNew();
+                while (clock.Elapsed.TotalMilliseconds < BuildBudgetMs && done.TryDequeue(out var pic))
+                {
+                    pending.Remove(pic.Key);
+                    if (pic.Seed != cachedSeed)
+                        continue;
+                    var tex = new Texture2D(pic.Size, pic.Size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+                    tex.SetPixels32(pic.Pixels);
+                    tex.Apply();
+                    cache[pic.Level][pic.Region] = tex;
+                }
+                var missing = new List<long>();
+                for (int rx = rx0; rx <= rx1; rx++)
+                    for (int rz = rz0; rz <= rz1; rz++)
+                    {
+                        long key = ChunkedGrid.Key(rx, rz);
+                        if (!cache[level].ContainsKey(key) && !pending.Contains(PicKey(level, key)))
+                            missing.Add(key);
+                    }
                 int crx = Overworld.RegionOf(Mathf.RoundToInt(center.x)), crz = Overworld.RegionOf(Mathf.RoundToInt(center.y));
                 missing.Sort((a, b) => Dist(a, crx, crz).CompareTo(Dist(b, crx, crz)));
-                var clock = Stopwatch.StartNew();
                 foreach (var key in missing)
                 {
-                    if (clock.Elapsed.TotalMilliseconds > BuildBudgetMs)
+                    if (pending.Count >= MaxPending)
                         break;
-                    cache[level][key] = BuildRegion(ow, (int)(key >> 32), (int)(uint)key, 1 << level);
+                    Ask(ow, level, key);
                 }
                 if (cache[level].Count > MaxCached)
                     ClearCache(ow.Seed);
@@ -170,9 +185,36 @@ namespace Epacenur.Runtime
                 }
         }
 
+        /// A region's picture, worked out on the worker thread.
+        struct Picture
+        {
+            public int Level, Seed, Size;
+            public long Region, Key;
+            public Color32[] Pixels;
+        }
+
+        const int MaxPending = 12;  // pictures asked of the worker at once (nearest first; more are asked for as they come)
+        readonly ConcurrentQueue<Picture> done = new ConcurrentQueue<Picture>();
+        readonly HashSet<long> pending = new HashSet<long>();
+
+        static long PicKey(int level, long region) => region * 4 + level;
+
+        void Ask(Overworld ow, int level, long key)
+        {
+            long pk = PicKey(level, key);
+            pending.Add(pk);
+            int seed = ow.Seed, step = 1 << level, n = RegionSize / step;
+            G.World.Worker.Run(() =>
+            {
+                var px = RegionPixels(ow, (int)(key >> 32), (int)(uint)key, step);
+                done.Enqueue(new Picture { Level = level, Seed = seed, Size = n, Region = key, Key = pk, Pixels = px });
+            });
+        }
+
         static int Dist(long key, int crx, int crz) => Mathf.Max(Mathf.Abs((int)(key >> 32) - crx), Mathf.Abs((int)(uint)key - crz));
 
-        static Texture2D BuildRegion(Overworld ow, int rx, int rz, int step)
+        /// A region's picture: every `step`th tile's colour (on the worker thread: it only asks the overworld).
+        static Color32[] RegionPixels(Overworld ow, int rx, int rz, int step)
         {
             int n = RegionSize / step;
             var pixels = new Color32[n * n];
@@ -189,10 +231,7 @@ namespace Epacenur.Runtime
                 if (x >= 0 && y >= 0 && x < n && y < n)
                     pixels[y * n + x] = new Color32(235, 205, 90, 255);
             }
-            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            tex.SetPixels32(pixels);
-            tex.Apply();
-            return tex;
+            return pixels;
         }
 
         /// Tints the wilderness red, deeper the more dangerous, so the safe rings round the towns show.
@@ -213,6 +252,7 @@ namespace Epacenur.Runtime
                 level.Clear();
             }
             cachedSeed = seed;
+            pending.Clear();
         }
 
         // ---- Dev plot ----

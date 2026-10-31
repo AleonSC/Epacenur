@@ -28,8 +28,8 @@ namespace Epacenur.Core
         }
 
         public const double RoadHalfWidth = 0.8;  // a band this far either side of the road's line: 2 tiles wide, never broken
-        readonly Dictionary<long, Road> roads = new Dictionary<long, Road>();
-        readonly Dictionary<long, byte[]> roadTiles = new Dictionary<long, byte[]>();
+        readonly SharedCache<long, Road> roads = new SharedCache<long, Road>(4096);
+        readonly SharedCache<long, byte[]> roadTiles = new SharedCache<long, byte[]>(4096);
 
         /// The road from the settlement in cell (cx, cz) to the one east of it (east) or north of it, or null if
         /// either cell has none.
@@ -65,8 +65,6 @@ namespace Epacenur.Core
                 road.MinX = Math.Min(road.Ax, road.Bx) - pad; road.MaxX = Math.Max(road.Ax, road.Bx) + pad;
                 road.MinZ = Math.Min(road.Az, road.Bz) - pad; road.MaxZ = Math.Max(road.Az, road.Bz) + pad;
             }
-            if (roads.Count > 4096)
-                roads.Clear();
             roads[key] = road;
             return road;
         }
@@ -114,14 +112,7 @@ namespace Epacenur.Core
             int cx = FloorDiv(t.X, ChunkSize), cz = FloorDiv(t.Z, ChunkSize);
             long key = ChunkedGrid.Key(cx, cz);
             if (!roadTiles.TryGetValue(key, out var tiles))
-            {
-                if (roadTiles.Count > 4096)
-                    roadTiles.Clear();
-                tiles = new byte[ChunkSize * ChunkSize];
-                for (int i = 0; i < tiles.Length; i++)
-                    tiles[i] = Unknown;
-                roadTiles[key] = tiles;
-            }
+                tiles = roadTiles.GetOrAdd(key, Fresh());
             int k = (t.X - cx * ChunkSize) * ChunkSize + (t.Z - cz * ChunkSize);
             if (tiles[k] == Unknown)
             {
