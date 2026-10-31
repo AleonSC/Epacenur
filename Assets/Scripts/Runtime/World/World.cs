@@ -300,7 +300,9 @@ namespace Epacenur.Runtime
                 BuildDungeon();
             else
             {
-                LoadAround(at, radius, int.MaxValue);
+                DirtPaths.PaintNow = true;
+                try { LoadAround(at, radius, int.MaxValue); }
+                finally { DirtPaths.PaintNow = false; }
                 foreach (var s in Bases.All)
                     BuildBase(s);
             }
@@ -312,7 +314,11 @@ namespace Epacenur.Runtime
             if (map != Map)
                 Enter(map, tile, 1);
             else if (map == MapId.Overworld)
-                LoadAround(GroundTile(tile), 1, int.MaxValue);
+            {
+                DirtPaths.PaintNow = true;
+                try { LoadAround(GroundTile(tile), 1, int.MaxValue); }
+                finally { DirtPaths.PaintNow = false; }
+            }
             var player = Game.Instance.Player;
             player.Teleport(NearestWalkable(tile));
             if (map == MapId.Overworld)
@@ -565,7 +571,7 @@ namespace Epacenur.Runtime
                     m.SetColor("_EarthTint", GroundBlend.EarthTint);
                     m.SetColor("_RockTint", GroundBlend.RockTint);
                     m.SetColor("_SnowTint", GroundBlend.SnowTint);
-                    m.SetFloat("_Tiles", Overworld.ChunkSize / Visuals.TextureTiles);
+                    m.SetTextureScale("_GrassTex", Vector2.one * (Overworld.ChunkSize / Visuals.TextureTiles));
                     m.SetFloat("_Detail", GroundBlend.Detail);
                     m.SetFloat("_Edge", GroundBlend.Edge);
                     blendedGround = m;

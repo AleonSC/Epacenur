@@ -148,9 +148,9 @@ outlines), ponds, forests, highlands (tan).*
   world map. Never by a river, in a lake or on a road (`Core/World/Roads.cs`; built by `Runtime/World/Landmarks.cs`).
 - **Dirt** (roads, town squares, and the trampled ground of camps and cave mouths) is painted for each chunk
   (`Runtime/World/DirtPaths.cs`): mottled brown earth with the ground's earthy grain and a few pebbles, its edge wandering and
-  fraying into a band of worn, yellowed grass that fades into the ground. Away from the dirt it's painted with the ground's own
-  texture, texel for texel, so there's no seam. The painting is spread over frames (4 ms a frame for all of it), so streaming
-  chunks in doesn't stutter; a chunk's dirt shows once it's done.
+  breaking up into specks where it thins. Away from the dirt the painted skin is see-through (cut out), so the ground itself
+  shows there and the two always match. The painting is spread over frames (4 ms a frame for all of it), so streaming chunks
+  in doesn't stutter; the chunks round you when you arrive are painted straight away, so the dirt's there from the start.
 - **Safety and the wilderness**: within 48 tiles of a town's square (80 for a city) is **safe**. Beyond, the **wilderness**
   begins: **wilderness level 1** at the edge, one more every 6 tiles further from the nearest town, up to 60, then falling again
   as you near the next town. The rings' edges wander a little. Under the minimap you see **Safe** (and which town) or the
@@ -196,7 +196,7 @@ outlines), ponds, forests, highlands (tan).*
   (`Overworld.GroundWeights`: earth coming in as the slope steepens, rock on steeper slopes and high up, snow on the peaks, the
   heights wandering a little), and the Ground shader blends the textures between corners, letting each texture's own detail
   break up the edges (`Runtime/World/GroundBlend.cs`, `Assets/Resources/Epacenur/Ground.shader`). The grass's colour
-  blends between biomes the same way. The dirt painted round roads uses the same blend, so it still meets the ground seamlessly.
+  blends between biomes the same way.
 - **Grass, flowers and bushes**: tufts of grass blades grow over the grass (tall reeds in marshes, short in town, dry and
   sparse in the wasteland, a few on bare earth), with clumps of flowers (most in meadows; purple heather in the highlands)
   and the odd bush out in the country (most in woodland, never in towns or levelled places): a dome of leafy clumps, darker

@@ -87,6 +87,18 @@ namespace Epacenur.Runtime
             return m;
         }
 
+        /// Makes a (Standard) material cut out: its texture's alpha says where it's there (over half) and where
+        /// it's see-through, with hard edges, so it still casts and takes shadows. Returns it.
+        public static Material Cutout(Material m)
+        {
+            m.SetFloat("_Mode", 1f);
+            m.SetFloat("_Cutoff", 0.5f);
+            m.SetOverrideTag("RenderType", "TransparentCutout");
+            m.EnableKeyword("_ALPHATEST_ON");
+            m.renderQueue = 2450;
+            return m;
+        }
+
         /// A fresh material (not shared), e.g. for a textured ground.
         public static Material NewMat(Color c)
         {

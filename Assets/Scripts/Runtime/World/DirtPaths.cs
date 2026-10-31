@@ -6,13 +6,15 @@ namespace Epacenur.Runtime
     /// Dirt roads, town squares and the trampled ground of camps and cave mouths (and sand round and under ponds
     /// and rivers, wet near the water, dry further off, showing through the shallows), drawn as a skin over the
     /// ground with a texture painted for each chunk: mottled brown earth with pebbles, its edge ragged and
-    /// fading through worn grass into the ground round it. Away from the dirt the skin is painted with the
-    /// ground's own colours, texel for texel, blended as the ground blends them (GroundBlend), so it meets the
-    /// ground without a seam; its normals are worked out as the ground's are, so it's lit the same.
+    /// breaking up into specks where it thins. Away from the dirt the skin is cut out (see-through), so the
+    /// ground itself shows there and the two can never differ; its normals are worked out as the ground's are, so it's lit the same.
     /// The texture is painted a few rows at a time over the next frames (DirtPainter), so streaming chunks
     /// in doesn't stutter; the skin shows once it's done.
     public static class DirtPaths
     {
+        /// Set while the world is loading in at once (World.Enter): skins are painted straight away, not over frames.
+        public static bool PaintNow;
+
         internal const int Px = 32;         // texture pixels per tile (as the ground's textures have)
         internal const int Reach = 2;       // tiles round the dirt the skin covers (the fade is well inside this)
         const float Lift = 0.012f; // above the ground
@@ -97,7 +99,7 @@ namespace Epacenur.Runtime
             mesh.SetTriangles(tris, 0);
             mesh.RecalculateBounds();
 
-            var mat = Visuals.NewMat(Color.white);
+            var mat = Visuals.Cutout(Visuals.NewMat(Color.white));
             var go = new GameObject("Dirt");
             go.layer = World.FarLayer;
             go.transform.SetParent(root, false);
@@ -108,7 +110,10 @@ namespace Epacenur.Runtime
             var owned = go.AddComponent<OwnedMesh>();
             owned.Mesh = mesh;
             owned.Material = mat;
-            go.AddComponent<DirtPainter>().Begin(dirt, Shore(ow, x0, z0, size), ground, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
+            var painter = go.AddComponent<DirtPainter>();
+            painter.Begin(dirt, Shore(ow, x0, z0, size), ground, Texels(Core.Ground.Earth), covered, x0, z0, size, renderer, owned);
+            if (PaintNow)
+                painter.FinishNow();
         }
 
         const float ShoreBlur = 1f;  // the spread of the blur the sand's distance from the water comes from, in tiles
@@ -225,7 +230,6 @@ namespace Epacenur.Runtime
 
         byte[,] dirt;
         float[,] shore;
-        GroundBlend ground;
         Color32[] earth;
         bool[,] covered;
         int x0, z0, size, w, row;
@@ -238,7 +242,6 @@ namespace Epacenur.Runtime
         {
             this.dirt = dirt;
             this.shore = shore;
-            this.ground = ground;
             this.earth = earth;
             this.covered = covered;
             this.x0 = x0;
@@ -265,6 +268,20 @@ namespace Epacenur.Runtime
             spent += clock.Elapsed.TotalMilliseconds;
             if (row < w)
                 return;
+            Finish();
+        }
+
+        /// Paints what's left now and shows the skin (chunks built while the world's first loading in, so the
+        /// dirt's there from the start rather than painted in piece by piece).
+        public void FinishNow()
+        {
+            while (row < w)
+                PaintRow(row++);
+            Finish();
+        }
+
+        void Finish()
+        {
             var tex = new Texture2D(w, w, TextureFormat.RGBA32, true);
             tex.SetPixels32(px);
             tex.wrapMode = TextureWrapMode.Clamp;
@@ -372,52 +389,50 @@ namespace Epacenur.Runtime
                 if (!covered[i, j])
                     continue;  // never drawn
 
-                // The ground here, as the ground draws it (grass, earth, rock and snow blended).
+                // Away from the dirt the skin is see-through: the ground itself shows (so the two never differ).
                 int texel = ty * T + pxx % T;
-                var c = ground.ColourAt(pxx, py, Px);
+                var c = new Color(0f, 0f, 0f, 0f);
 
                 int q0 = pxx / Step, k = r0 * nodes + q0;
                 float fx = (pxx % Step) / (float)Step;
                 float e = Mathf.Lerp(Mathf.Lerp(edge[k], edge[k + 1], fx), Mathf.Lerp(edge[k + nodes], edge[k + nodes + 1], fx), fz);
                 if (nodeKind[k] == DirtPaths.Sand)
                     e -= 0.5f;  // a shore's sand reaches further out than a road's dirt
-                if (e < 1.5f)
+                float amount = 1f - DirtPaths.Smooth(-0.15f, 0.95f, e);
+                if (amount > 0f)
                 {
-                    // Worn grass: paler and yellower, out to about a tile and a half.
-                    float wear = 1f - DirtPaths.Smooth(-0.2f, 1.5f, e);
-                    c = Color.Lerp(c, new Color(c.r * 0.9f + 0.1f, c.g * 0.82f + 0.08f, c.b * 0.7f + 0.03f), wear * 0.75f);
-                    float amount = 1f - DirtPaths.Smooth(-0.15f, 0.75f, e);
-                    if (amount > 0f)
+                    // Where this pixel is on the map (tile centres are whole numbers; a tile runs from -0.5 to +0.5).
+                    int wx = (x0 * Px + pxx), wz = (z0 * Px + py);
+                    // Frayed finely right at the edge.
+                    float grain = DirtPaths.Hash(wx >> 1, wz >> 1) - 0.5f;
+                    amount = Mathf.Clamp01(amount + grain * 1.4f * amount * (1f - amount) * 4f);
+                    // The earth: light and dark patches, a few pebbles, darker where it's thin (trodden into the grass).
+                    float m = Mathf.Lerp(Mathf.Lerp(mottle[k], mottle[k + 1], fx), Mathf.Lerp(mottle[k + nodes], mottle[k + nodes + 1], fx), fz);
+                    Color soil;
+                    byte kind = nodeKind[k];
+                    if (kind == DirtPaths.Sand)
                     {
-                        // Where this pixel is on the map (tile centres are whole numbers; a tile runs from -0.5 to +0.5).
-                        int wx = (x0 * Px + pxx), wz = (z0 * Px + py);
-                        // Frayed finely right at the edge.
-                        float grain = DirtPaths.Hash(wx >> 1, wz >> 1) - 0.5f;
-                        amount = Mathf.Clamp01(amount + grain * 1.4f * amount * (1f - amount) * 4f);
-                        // The earth: light and dark patches, a few pebbles, darker where it's thin (trodden into the grass).
-                        float m = Mathf.Lerp(Mathf.Lerp(mottle[k], mottle[k + 1], fx), Mathf.Lerp(mottle[k + nodes], mottle[k + nodes + 1], fx), fz);
-                        Color soil;
-                        byte kind = nodeKind[k];
-                        if (kind == DirtPaths.Sand)
-                        {
-                            // Sand: pale and dry away from the water, darker and wet by it and under it.
-                            soil = Color.Lerp(DirtPaths.SandDry, DirtPaths.SandPale, Mathf.Clamp01(m * 1.6f - 0.3f));
-                            soil = Color.Lerp(soil, DirtPaths.SandWet, 1f - DirtPaths.Smooth(-0.45f, -0.05f, e));
-                            soil *= 0.93f + earth[texel].r / 255f * 0.12f;  // a finer grain than earth's
-                        }
-                        else
-                        {
-                            soil = Color.Lerp(DirtPaths.DirtDark, DirtPaths.DirtLight, Mathf.Clamp01(m * 1.4f - 0.2f));
-                            soil *= earth[texel].r / 255f * 1.15f;  // the grain of the ground's earth texture
-                            if (kind == DirtPaths.Camp)
-                                soil *= 0.88f;  // trampled camp ground: a little darker
-                            float pebble = DirtPaths.Hash((wx / 3) + 911, (wz / 3) - 377);
-                            if (pebble > 0.975f && amount > 0.7f)
-                                soil = pebble > 0.99f ? DirtPaths.Pebble : DirtPaths.PebbleDark;
-                        }
-                        soil = Color.Lerp(soil * 0.85f, soil, DirtPaths.Smooth(0.3f, 0.85f, amount));
-                        c = Color.Lerp(c, soil, amount);
+                        // Sand: pale and dry away from the water, darker and wet by it and under it.
+                        soil = Color.Lerp(DirtPaths.SandDry, DirtPaths.SandPale, Mathf.Clamp01(m * 1.6f - 0.3f));
+                        soil = Color.Lerp(soil, DirtPaths.SandWet, 1f - DirtPaths.Smooth(-0.45f, -0.05f, e));
+                        soil *= 0.93f + earth[texel].r / 255f * 0.12f;  // a finer grain than earth's
                     }
+                    else
+                    {
+                        soil = Color.Lerp(DirtPaths.DirtDark, DirtPaths.DirtLight, Mathf.Clamp01(m * 1.4f - 0.2f));
+                        soil *= earth[texel].r / 255f * 1.15f;  // the grain of the ground's earth texture
+                        if (kind == DirtPaths.Camp)
+                            soil *= 0.88f;  // trampled camp ground: a little darker
+                        float pebble = DirtPaths.Hash((wx / 3) + 911, (wz / 3) - 377);
+                        if (pebble > 0.975f && amount > 0.7f)
+                            soil = pebble > 0.99f ? DirtPaths.Pebble : DirtPaths.PebbleDark;
+                    }
+                    soil = Color.Lerp(soil * 0.85f, soil, DirtPaths.Smooth(0.3f, 0.85f, amount));
+                    // Where it's thin, it breaks up into specks over the grass (each pixel is dirt or not: the skin is cut
+                    // out, not blended, so it takes shadows like the ground).
+                    float threshold = 0.2f + 0.6f * DirtPaths.Hash(wx + 5113, wz - 2711);
+                    if (amount > threshold)
+                        c = new Color(soil.r, soil.g, soil.b, 1f);
                 }
                 px[py * w + pxx] = c;
             }
