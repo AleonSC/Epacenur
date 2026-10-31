@@ -31,7 +31,7 @@ namespace UnityEngine
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => identity; public static Quaternion Euler(Vector3 e) => identity;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Quaternion LookRotation(Vector3 f) => identity;
         public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
-    public struct Color { public static Color Lerp(Color a, Color b, float t) => a; public static Color operator +(Color a, Color b) => a; public static Color operator -(Color a, Color b) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+    public struct Color { public Color linear => this; public static Color Lerp(Color a, Color b, float t) => a; public static Color operator +(Color a, Color b) => a; public static Color operator -(Color a, Color b) => a; public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black; public static Color operator *(Color c, float f) => c; }
     public struct Matrix4x4 { public static Matrix4x4 Scale(Vector3 v) => default(Matrix4x4); public static Matrix4x4 identity; public static Matrix4x4 TRS(Vector3 p, Quaternion q, Vector3 s) => default(Matrix4x4); public static Matrix4x4 operator *(Matrix4x4 a, Matrix4x4 b) => a; }
     public struct CombineInstance { public Mesh mesh; public int subMeshIndex; public Matrix4x4 transform; }
@@ -70,7 +70,8 @@ namespace UnityEngine
     public enum LightType { Spot, Directional, Point }
     public enum LightShadows { None, Hard, Soft }
     public sealed class Light : Behaviour { public LightType type; public float intensity, range, shadowStrength; public Color color; public LightShadows shadows; }
-    public static class QualitySettings { public static float shadowDistance; }
+    public enum ColorSpace { Uninitialized = -1, Gamma = 0, Linear = 1 }
+    public static class QualitySettings { public static ColorSpace activeColorSpace; public static float shadowDistance; }
     public enum FogMode { Linear = 1 }
     public static class RenderSettings { public static Rendering.AmbientMode ambientMode; public static Color ambientLight, fogColor; public static bool fog; public static FogMode fogMode; public static float fogStartDistance, fogEndDistance; }
     public class Renderer : Component { public bool enabled, receiveShadows; public Material sharedMaterial; public Material[] sharedMaterials; public Rendering.ShadowCastingMode shadowCastingMode; }

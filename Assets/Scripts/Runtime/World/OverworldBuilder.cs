@@ -100,7 +100,16 @@ namespace Epacenur.Runtime
             if (blended != null)
             {
                 // Grass, earth, rock and snow blended smoothly from corner to corner (GroundBlend).
-                mesh.colors = blend.Tint;
+                // Vertex colours aren't converted from gamma as material colours are: in a linear-space project,
+                // convert them here, or the grass comes out washed out, nearly white.
+                var tints = blend.Tint;
+                if (QualitySettings.activeColorSpace == ColorSpace.Linear)
+                {
+                    tints = new Color[tints.Length];
+                    for (int k = 0; k < tints.Length; k++)
+                        tints[k] = blend.Tint[k].linear;
+                }
+                mesh.colors = tints;
                 mesh.uv2 = blend.EarthRock;
                 mesh.uv3 = blend.Snow;
                 var all = new List<int>();
